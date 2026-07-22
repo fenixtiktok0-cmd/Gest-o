@@ -35,9 +35,7 @@ module.exports = async (req, res) => {
         await messaging.send({
           token: cliente.fcmToken,
           notification: { title: 'Plano renovado! ✅', body: corpo },
-          webpush: {
-            fcmOptions: { link: `${process.env.APP_URL}/meu-plano.html?id=${clienteId}` },
-          },
+          data: { link: `${process.env.APP_URL}/meu-plano.html?id=${clienteId}` },
         });
         pushEnviado = true;
       } catch (err) {
