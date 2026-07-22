@@ -13,19 +13,8 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-// Assumimos o controle total da notificação em segundo plano, pra garantir
-// que o link customizado (data.link) chegue certinho até o clique —
-// o comportamento automático do Firebase guarda isso numa estrutura interna
-// que nem sempre é acessível do jeito simples.
-messaging.onBackgroundMessage(function (payload) {
-  const titulo = payload.data?.title || 'Aviso';
-  const opcoes = {
-    body: payload.data?.body || '',
-    data: { link: payload.data?.link || '' },
-  };
-  self.registration.showNotification(titulo, opcoes);
-});
-
+// Controle manual do clique na notificação — tenta abrir o link customizado
+// (ex: WhatsApp) quando disponível nos dados da notificação.
 self.addEventListener('notificationclick', function (event) {
   event.notification.close();
   const link = event.notification?.data?.link;
