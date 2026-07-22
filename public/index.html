@@ -320,6 +320,18 @@
   }
   .var-chip:hover { color: var(--ok); border-color: var(--ok); }
 
+  .lista-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+  .lista-item:last-child { border-bottom: none; }
+  .lista-item .sub { font-size: 12px; color: var(--text-muted); }
+  .lista-item .del-mini {
+    background: none; border: none; color: var(--danger);
+    cursor: pointer; font-size: 13px;
+  }
+
   .empty-state {
     text-align: center;
     padding: 60px 20px;
@@ -327,7 +339,15 @@
   }
 
   @media (max-width: 720px) {
-    table, thead { display: none; }
+    header { padding: 18px 16px 14px; }
+    header > div { width: 100%; }
+    header .btn, header .btn-primary { flex: 1; font-size: 13px; padding: 10px 8px; white-space: nowrap; }
+    main { padding: 16px 12px 60px; }
+    .stats { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .stat-card { padding: 14px 16px; }
+    .stat-card .value { font-size: 26px; }
+    table { display: block; }
+    thead { display: none; }
     tbody, tr, td { display: block; width: 100%; }
     tbody tr {
       border-bottom: 1px solid var(--border);
@@ -335,15 +355,26 @@
     }
     tbody td {
       border: none;
-      padding: 4px 0;
+      padding: 5px 0;
       display: flex;
       justify-content: space-between;
+      gap: 10px;
+      font-size: 14px;
     }
     tbody td::before {
       content: attr(data-label);
       color: var(--text-muted);
       font-size: 12px;
+      flex-shrink: 0;
     }
+    tbody td.actions-cell {
+      justify-content: flex-start;
+      padding-top: 10px;
+    }
+    .actions { flex-wrap: wrap; }
+    .icon-btn { width: 38px; height: 38px; font-size: 17px; }
+    .modal { max-width: 100%; }
+    .modal.wide { max-height: 80vh; }
   }
 </style>
 </head>
@@ -351,7 +382,10 @@
 
 <header>
   <h1><span class="signal-dot"></span> Gestão de Clientes</h1>
-  <div style="display:flex; gap:10px;">
+  <div style="display:flex; gap:10px; flex-wrap:wrap;">
+    <button class="btn" onclick="abrirServidores()">🖥️ Servidores</button>
+    <button class="btn" onclick="abrirNotificacoes()">🔔 Notificações</button>
+    <button class="btn" onclick="abrirFinanceiro()">💰 Financeiro</button>
     <button class="btn" onclick="abrirMensagens()">✉️ Mensagens</button>
     <button class="btn" onclick="abrirConfig()">⚙️ Configurações</button>
     <button class="btn btn-primary" onclick="abrirModal()">+ Novo cliente</button>
@@ -396,9 +430,11 @@
       <tr>
         <th></th>
         <th>Cliente</th>
+        <th>Usuário</th>
         <th>Servidor</th>
         <th>Vencimento</th>
         <th>Plano</th>
+        <th>Notif.</th>
         <th>Status</th>
         <th>Ações</th>
       </tr>
@@ -421,6 +457,10 @@
       <input type="text" id="f-nome" placeholder="Nome do cliente">
     </div>
     <div class="field">
+      <label>Usuário (login no servidor)</label>
+      <input type="text" id="f-usuario" placeholder="usuario123">
+    </div>
+    <div class="field">
       <label>WhatsApp (com DDI, só números)</label>
       <input type="text" id="f-whatsapp" placeholder="5521999999999">
     </div>
@@ -430,7 +470,10 @@
     </div>
     <div class="field">
       <label>Servidor</label>
-      <input type="text" id="f-servidor" placeholder="Nome do servidor">
+      <select id="f-servidor"></select>
+      <div style="margin-top:6px;">
+        <a href="javascript:void(0)" onclick="abrirServidores()" style="font-size:12px; color:var(--text-muted);">+ cadastrar novo servidor</a>
+      </div>
     </div>
     <div class="field">
       <label>Valor do plano (R$)</label>
@@ -480,6 +523,67 @@
     <div class="modal-actions">
       <button class="btn" onclick="fecharRenovacao()">Cancelar</button>
       <button class="btn btn-primary" onclick="confirmarRenovacao()">Renovar e notificar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-servidores">
+  <div class="modal">
+    <h2>Servidores</h2>
+    <div class="field">
+      <label>Novo servidor</label>
+      <div style="display:flex; gap:8px;">
+        <input type="text" id="novo-servidor-nome" placeholder="Nome do servidor">
+        <button class="btn btn-primary" onclick="adicionarServidor()">Adicionar</button>
+      </div>
+    </div>
+    <div id="lista-servidores" style="margin-top:16px;"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharServidores()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-notificacoes">
+  <div class="modal">
+    <h2>Notificações dos clientes</h2>
+    <div class="stats" style="grid-template-columns: 1fr 1fr; margin-bottom:18px;">
+      <div class="stat-card ok">
+        <div class="label">Ativaram</div>
+        <div class="value mono" id="notif-ativos">0</div>
+      </div>
+      <div class="stat-card danger">
+        <div class="label">Não ativaram</div>
+        <div class="value mono" id="notif-inativos">0</div>
+      </div>
+    </div>
+    <div id="lista-notificacoes"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharNotificacoes()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-financeiro">
+  <div class="modal wide">
+    <h2>Financeiro</h2>
+    <div class="stats" style="grid-template-columns: 1fr 1fr 1fr; margin-bottom:18px;">
+      <div class="stat-card ok">
+        <div class="label">Total arrecadado</div>
+        <div class="value mono" id="fin-total" style="font-size:22px;">R$ 0</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Cadastros</div>
+        <div class="value mono" id="fin-cadastros" style="font-size:22px;">R$ 0</div>
+      </div>
+      <div class="stat-card warn">
+        <div class="label">Renovações</div>
+        <div class="value mono" id="fin-renovacoes" style="font-size:22px;">R$ 0</div>
+      </div>
+    </div>
+    <div id="lista-financeiro"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharFinanceiro()">Fechar</button>
     </div>
   </div>
 </div>
@@ -573,6 +677,7 @@
   const FIREBASE_DB = "https://gestao-clientes-a1664-default-rtdb.europe-west1.firebasedatabase.app";
 
   let clientes = [];
+  let servidores = [];
   let filtroAtual = 'todos';
   let templatesConfig = {};
 
@@ -671,8 +776,25 @@
     const data = await res.json() || {};
     clientes = Object.entries(data).map(([id, c]) => ({ id, ...c }));
     await carregarTemplatesConfig();
+    await carregarServidores();
     atualizarStats();
     renderizar();
+  }
+
+  async function carregarServidores() {
+    const res = await fetch(`${FIREBASE_DB}/servidores.json`);
+    const data = await res.json() || {};
+    servidores = Object.entries(data).map(([id, s]) => ({ id, ...s }));
+    preencherSelectServidores();
+  }
+
+  function preencherSelectServidores() {
+    const select = document.getElementById('f-servidor');
+    const valorAtual = select.value;
+    select.innerHTML = servidores.length
+      ? servidores.map(s => `<option value="${s.nome}">${s.nome}</option>`).join('')
+      : '<option value="">Nenhum servidor cadastrado</option>';
+    if (valorAtual) select.value = valorAtual;
   }
 
   function atualizarStats() {
@@ -693,6 +815,115 @@
     document.querySelectorAll('.filter-chip').forEach(el => el.classList.remove('active'));
     document.querySelector(`[data-filtro="${tipo}"]`).classList.add('active');
     renderizar();
+  }
+
+  // ---- Servidores ----
+  function abrirServidores() {
+    renderizarListaServidores();
+    document.getElementById('overlay-servidores').classList.add('open');
+  }
+  function fecharServidores() {
+    document.getElementById('overlay-servidores').classList.remove('open');
+  }
+  function renderizarListaServidores() {
+    const container = document.getElementById('lista-servidores');
+    if (servidores.length === 0) {
+      container.innerHTML = '<div style="color:var(--text-muted); font-size:13px;">Nenhum servidor cadastrado ainda.</div>';
+      return;
+    }
+    container.innerHTML = servidores.map(s => `
+      <div class="lista-item">
+        <span>${s.nome}</span>
+        <button class="del-mini" onclick="excluirServidor('${s.id}')">remover</button>
+      </div>
+    `).join('');
+  }
+  async function adicionarServidor() {
+    const nome = document.getElementById('novo-servidor-nome').value.trim();
+    if (!nome) return;
+    await fetch(`${FIREBASE_DB}/servidores.json`, {
+      method: 'POST',
+      body: JSON.stringify({ nome })
+    });
+    document.getElementById('novo-servidor-nome').value = '';
+    await carregarServidores();
+    renderizarListaServidores();
+  }
+  async function excluirServidor(id) {
+    if (!confirm('Remover esse servidor da lista?')) return;
+    await fetch(`${FIREBASE_DB}/servidores/${id}.json`, { method: 'DELETE' });
+    await carregarServidores();
+    renderizarListaServidores();
+  }
+
+  // ---- Notificações ----
+  function abrirNotificacoes() {
+    const ativos = clientes.filter(c => c.notificacaoAtiva);
+    const inativos = clientes.filter(c => !c.notificacaoAtiva);
+    document.getElementById('notif-ativos').textContent = ativos.length;
+    document.getElementById('notif-inativos').textContent = inativos.length;
+
+    const container = document.getElementById('lista-notificacoes');
+    container.innerHTML = clientes.length === 0
+      ? '<div style="color:var(--text-muted); font-size:13px;">Nenhum cliente cadastrado.</div>'
+      : clientes.map(c => `
+        <div class="lista-item">
+          <span>${c.nome}</span>
+          <span class="badge ${c.notificacaoAtiva ? 'ativo' : 'inativo'}">${c.notificacaoAtiva ? 'ativada' : 'não ativada'}</span>
+        </div>
+      `).join('');
+
+    document.getElementById('overlay-notificacoes').classList.add('open');
+  }
+  function fecharNotificacoes() {
+    document.getElementById('overlay-notificacoes').classList.remove('open');
+  }
+
+  // ---- Financeiro ----
+  async function registrarFinanceiro(cliente, valor, tipo) {
+    await fetch(`${FIREBASE_DB}/financeiro.json`, {
+      method: 'POST',
+      body: JSON.stringify({
+        clienteId: cliente.id,
+        clienteNome: cliente.nome,
+        valor: Number(valor) || 0,
+        tipo,
+        data: Date.now()
+      })
+    });
+  }
+
+  async function abrirFinanceiro() {
+    const res = await fetch(`${FIREBASE_DB}/financeiro.json`);
+    const data = await res.json() || {};
+    const registros = Object.entries(data).map(([id, r]) => ({ id, ...r }))
+      .sort((a, b) => b.data - a.data);
+
+    const totalCadastros = registros.filter(r => r.tipo === 'cadastro').reduce((s, r) => s + r.valor, 0);
+    const totalRenovacoes = registros.filter(r => r.tipo === 'renovacao').reduce((s, r) => s + r.valor, 0);
+    const total = totalCadastros + totalRenovacoes;
+
+    document.getElementById('fin-total').textContent = `R$ ${total.toFixed(2)}`;
+    document.getElementById('fin-cadastros').textContent = `R$ ${totalCadastros.toFixed(2)}`;
+    document.getElementById('fin-renovacoes').textContent = `R$ ${totalRenovacoes.toFixed(2)}`;
+
+    const container = document.getElementById('lista-financeiro');
+    container.innerHTML = registros.length === 0
+      ? '<div style="color:var(--text-muted); font-size:13px;">Nenhum registro financeiro ainda.</div>'
+      : registros.map(r => `
+        <div class="lista-item">
+          <div>
+            <div>${r.clienteNome}</div>
+            <div class="sub">${r.tipo === 'cadastro' ? 'Cadastro' : 'Renovação'} · ${new Date(r.data).toLocaleDateString('pt-BR')}</div>
+          </div>
+          <span class="mono">R$ ${Number(r.valor).toFixed(2)}</span>
+        </div>
+      `).join('');
+
+    document.getElementById('overlay-financeiro').classList.add('open');
+  }
+  function fecharFinanceiro() {
+    document.getElementById('overlay-financeiro').classList.remove('open');
   }
 
   function renderizar() {
@@ -737,14 +968,18 @@
             <div class="cliente-nome">${c.nome}</div>
             <div class="cliente-sub">${c.email || 'sem e-mail'}</div>
           </td>
+          <td data-label="Usuário" class="mono">${c.usuario || '—'}</td>
           <td data-label="Servidor">${c.servidor || '—'}</td>
           <td data-label="Vencimento">
             <div class="mono">${dataFormatada}</div>
             <div class="cliente-sub">${diasTexto}</div>
           </td>
           <td data-label="Plano" class="mono">R$ ${Number(c.planoValor || 0).toFixed(2)}</td>
+          <td data-label="Notif.">
+            <span class="badge ${c.notificacaoAtiva ? 'ativo' : 'inativo'}">${c.notificacaoAtiva ? '🔔 ativa' : '🔕 inativa'}</span>
+          </td>
           <td data-label="Status"><span class="badge ${c.status}">${c.status}</span></td>
-          <td data-label="Ações">
+          <td data-label="Ações" class="actions-cell">
             <div class="actions">
               <button class="icon-btn whats" onclick="abrirRenovacao('${c.id}')" title="Renovar cliente">🔄</button>
               <a class="icon-btn" href="${linkAtivacao}" target="_blank" title="Enviar link de ativação">🔗</a>
@@ -776,8 +1011,10 @@
     document.getElementById('modal-titulo').textContent = 'Novo cliente';
     document.getElementById('cliente-id').value = '';
     document.getElementById('f-nome').value = '';
+    document.getElementById('f-usuario').value = '';
     document.getElementById('f-whatsapp').value = '';
     document.getElementById('f-email').value = '';
+    preencherSelectServidores();
     document.getElementById('f-servidor').value = '';
     document.getElementById('f-valor').value = '';
     document.getElementById('f-vencimento').value = '';
@@ -794,8 +1031,10 @@
     document.getElementById('modal-titulo').textContent = 'Editar cliente';
     document.getElementById('cliente-id').value = c.id;
     document.getElementById('f-nome').value = c.nome || '';
+    document.getElementById('f-usuario').value = c.usuario || '';
     document.getElementById('f-whatsapp').value = c.whatsapp || '';
     document.getElementById('f-email').value = c.email || '';
+    preencherSelectServidores();
     document.getElementById('f-servidor').value = c.servidor || '';
     document.getElementById('f-valor').value = c.planoValor || '';
     document.getElementById('f-vencimento').value = new Date(c.vencimento).toISOString().slice(0,10);
@@ -805,6 +1044,7 @@
   async function salvarCliente() {
     const id = document.getElementById('cliente-id').value;
     const nome = document.getElementById('f-nome').value.trim();
+    const usuario = document.getElementById('f-usuario').value.trim();
     const whatsapp = document.getElementById('f-whatsapp').value.replace(/\D/g,'');
     const email = document.getElementById('f-email').value.trim();
     const servidor = document.getElementById('f-servidor').value.trim();
@@ -821,21 +1061,23 @@
     if (id) {
       await fetch(`${FIREBASE_DB}/clientes/${id}.json`, {
         method: 'PATCH',
-        body: JSON.stringify({ nome, whatsapp, email, servidor, planoValor, vencimento })
+        body: JSON.stringify({ nome, usuario, whatsapp, email, servidor, planoValor, vencimento })
       });
     } else {
       const novoCliente = {
-        nome, whatsapp, email, servidor, planoValor, vencimento,
+        nome, usuario, whatsapp, email, servidor, planoValor, vencimento,
         status: 'ativo',
         fcmToken: null,
         notificacaoAtiva: false,
         ultimaNotificacao: { tipo: null, data: 0 },
         criadoEm: Date.now()
       };
-      await fetch(`${FIREBASE_DB}/clientes.json`, {
+      const res = await fetch(`${FIREBASE_DB}/clientes.json`, {
         method: 'POST',
         body: JSON.stringify(novoCliente)
       });
+      const criado = await res.json();
+      await registrarFinanceiro({ id: criado.name, nome }, planoValor, 'cadastro');
     }
 
     fecharModal();
@@ -969,6 +1211,7 @@
       }
 
       fecharRenovacao();
+      await registrarFinanceiro({ id: cliente.id, nome: cliente.nome }, cliente.planoValor, 'renovacao');
       await carregarClientes();
 
       // Abre o WhatsApp DO CLIENTE (não o do suporte) com o comprovante pronto
