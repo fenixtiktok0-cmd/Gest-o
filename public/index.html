@@ -316,7 +316,10 @@
 
 <header>
   <h1><span class="signal-dot"></span> Gestão de Clientes</h1>
-  <button class="btn btn-primary" onclick="abrirModal()">+ Novo cliente</button>
+  <div style="display:flex; gap:10px;">
+    <button class="btn" onclick="abrirConfig()">⚙️ Configurações</button>
+    <button class="btn btn-primary" onclick="abrirModal()">+ Novo cliente</button>
+  </div>
 </header>
 
 <main>
@@ -408,6 +411,20 @@
   </div>
 </div>
 
+<div class="overlay" id="overlay-config">
+  <div class="modal">
+    <h2>Configurações</h2>
+    <div class="field">
+      <label>WhatsApp do suporte (com DDI, só números)</label>
+      <input type="text" id="cfg-whatsapp" placeholder="5521999999999">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharConfig()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarConfig()">Salvar</button>
+    </div>
+  </div>
+</div>
+
 <script>
   // ---- Config Firebase (REST API) ----
   const FIREBASE_DB = "https://gestao-clientes-a1664-default-rtdb.europe-west1.firebasedatabase.app";
@@ -486,6 +503,11 @@
       const mensagem = mensagemPadrao(c, dias);
       const linkWhats = `https://wa.me/${c.whatsapp}?text=${encodeURIComponent(mensagem)}`;
 
+      const APP_URL = window.location.origin;
+      const linkMeuPlano = `${APP_URL}/meu-plano.html?id=${c.id}`;
+      const mensagemAtivacao = `Olá ${c.nome}! Pra receber avisos automáticos sobre o vencimento do seu plano, acessa esse link e ativa as notificações: ${linkMeuPlano}`;
+      const linkAtivacao = `https://wa.me/${c.whatsapp}?text=${encodeURIComponent(mensagemAtivacao)}`;
+
       return `
         <tr>
           <td data-label=""><span class="signal ${sinalClasse}"><span></span><span></span><span></span><span></span></span></td>
@@ -502,6 +524,7 @@
           <td data-label="Status"><span class="badge ${c.status}">${c.status}</span></td>
           <td data-label="Ações">
             <div class="actions">
+              <a class="icon-btn" href="${linkAtivacao}" target="_blank" title="Enviar link de ativação">🔗</a>
               <a class="icon-btn whats" href="${linkWhats}" target="_blank" title="Enviar WhatsApp">💬</a>
               <button class="icon-btn push" onclick="enviarPushManual('${c.id}')" title="Enviar push">🔔</button>
               <button class="icon-btn" onclick="editarCliente('${c.id}')" title="Editar">✏️</button>
@@ -612,6 +635,28 @@
     } catch (err) {
       alert('Erro ao enviar push.');
     }
+  }
+
+  async function abrirConfig() {
+    const res = await fetch(`${FIREBASE_DB}/config/whatsappAdmin.json`);
+    const whatsappAdmin = await res.json();
+    document.getElementById('cfg-whatsapp').value = whatsappAdmin || '5521993473619';
+    document.getElementById('overlay-config').classList.add('open');
+  }
+
+  function fecharConfig() {
+    document.getElementById('overlay-config').classList.remove('open');
+  }
+
+  async function salvarConfig() {
+    const whatsapp = document.getElementById('cfg-whatsapp').value.replace(/\D/g, '');
+    if (!whatsapp) { alert('Preenche o número.'); return; }
+    await fetch(`${FIREBASE_DB}/config.json`, {
+      method: 'PATCH',
+      body: JSON.stringify({ whatsappAdmin: whatsapp })
+    });
+    fecharConfig();
+    alert('Configurações salvas!');
   }
 
   carregarClientes();
