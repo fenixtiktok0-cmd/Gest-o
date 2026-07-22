@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meu Plano</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
+<style>
+  :root {
+    --bg: #0B0F14; --surface: #131A22; --border: #232C37;
+    --text: #E6EDF3; --text-muted: #7C8798;
+    --ok: #34D399; --warn: #FBBF24; --danger: #F87171;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: 'Inter', sans-serif;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; padding: 20px;
+  }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 32px; max-width: 400px; width: 100%;
+  }
+  h1 { font-family: 'Space Grotesk', sans-serif; font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--text-muted); font-size: 14px; margin-bottom: 24px; }
+  .linha { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+  .linha:last-of-type { border-bottom: none; }
+  .linha .label { color: var(--text-muted); }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  .status-pill {
+    display: inline-block; padding: 4px 12px; border-radius: 100px;
+    font-size: 13px; font-weight: 500; margin-top: 4px;
+  }
+  .status-pill.ok { background: rgba(52,211,153,0.12); color: var(--ok); }
+  .status-pill.warn { background: rgba(251,191,36,0.12); color: var(--warn); }
+  .status-pill.danger { background: rgba(248,113,113,0.12); color: var(--danger); }
+  button {
+    width: 100%; margin-top: 24px; padding: 13px; border-radius: 10px;
+    border: none; background: var(--ok); color: #06231A;
+    font-weight: 600; font-size: 14px; cursor: pointer;
+  }
+  button:disabled { background: var(--border); color: var(--text-muted); cursor: default; }
+  .loading { text-align: center; color: var(--text-muted); }
+</style>
+</head>
+<body>
+<div class="card" id="card">
+  <div class="loading">Carregando...</div>
+</div>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyBaVUpfN03wm2mm_C3sUZhMUZtThb32FSQ",
+    authDomain: "gestao-clientes-a1664.firebaseapp.com",
+    databaseURL: "https://gestao-clientes-a1664-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "gestao-clientes-a1664",
+    storageBucket: "gestao-clientes-a1664.firebasestorage.app",
+    messagingSenderId: "417549104013",
+    appId: "1:417549104013:web:0a753604b6eaf2f65243c4"
+  };
+  firebase.initializeApp(firebaseConfig);
+
+  // TODO Marcos: cole aqui a VAPID key gerada em
+  // Configurações do projeto > Cloud Messaging > Web Push certificates
+  const VAPID_KEY = "COLE_SUA_VAPID_KEY_AQUI";
+
+  const FIREBASE_DB = firebaseConfig.databaseURL;
+  const params = new URLSearchParams(window.location.search);
+  const clienteId = params.get('id');
+
+  function diasAte(timestamp) {
+    const hoje = new Date(); hoje.setHours(0,0,0,0);
+    const venc = new Date(timestamp); venc.setHours(0,0,0,0);
+    return Math.round((venc - hoje) / (1000*60*60*24));
+  }
+
+  async function carregar() {
+    const card = document.getElementById('card');
+    if (!clienteId) {
+      card.innerHTML = '<div class="loading">Link inválido.</div>';
+      return;
+    }
+
+    const res = await fetch(`${FIREBASE_DB}/clientes/${clienteId}.json`);
+    const c = await res.json();
+
+    if (!c) {
+      card.innerHTML = '<div class="loading">Cliente não encontrado.</div>';
+      return;
+    }
+
+    const dias = diasAte(c.vencimento);
+    let statusClasse = 'ok', statusTexto = `Vence em ${dias} dias`;
+    if (dias < 0) { statusClasse = 'danger'; statusTexto = `Venceu há ${Math.abs(dias)} dias`; }
+    else if (dias === 0) { statusClasse = 'danger'; statusTexto = 'Vence hoje'; }
+    else if (dias <= 3) { statusClasse = 'warn'; statusTexto = `Vence em ${dias} dias`; }
+
+    const notifAtiva = c.notificacaoAtiva;
+
+    card.innerHTML = `
+      <h1>Olá, ${c.nome}</h1>
+      <div class="sub">Status do seu plano</div>
+      <div class="linha"><span class="label">Servidor</span><span class="mono">${c.servidor || '—'}</span></div>
+      <div class="linha"><span class="label">Valor</span><span class="mono">R$ ${Number(c.planoValor||0).toFixed(2)}</span></div>
+      <div class="linha"><span class="label">Vencimento</span><span class="mono">${new Date(c.vencimento).toLocaleDateString('pt-BR')}</span></div>
+      <div class="linha"><span class="label">Situação</span><span class="status-pill ${statusClasse}">${statusTexto}</span></div>
+      <button id="btn-notif" ${notifAtiva ? 'disabled' : ''}>${notifAtiva ? 'Notificações ativadas ✓' : 'Ativar notificações'}</button>
+    `;
+
+    document.getElementById('btn-notif').onclick = () => ativarNotificacoes(clienteId);
+  }
+
+  async function ativarNotificacoes(id) {
+    try {
+      const permissao = await Notification.requestPermission();
+      if (permissao !== 'granted') {
+        alert('Você precisa permitir as notificações pra receber os avisos de vencimento.');
+        return;
+      }
+
+      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+      const messaging = firebase.messaging();
+      const token = await messaging.getToken({
+        vapidKey: VAPID_KEY,
+        serviceWorkerRegistration: registration
+      });
+
+      await fetch(`${FIREBASE_DB}/clientes/${id}.json`, {
+        method: 'PATCH',
+        body: JSON.stringify({ fcmToken: token, notificacaoAtiva: true })
+      });
+
+      await carregar();
+    } catch (err) {
+      console.error(err);
+      alert('Não deu pra ativar as notificações agora. Tenta de novo em instantes.');
+    }
+  }
+
+  carregar();
+</script>
+</body>
+</html>

@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestão de Clientes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0B0F14;
+    --surface: #131A22;
+    --surface-2: #1B232D;
+    --border: #232C37;
+    --text: #E6EDF3;
+    --text-muted: #7C8798;
+    --ok: #34D399;
+    --warn: #FBBF24;
+    --danger: #F87171;
+    --ok-bg: rgba(52, 211, 153, 0.12);
+    --warn-bg: rgba(251, 191, 36, 0.12);
+    --danger-bg: rgba(248, 113, 113, 0.12);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, .display {
+    font-family: 'Space Grotesk', sans-serif;
+  }
+
+  .mono { font-family: 'JetBrains Mono', monospace; }
+
+  header {
+    padding: 28px 32px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  header h1 {
+    font-size: 22px;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  header h1 .signal-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--ok);
+    box-shadow: 0 0 8px var(--ok);
+  }
+
+  .btn {
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+    font-size: 14px;
+    padding: 10px 18px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text);
+    cursor: pointer;
+    transition: border-color .15s ease, transform .1s ease;
+  }
+  .btn:hover { border-color: #38424F; }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary {
+    background: var(--ok);
+    color: #06231A;
+    border-color: var(--ok);
+    font-weight: 600;
+  }
+  .btn-primary:hover { background: #3FE0AA; }
+
+  main {
+    padding: 28px 32px 60px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+  }
+
+  .stat-card .label {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 8px;
+  }
+
+  .stat-card .value {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 32px;
+    font-weight: 600;
+  }
+
+  .stat-card.ok .value { color: var(--ok); }
+  .stat-card.warn .value { color: var(--warn); }
+  .stat-card.danger .value { color: var(--danger); }
+
+  .toolbar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+
+  .filter-chip {
+    font-size: 13px;
+    padding: 7px 14px;
+    border-radius: 100px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-muted);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .filter-chip.active {
+    color: var(--text);
+    border-color: var(--ok);
+    background: var(--ok-bg);
+  }
+
+  input[type="text"] {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 14px;
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    flex: 1;
+    min-width: 180px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  thead th {
+    text-align: left;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 500;
+  }
+
+  tbody td {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+    vertical-align: middle;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: var(--surface-2); }
+
+  .signal {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 16px;
+  }
+  .signal span {
+    width: 3px;
+    background: var(--border);
+    border-radius: 1px;
+  }
+  .signal span:nth-child(1) { height: 5px; }
+  .signal span:nth-child(2) { height: 9px; }
+  .signal span:nth-child(3) { height: 13px; }
+  .signal span:nth-child(4) { height: 16px; }
+
+  .signal.ok span { background: var(--ok); }
+  .signal.warn span:nth-child(1),
+  .signal.warn span:nth-child(2),
+  .signal.warn span:nth-child(3) { background: var(--warn); }
+  .signal.danger span:nth-child(1),
+  .signal.danger span:nth-child(2) { background: var(--danger); }
+
+  .cliente-nome { font-weight: 500; }
+  .cliente-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+  .actions { display: flex; gap: 6px; }
+  .icon-btn {
+    width: 32px; height: 32px;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px;
+  }
+  .icon-btn:hover { color: var(--text); border-color: #38424F; }
+  .icon-btn.whats:hover { color: var(--ok); border-color: var(--ok); }
+  .icon-btn.push:hover { color: var(--warn); border-color: var(--warn); }
+  .icon-btn.del:hover { color: var(--danger); border-color: var(--danger); }
+
+  .badge {
+    font-size: 12px;
+    padding: 3px 9px;
+    border-radius: 100px;
+    font-weight: 500;
+  }
+  .badge.ativo { background: var(--ok-bg); color: var(--ok); }
+  .badge.inativo { background: var(--surface-2); color: var(--text-muted); }
+
+  /* Modal */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.55);
+    display: none;
+    align-items: center; justify-content: center;
+    z-index: 100;
+    padding: 20px;
+  }
+  .overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    width: 100%;
+    max-width: 440px;
+  }
+  .modal h2 { font-size: 18px; margin: 0 0 18px; }
+
+  .field { margin-bottom: 14px; }
+  .field label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+  .field input {
+    width: 100%;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+  }
+
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+  }
+
+  @media (max-width: 720px) {
+    table, thead { display: none; }
+    tbody, tr, td { display: block; width: 100%; }
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      padding: 14px 16px;
+    }
+    tbody td {
+      border: none;
+      padding: 4px 0;
+      display: flex;
+      justify-content: space-between;
+    }
+    tbody td::before {
+      content: attr(data-label);
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="signal-dot"></span> Gestão de Clientes</h1>
+  <button class="btn btn-primary" onclick="abrirModal()">+ Novo cliente</button>
+</header>
+
+<main>
+  <div class="stats">
+    <div class="stat-card">
+      <div class="label">Total de clientes</div>
+      <div class="value mono" id="stat-total">0</div>
+    </div>
+    <div class="stat-card ok">
+      <div class="label">Ativos</div>
+      <div class="value mono" id="stat-ativos">0</div>
+    </div>
+    <div class="stat-card warn">
+      <div class="label">Vencendo em 3 dias</div>
+      <div class="value mono" id="stat-3dias">0</div>
+    </div>
+    <div class="stat-card danger">
+      <div class="label">Vencendo hoje</div>
+      <div class="value mono" id="stat-hoje">0</div>
+    </div>
+    <div class="stat-card danger">
+      <div class="label">Vencidos</div>
+      <div class="value mono" id="stat-vencidos">0</div>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <input type="text" id="busca" placeholder="Buscar cliente..." oninput="renderizar()">
+    <button class="filter-chip active" data-filtro="todos" onclick="filtrar('todos')">Todos</button>
+    <button class="filter-chip" data-filtro="ativo" onclick="filtrar('ativo')">Ativos</button>
+    <button class="filter-chip" data-filtro="3dias" onclick="filtrar('3dias')">Vencendo 3d</button>
+    <button class="filter-chip" data-filtro="hoje" onclick="filtrar('hoje')">Vencendo hoje</button>
+    <button class="filter-chip" data-filtro="vencido" onclick="filtrar('vencido')">Vencidos</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th></th>
+        <th>Cliente</th>
+        <th>Servidor</th>
+        <th>Vencimento</th>
+        <th>Plano</th>
+        <th>Status</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+    <tbody id="tabela-clientes"></tbody>
+  </table>
+
+  <div class="empty-state" id="empty-state" style="display:none">
+    Nenhum cliente encontrado.
+  </div>
+</main>
+
+<!-- Modal novo/editar cliente -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2 id="modal-titulo">Novo cliente</h2>
+    <input type="hidden" id="cliente-id">
+    <div class="field">
+      <label>Nome</label>
+      <input type="text" id="f-nome" placeholder="Nome do cliente">
+    </div>
+    <div class="field">
+      <label>WhatsApp (com DDI, só números)</label>
+      <input type="text" id="f-whatsapp" placeholder="5521999999999">
+    </div>
+    <div class="field">
+      <label>E-mail</label>
+      <input type="text" id="f-email" placeholder="cliente@email.com">
+    </div>
+    <div class="field">
+      <label>Servidor</label>
+      <input type="text" id="f-servidor" placeholder="Nome do servidor">
+    </div>
+    <div class="field">
+      <label>Valor do plano (R$)</label>
+      <input type="text" id="f-valor" placeholder="45.00">
+    </div>
+    <div class="field">
+      <label>Vencimento</label>
+      <input type="date" id="f-vencimento">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarCliente()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ---- Config Firebase (REST API) ----
+  const FIREBASE_DB = "https://gestao-clientes-a1664-default-rtdb.europe-west1.firebasedatabase.app";
+
+  let clientes = [];
+  let filtroAtual = 'todos';
+
+  function diasAte(timestamp) {
+    const hoje = new Date(); hoje.setHours(0,0,0,0);
+    const venc = new Date(timestamp); venc.setHours(0,0,0,0);
+    return Math.round((venc - hoje) / (1000*60*60*24));
+  }
+
+  function classeSinal(dias) {
+    if (dias < 0) return 'danger';
+    if (dias === 0) return 'danger';
+    if (dias <= 3) return 'warn';
+    return 'ok';
+  }
+
+  async function carregarClientes() {
+    const res = await fetch(`${FIREBASE_DB}/clientes.json`);
+    const data = await res.json() || {};
+    clientes = Object.entries(data).map(([id, c]) => ({ id, ...c }));
+    atualizarStats();
+    renderizar();
+  }
+
+  function atualizarStats() {
+    const ativos = clientes.filter(c => c.status === 'ativo');
+    const em3dias = ativos.filter(c => diasAte(c.vencimento) === 3).length;
+    const hoje = ativos.filter(c => diasAte(c.vencimento) === 0).length;
+    const vencidos = ativos.filter(c => diasAte(c.vencimento) < 0).length;
+
+    document.getElementById('stat-total').textContent = clientes.length;
+    document.getElementById('stat-ativos').textContent = ativos.length;
+    document.getElementById('stat-3dias').textContent = em3dias;
+    document.getElementById('stat-hoje').textContent = hoje;
+    document.getElementById('stat-vencidos').textContent = vencidos;
+  }
+
+  function filtrar(tipo) {
+    filtroAtual = tipo;
+    document.querySelectorAll('.filter-chip').forEach(el => el.classList.remove('active'));
+    document.querySelector(`[data-filtro="${tipo}"]`).classList.add('active');
+    renderizar();
+  }
+
+  function renderizar() {
+    const busca = document.getElementById('busca').value.toLowerCase();
+    let lista = clientes.filter(c => c.nome?.toLowerCase().includes(busca));
+
+    if (filtroAtual === 'ativo') lista = lista.filter(c => c.status === 'ativo');
+    if (filtroAtual === '3dias') lista = lista.filter(c => diasAte(c.vencimento) === 3);
+    if (filtroAtual === 'hoje') lista = lista.filter(c => diasAte(c.vencimento) === 0);
+    if (filtroAtual === 'vencido') lista = lista.filter(c => diasAte(c.vencimento) < 0);
+
+    lista.sort((a,b) => a.vencimento - b.vencimento);
+
+    const tbody = document.getElementById('tabela-clientes');
+    const emptyState = document.getElementById('empty-state');
+
+    if (lista.length === 0) {
+      tbody.innerHTML = '';
+      emptyState.style.display = 'block';
+      return;
+    }
+    emptyState.style.display = 'none';
+
+    tbody.innerHTML = lista.map(c => {
+      const dias = diasAte(c.vencimento);
+      const sinalClasse = classeSinal(dias);
+      const dataFormatada = new Date(c.vencimento).toLocaleDateString('pt-BR');
+      const diasTexto = dias < 0 ? `${Math.abs(dias)}d atrasado` : dias === 0 ? 'vence hoje' : `em ${dias}d`;
+
+      const mensagem = mensagemPadrao(c, dias);
+      const linkWhats = `https://wa.me/${c.whatsapp}?text=${encodeURIComponent(mensagem)}`;
+
+      return `
+        <tr>
+          <td data-label=""><span class="signal ${sinalClasse}"><span></span><span></span><span></span><span></span></span></td>
+          <td data-label="Cliente">
+            <div class="cliente-nome">${c.nome}</div>
+            <div class="cliente-sub">${c.email || 'sem e-mail'}</div>
+          </td>
+          <td data-label="Servidor">${c.servidor || '—'}</td>
+          <td data-label="Vencimento">
+            <div class="mono">${dataFormatada}</div>
+            <div class="cliente-sub">${diasTexto}</div>
+          </td>
+          <td data-label="Plano" class="mono">R$ ${Number(c.planoValor || 0).toFixed(2)}</td>
+          <td data-label="Status"><span class="badge ${c.status}">${c.status}</span></td>
+          <td data-label="Ações">
+            <div class="actions">
+              <a class="icon-btn whats" href="${linkWhats}" target="_blank" title="Enviar WhatsApp">💬</a>
+              <button class="icon-btn push" onclick="enviarPushManual('${c.id}')" title="Enviar push">🔔</button>
+              <button class="icon-btn" onclick="editarCliente('${c.id}')" title="Editar">✏️</button>
+              <button class="icon-btn del" onclick="excluirCliente('${c.id}')" title="Excluir">🗑️</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function mensagemPadrao(c, dias) {
+    if (dias < 0) return `Olá ${c.nome}! Seu plano venceu em ${new Date(c.vencimento).toLocaleDateString('pt-BR')}. Valor: R$ ${Number(c.planoValor||0).toFixed(2)}. Vamos regularizar?`;
+    if (dias === 0) return `Olá ${c.nome}! Seu plano vence hoje. Valor: R$ ${Number(c.planoValor||0).toFixed(2)}. Renova agora?`;
+    return `Olá ${c.nome}! Seu plano vence em ${dias} dias (${new Date(c.vencimento).toLocaleDateString('pt-BR')}). Valor: R$ ${Number(c.planoValor||0).toFixed(2)}.`;
+  }
+
+  function abrirModal() {
+    document.getElementById('modal-titulo').textContent = 'Novo cliente';
+    document.getElementById('cliente-id').value = '';
+    document.getElementById('f-nome').value = '';
+    document.getElementById('f-whatsapp').value = '';
+    document.getElementById('f-email').value = '';
+    document.getElementById('f-servidor').value = '';
+    document.getElementById('f-valor').value = '';
+    document.getElementById('f-vencimento').value = '';
+    document.getElementById('overlay').classList.add('open');
+  }
+
+  function fecharModal() {
+    document.getElementById('overlay').classList.remove('open');
+  }
+
+  function editarCliente(id) {
+    const c = clientes.find(x => x.id === id);
+    if (!c) return;
+    document.getElementById('modal-titulo').textContent = 'Editar cliente';
+    document.getElementById('cliente-id').value = c.id;
+    document.getElementById('f-nome').value = c.nome || '';
+    document.getElementById('f-whatsapp').value = c.whatsapp || '';
+    document.getElementById('f-email').value = c.email || '';
+    document.getElementById('f-servidor').value = c.servidor || '';
+    document.getElementById('f-valor').value = c.planoValor || '';
+    document.getElementById('f-vencimento').value = new Date(c.vencimento).toISOString().slice(0,10);
+    document.getElementById('overlay').classList.add('open');
+  }
+
+  async function salvarCliente() {
+    const id = document.getElementById('cliente-id').value;
+    const nome = document.getElementById('f-nome').value.trim();
+    const whatsapp = document.getElementById('f-whatsapp').value.replace(/\D/g,'');
+    const email = document.getElementById('f-email').value.trim();
+    const servidor = document.getElementById('f-servidor').value.trim();
+    const planoValor = parseFloat(document.getElementById('f-valor').value) || 0;
+    const vencimentoInput = document.getElementById('f-vencimento').value;
+
+    if (!nome || !whatsapp || !vencimentoInput) {
+      alert('Preencha nome, WhatsApp e vencimento.');
+      return;
+    }
+
+    const vencimento = new Date(vencimentoInput + 'T12:00:00').getTime();
+
+    if (id) {
+      await fetch(`${FIREBASE_DB}/clientes/${id}.json`, {
+        method: 'PATCH',
+        body: JSON.stringify({ nome, whatsapp, email, servidor, planoValor, vencimento })
+      });
+    } else {
+      const novoCliente = {
+        nome, whatsapp, email, servidor, planoValor, vencimento,
+        status: 'ativo',
+        fcmToken: null,
+        notificacaoAtiva: false,
+        ultimaNotificacao: { tipo: null, data: 0 },
+        criadoEm: Date.now()
+      };
+      await fetch(`${FIREBASE_DB}/clientes.json`, {
+        method: 'POST',
+        body: JSON.stringify(novoCliente)
+      });
+    }
+
+    fecharModal();
+    await carregarClientes();
+  }
+
+  async function excluirCliente(id) {
+    if (!confirm('Excluir esse cliente?')) return;
+    await fetch(`${FIREBASE_DB}/clientes/${id}.json`, { method: 'DELETE' });
+    await carregarClientes();
+  }
+
+  async function enviarPushManual(id) {
+    try {
+      const res = await fetch('/api/notificar-manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clienteIds: [id] })
+      });
+      const data = await res.json();
+      const resultado = data.resultados?.[0];
+      if (resultado?.enviado) {
+        alert('Push enviado!');
+      } else {
+        alert('Não enviado: ' + (resultado?.motivo || 'erro desconhecido'));
+      }
+    } catch (err) {
+      alert('Erro ao enviar push.');
+    }
+  }
+
+  carregarClientes();
+</script>
+
+</body>
+</html>
