@@ -213,6 +213,7 @@
 
   .cliente-nome { font-weight: 500; }
   .cliente-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .cliente-sub-email { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 
   .actions { display: flex; gap: 6px; }
   .icon-btn {
@@ -375,6 +376,13 @@
     .icon-btn { width: 38px; height: 38px; font-size: 17px; }
     .modal { max-width: 100%; }
     .modal.wide { max-height: 80vh; }
+
+    /* Cartão de cliente enxuto: só nome, usuário e servidor em destaque */
+    .td-primary { font-size: 15px; font-weight: 500; padding: 6px 0 !important; }
+    .td-primary .cliente-nome { font-size: 16px; }
+    .cliente-sub-email, .td-hide-mobile { display: none !important; }
+    .td-secondary-mobile { opacity: 0.65; font-size: 12px !important; padding: 3px 0 !important; }
+    .td-secondary-mobile::before { font-size: 11px !important; }
   }
 </style>
 </head>
@@ -384,6 +392,7 @@
   <h1><span class="signal-dot"></span> Gestão de Clientes</h1>
   <div style="display:flex; gap:10px; flex-wrap:wrap;">
     <button class="btn" onclick="abrirServidores()">🖥️ Servidores</button>
+    <button class="btn" onclick="abrirRemarketing()">📣 Remarketing</button>
     <button class="btn" onclick="abrirNotificacoes()">🔔 Notificações</button>
     <button class="btn" onclick="abrirFinanceiro()">💰 Financeiro</button>
     <button class="btn" onclick="abrirMensagens()">✉️ Mensagens</button>
@@ -461,6 +470,10 @@
       <input type="text" id="f-usuario" placeholder="usuario123">
     </div>
     <div class="field">
+      <label>Senha (do servidor)</label>
+      <input type="text" id="f-senha" placeholder="senha123">
+    </div>
+    <div class="field">
       <label>WhatsApp (com DDI, só números)</label>
       <input type="text" id="f-whatsapp" placeholder="5521999999999">
     </div>
@@ -524,6 +537,45 @@
       <button class="btn" onclick="fecharRenovacao()">Cancelar</button>
       <button class="btn btn-primary" onclick="confirmarRenovacao()">Renovar e notificar</button>
     </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-remarketing">
+  <div class="modal wide">
+    <h2>Remarketing</h2>
+    <div class="field">
+      <label>Filtrar por status</label>
+      <select id="remkt-status">
+        <option value="todos">Todos os clientes</option>
+        <option value="ativo">Ativos</option>
+        <option value="3dias">Vencendo em 3 dias</option>
+        <option value="hoje">Vencendo hoje</option>
+        <option value="vencido">Vencidos</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Filtrar por servidor</label>
+      <select id="remkt-servidor"><option value="todos">Todos os servidores</option></select>
+    </div>
+    <div class="field">
+      <div id="remkt-contagem" style="font-size:13px; color:var(--ok); font-weight:600;">0 cliente(s) selecionado(s)</div>
+    </div>
+    <div class="field">
+      <label>Assunto (usado só no e-mail)</label>
+      <input type="text" id="remkt-assunto" placeholder="Oferta especial pra você">
+    </div>
+    <div class="field">
+      <label>Mensagem</label>
+      <textarea id="remkt-mensagem" style="min-height:100px;"></textarea>
+      <div class="var-chips" data-target="remkt-mensagem"></div>
+    </div>
+    <div class="modal-actions" style="flex-wrap:wrap;">
+      <button class="btn" onclick="fecharRemarketing()">Fechar</button>
+      <button class="btn" onclick="verLinksWhatsappMassa()">💬 Links WhatsApp</button>
+      <button class="btn" onclick="enviarPushMassa()">🔔 Push em massa</button>
+      <button class="btn btn-primary" onclick="enviarEmailMassa()">✉️ E-mail em massa</button>
+    </div>
+    <div id="remkt-links-whats" style="margin-top:14px; max-height:220px; overflow-y:auto;"></div>
   </div>
 </div>
 
@@ -926,6 +978,107 @@
     document.getElementById('overlay-financeiro').classList.remove('open');
   }
 
+  // ---- Remarketing ----
+  function clientesFiltradosRemarketing() {
+    const status = document.getElementById('remkt-status').value;
+    const servidor = document.getElementById('remkt-servidor').value;
+    let lista = clientes;
+    if (status === 'ativo') lista = lista.filter(c => c.status === 'ativo');
+    if (status === '3dias') lista = lista.filter(c => diasAte(c.vencimento) === 3);
+    if (status === 'hoje') lista = lista.filter(c => diasAte(c.vencimento) === 0);
+    if (status === 'vencido') lista = lista.filter(c => diasAte(c.vencimento) < 0);
+    if (servidor !== 'todos') lista = lista.filter(c => c.servidor === servidor);
+    return lista;
+  }
+
+  function atualizarContagemRemarketing() {
+    const lista = clientesFiltradosRemarketing();
+    document.getElementById('remkt-contagem').textContent = `${lista.length} cliente(s) selecionado(s)`;
+    document.getElementById('remkt-links-whats').innerHTML = '';
+  }
+
+  function montarChipsRemarketing() {
+    const container = document.querySelector('.var-chips[data-target="remkt-mensagem"]');
+    if (!container) return;
+    container.innerHTML = VARIAVEIS.map(v =>
+      `<span class="var-chip" onclick="inserirVariavel('remkt-mensagem', '${v}')">${v}</span>`
+    ).join('');
+  }
+
+  function abrirRemarketing() {
+    const selectServidor = document.getElementById('remkt-servidor');
+    selectServidor.innerHTML = '<option value="todos">Todos os servidores</option>' +
+      servidores.map(s => `<option value="${s.nome}">${s.nome}</option>`).join('');
+    document.getElementById('remkt-status').value = 'todos';
+    document.getElementById('remkt-assunto').value = 'Oferta especial pra você';
+    document.getElementById('remkt-mensagem').value = 'Olá {nome}! Temos uma condição especial pra você renovar seu plano ({servidor}). Chama a gente!';
+    document.getElementById('remkt-links-whats').innerHTML = '';
+    montarChipsRemarketing();
+    atualizarContagemRemarketing();
+    document.getElementById('overlay-remarketing').classList.add('open');
+  }
+  function fecharRemarketing() {
+    document.getElementById('overlay-remarketing').classList.remove('open');
+  }
+
+  async function enviarEmailMassa() {
+    const lista = clientesFiltradosRemarketing().filter(c => c.email);
+    if (lista.length === 0) { alert('Nenhum cliente com e-mail nesse filtro.'); return; }
+    if (!confirm(`Enviar e-mail pra ${lista.length} cliente(s)?`)) return;
+
+    const assunto = document.getElementById('remkt-assunto').value;
+    const corpo = document.getElementById('remkt-mensagem').value;
+
+    const res = await fetch('/api/remarketing-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clienteIds: lista.map(c => c.id), assunto, corpo })
+    });
+    const data = await res.json();
+    const sucesso = data.resultados?.filter(r => r.enviado).length || 0;
+    alert(`${sucesso} de ${lista.length} e-mail(s) enviado(s).`);
+  }
+
+  async function enviarPushMassa() {
+    const lista = clientesFiltradosRemarketing().filter(c => c.fcmToken && c.notificacaoAtiva);
+    if (lista.length === 0) { alert('Nenhum cliente com push ativado nesse filtro.'); return; }
+    if (!confirm(`Enviar push pra ${lista.length} cliente(s)?`)) return;
+
+    const corpo = document.getElementById('remkt-mensagem').value;
+    const res = await fetch('/api/notificar-manual', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clienteIds: lista.map(c => c.id), mensagemCustom: corpo })
+    });
+    const data = await res.json();
+    const sucesso = data.resultados?.filter(r => r.enviado).length || 0;
+    alert(`${sucesso} de ${lista.length} push(es) enviado(s).`);
+  }
+
+  function verLinksWhatsappMassa() {
+    const lista = clientesFiltradosRemarketing().filter(c => c.whatsapp);
+    const corpo = document.getElementById('remkt-mensagem').value;
+    const container = document.getElementById('remkt-links-whats');
+
+    if (lista.length === 0) {
+      container.innerHTML = '<div style="color:var(--text-muted); font-size:13px;">Nenhum cliente com WhatsApp nesse filtro.</div>';
+      return;
+    }
+
+    container.innerHTML = `
+      <div style="font-size:12px; color:var(--text-muted); margin-bottom:8px;">
+        O WhatsApp não permite envio automático em massa — clica em cada botão pra abrir a conversa já com a mensagem pronta:
+      </div>` +
+      lista.map(c => {
+        const texto = preencherTemplateJS(corpo, c);
+        return `
+          <div class="lista-item">
+            <span>${c.nome}</span>
+            <a class="btn" style="padding:6px 12px; font-size:12px;" href="https://wa.me/${c.whatsapp}?text=${encodeURIComponent(texto)}" target="_blank">Abrir</a>
+          </div>`;
+      }).join('');
+  }
+
   function renderizar() {
     const busca = document.getElementById('busca').value.toLowerCase();
     let lista = clientes.filter(c => c.nome?.toLowerCase().includes(busca));
@@ -964,21 +1117,21 @@
       return `
         <tr>
           <td data-label=""><span class="signal ${sinalClasse}"><span></span><span></span><span></span><span></span></span></td>
-          <td data-label="Cliente">
+          <td data-label="Cliente" class="td-primary">
             <div class="cliente-nome">${c.nome}</div>
-            <div class="cliente-sub">${c.email || 'sem e-mail'}</div>
+            <div class="cliente-sub-email">${c.email || 'sem e-mail'}</div>
           </td>
-          <td data-label="Usuário" class="mono">${c.usuario || '—'}</td>
-          <td data-label="Servidor">${c.servidor || '—'}</td>
-          <td data-label="Vencimento">
+          <td data-label="Usuário" class="mono td-primary">${c.usuario || '—'}</td>
+          <td data-label="Servidor" class="td-primary">${c.servidor || '—'}</td>
+          <td data-label="Vencimento" class="td-secondary-mobile">
             <div class="mono">${dataFormatada}</div>
             <div class="cliente-sub">${diasTexto}</div>
           </td>
-          <td data-label="Plano" class="mono">R$ ${Number(c.planoValor || 0).toFixed(2)}</td>
-          <td data-label="Notif.">
+          <td data-label="Plano" class="mono td-hide-mobile">R$ ${Number(c.planoValor || 0).toFixed(2)}</td>
+          <td data-label="Notif." class="td-hide-mobile">
             <span class="badge ${c.notificacaoAtiva ? 'ativo' : 'inativo'}">${c.notificacaoAtiva ? '🔔 ativa' : '🔕 inativa'}</span>
           </td>
-          <td data-label="Status"><span class="badge ${c.status}">${c.status}</span></td>
+          <td data-label="Status" class="td-hide-mobile"><span class="badge ${c.status}">${c.status}</span></td>
           <td data-label="Ações" class="actions-cell">
             <div class="actions">
               <button class="icon-btn whats" onclick="abrirRenovacao('${c.id}')" title="Renovar cliente">🔄</button>
@@ -1012,6 +1165,7 @@
     document.getElementById('cliente-id').value = '';
     document.getElementById('f-nome').value = '';
     document.getElementById('f-usuario').value = '';
+    document.getElementById('f-senha').value = '';
     document.getElementById('f-whatsapp').value = '';
     document.getElementById('f-email').value = '';
     preencherSelectServidores();
@@ -1032,6 +1186,7 @@
     document.getElementById('cliente-id').value = c.id;
     document.getElementById('f-nome').value = c.nome || '';
     document.getElementById('f-usuario').value = c.usuario || '';
+    document.getElementById('f-senha').value = c.senha || '';
     document.getElementById('f-whatsapp').value = c.whatsapp || '';
     document.getElementById('f-email').value = c.email || '';
     preencherSelectServidores();
@@ -1045,6 +1200,7 @@
     const id = document.getElementById('cliente-id').value;
     const nome = document.getElementById('f-nome').value.trim();
     const usuario = document.getElementById('f-usuario').value.trim();
+    const senha = document.getElementById('f-senha').value.trim();
     const whatsapp = document.getElementById('f-whatsapp').value.replace(/\D/g,'');
     const email = document.getElementById('f-email').value.trim();
     const servidor = document.getElementById('f-servidor').value.trim();
@@ -1061,11 +1217,11 @@
     if (id) {
       await fetch(`${FIREBASE_DB}/clientes/${id}.json`, {
         method: 'PATCH',
-        body: JSON.stringify({ nome, usuario, whatsapp, email, servidor, planoValor, vencimento })
+        body: JSON.stringify({ nome, usuario, senha, whatsapp, email, servidor, planoValor, vencimento })
       });
     } else {
       const novoCliente = {
-        nome, usuario, whatsapp, email, servidor, planoValor, vencimento,
+        nome, usuario, senha, whatsapp, email, servidor, planoValor, vencimento,
         status: 'ativo',
         fcmToken: null,
         notificacaoAtiva: false,
@@ -1226,6 +1382,9 @@
       alert('Erro ao renovar cliente.');
     }
   }
+
+  document.getElementById('remkt-status').addEventListener('change', atualizarContagemRemarketing);
+  document.getElementById('remkt-servidor').addEventListener('change', atualizarContagemRemarketing);
 
   carregarClientes();
 </script>
