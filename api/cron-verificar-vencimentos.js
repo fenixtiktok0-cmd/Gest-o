@@ -83,13 +83,17 @@ module.exports = async (req, res) => {
       // E-mail
       if (cliente.email) {
         try {
-          await resend.emails.send({
+          const resultado = await resend.emails.send({
             from: process.env.RESEND_FROM,
             to: cliente.email,
             subject: preencherTemplate(templates.emailAssunto || 'Aviso de vencimento', cliente),
             text: preencherTemplate(templates.emailCorpo || corpo, cliente),
           });
-          log.emails++;
+          if (resultado.error) {
+            log.erros.push(`email ${id}: ${resultado.error.message || JSON.stringify(resultado.error)}`);
+          } else {
+            log.emails++;
+          }
         } catch (err) {
           log.erros.push(`email ${id}: ${err.message}`);
         }
