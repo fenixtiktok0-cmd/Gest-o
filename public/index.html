@@ -159,6 +159,8 @@
     min-width: 180px;
   }
 
+  .table-scroll { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
   table {
     width: 100%;
     border-collapse: collapse;
@@ -383,10 +385,44 @@
     .cliente-sub-email, .td-hide-mobile { display: none !important; }
     .td-secondary-mobile { opacity: 0.65; font-size: 12px !important; padding: 3px 0 !important; }
     .td-secondary-mobile::before { font-size: 11px !important; }
+
+    /* Modo Lista: volta pro formato de tabela real, com scroll horizontal */
+    body.view-list table { display: table !important; min-width: 680px; }
+    body.view-list thead { display: table-header-group !important; }
+    body.view-list tbody { display: table-row-group !important; }
+    body.view-list tr { display: table-row !important; border-bottom: none !important; }
+    body.view-list td {
+      display: table-cell !important;
+      width: auto !important;
+      padding: 10px 12px !important;
+      white-space: nowrap;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px !important;
+      opacity: 1 !important;
+    }
+    body.view-list td::before { content: none !important; }
+    body.view-list .cliente-sub-email { display: block !important; font-size: 11px; }
+    body.view-list .td-hide-mobile { display: table-cell !important; }
+    body.view-list .cliente-nome { font-size: 14px; }
+    body.view-list .actions-cell { white-space: nowrap; }
+    body.view-list .actions { flex-wrap: nowrap; }
   }
 </style>
 </head>
 <body>
+
+<div class="overlay open" id="overlay-pin" style="z-index:300;">
+  <div class="modal" style="max-width:320px; text-align:center;">
+    <h2>Acesso restrito</h2>
+    <p style="color:var(--text-muted); font-size:13px; margin-bottom:16px;">Digite o PIN pra entrar no painel</p>
+    <input type="password" id="pin-input" maxlength="6" inputmode="numeric"
+      style="width:100%; text-align:center; font-size:22px; letter-spacing:8px; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:12px; color:var(--text); box-sizing:border-box;"
+      placeholder="••••••">
+    <button class="btn btn-primary" style="width:100%; margin-top:14px;" onclick="verificarPin()">Entrar</button>
+    <div id="pin-erro" style="color:var(--danger); font-size:12px; margin-top:10px; display:none;">PIN incorreto.</div>
+  </div>
+</div>
+
 
 <header>
   <h1><span class="signal-dot"></span> Gestão de Clientes</h1>
@@ -427,6 +463,10 @@
 
   <div class="toolbar">
     <input type="text" id="busca" placeholder="Buscar cliente..." oninput="renderizar()">
+    <div style="display:flex; gap:4px;">
+      <button class="filter-chip active" id="btn-view-grade" onclick="setModoVisualizacao('grade')">🔲 Grade</button>
+      <button class="filter-chip" id="btn-view-lista" onclick="setModoVisualizacao('lista')">☰ Lista</button>
+    </div>
     <button class="filter-chip active" data-filtro="todos" onclick="filtrar('todos')">Todos</button>
     <button class="filter-chip" data-filtro="ativo" onclick="filtrar('ativo')">Ativos</button>
     <button class="filter-chip" data-filtro="3dias" onclick="filtrar('3dias')">Vencendo 3d</button>
@@ -434,22 +474,24 @@
     <button class="filter-chip" data-filtro="vencido" onclick="filtrar('vencido')">Vencidos</button>
   </div>
 
-  <table>
-    <thead>
-      <tr>
-        <th></th>
-        <th>Cliente</th>
-        <th>Usuário</th>
-        <th>Servidor</th>
-        <th>Vencimento</th>
-        <th>Plano</th>
-        <th>Notif.</th>
-        <th>Status</th>
-        <th>Ações</th>
-      </tr>
-    </thead>
-    <tbody id="tabela-clientes"></tbody>
-  </table>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th></th>
+          <th>Cliente</th>
+          <th>Usuário</th>
+          <th>Servidor</th>
+          <th>Vencimento</th>
+          <th>Plano</th>
+          <th>Notif.</th>
+          <th>Status</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody id="tabela-clientes"></tbody>
+    </table>
+  </div>
 
   <div class="empty-state" id="empty-state" style="display:none">
     Nenhum cliente encontrado.
@@ -725,6 +767,35 @@
 </div>
 
 <script>
+  // ---- PIN de acesso ----
+  const PIN_CORRETO = '891322';
+  function verificarPin() {
+    const valor = document.getElementById('pin-input').value;
+    if (valor === PIN_CORRETO) {
+      localStorage.setItem('painelDesbloqueado', 'sim');
+      document.getElementById('overlay-pin').classList.remove('open');
+    } else {
+      document.getElementById('pin-erro').style.display = 'block';
+      document.getElementById('pin-input').value = '';
+    }
+  }
+  if (localStorage.getItem('painelDesbloqueado') === 'sim') {
+    document.getElementById('overlay-pin').classList.remove('open');
+  }
+  document.getElementById('pin-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') verificarPin();
+  });
+
+  // ---- Modo de visualização (Grade / Lista) ----
+  function setModoVisualizacao(modo) {
+    document.body.classList.remove('view-grade', 'view-list');
+    document.body.classList.add('view-' + modo);
+    document.getElementById('btn-view-grade').classList.toggle('active', modo === 'grade');
+    document.getElementById('btn-view-lista').classList.toggle('active', modo === 'lista');
+    localStorage.setItem('modoVisualizacao', modo);
+  }
+  setModoVisualizacao(localStorage.getItem('modoVisualizacao') || 'grade');
+
   // ---- Config Firebase (REST API) ----
   const FIREBASE_DB = "https://gestao-clientes-a1664-default-rtdb.europe-west1.firebasedatabase.app";
 
