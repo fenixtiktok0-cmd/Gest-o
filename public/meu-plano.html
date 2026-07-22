@@ -146,8 +146,8 @@
       // Com a página aberta em primeiro plano, o Firebase não mostra a
       // notificação sozinho (mensagens "somente dados") — mostramos na mão.
       messaging.onMessage((payload) => {
-        const titulo = payload.data?.title || 'Aviso sobre seu plano';
-        const corpo = payload.data?.body || '';
+        const titulo = payload.notification?.title || 'Aviso sobre seu plano';
+        const corpo = payload.notification?.body || '';
         const notif = new Notification(titulo, { body: corpo });
         notif.onclick = () => {
           if (payload.data?.link) window.open(payload.data.link, '_blank');
