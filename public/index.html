@@ -447,6 +447,28 @@
   </div>
 </div>
 
+<div class="overlay" id="overlay-renovar">
+  <div class="modal">
+    <h2>Renovar cliente</h2>
+    <input type="hidden" id="renovar-cliente-id">
+    <div class="field">
+      <label>Renovar por quantos dias?</label>
+      <input type="text" id="renovar-dias" value="30">
+    </div>
+    <div class="field">
+      <label>Base da renovação</label>
+      <div style="display:flex; gap:8px;">
+        <button class="filter-chip active" id="base-vencimento" onclick="setBaseRenovacao('vencimento')">A partir do vencimento atual</button>
+        <button class="filter-chip" id="base-hoje" onclick="setBaseRenovacao('hoje')">A partir de hoje</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharRenovacao()">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmarRenovacao()">Renovar e notificar</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="overlay-config">
   <div class="modal">
     <h2>Configurações</h2>
@@ -504,6 +526,13 @@
     </div>
 
     <div class="template-block">
+      <h3>Comprovante de renovação (botão 🔄)</h3>
+      <div class="quando">Enviado pro cliente quando você renova o plano dele</div>
+      <textarea id="tpl-comprovanteRenovacao"></textarea>
+      <div class="var-chips" data-target="tpl-comprovanteRenovacao"></div>
+    </div>
+
+    <div class="template-block">
       <h3>Assunto do e-mail</h3>
       <div class="quando">Usado em todos os e-mails automáticos</div>
       <textarea id="tpl-emailAssunto" style="min-height:36px"></textarea>
@@ -538,6 +567,7 @@
     msgVencimento: 'Olá {nome}! Seu plano vence hoje ({data_vencimento}). Valor: R$ {valor_plano}. Renova pra não perder o acesso?',
     msg3diasVencido: 'Olá {nome}! Seu plano venceu há 3 dias ({data_vencimento}). Valor: R$ {valor_plano}. Vamos regularizar hoje?',
     msgManual: 'Olá {nome}! Passando aqui sobre o seu plano ({servidor}), vencimento em {data_vencimento}. Qualquer coisa me chama!',
+    comprovanteRenovacao: 'Olá {nome}! Seu plano foi renovado com sucesso ✅\nNovo vencimento: {data_vencimento}\nValor: R$ {valor_plano}\nObrigado pela confiança!',
     emailAssunto: 'Seu plano vence em breve',
     emailCorpo: 'Olá {nome},\n\nSeu plano ({servidor}) vence em {data_vencimento}. Valor: R$ {valor_plano}.\n\nQualquer dúvida, chama no WhatsApp.'
   };
@@ -576,7 +606,7 @@
   async function abrirMensagens() {
     const res = await fetch(`${FIREBASE_DB}/config/templates.json`);
     const salvos = await res.json() || {};
-    const chaves = ['msg7dias', 'msg3dias', 'msgVencimento', 'msg3diasVencido', 'msgManual', 'emailAssunto', 'emailCorpo'];
+    const chaves = ['msg7dias', 'msg3dias', 'msgVencimento', 'msg3diasVencido', 'msgManual', 'comprovanteRenovacao', 'emailAssunto', 'emailCorpo'];
     chaves.forEach(chave => {
       document.getElementById(`tpl-${chave}`).value = salvos[chave] || TEMPLATES_PADRAO[chave];
     });
@@ -589,7 +619,7 @@
   }
 
   async function salvarMensagens() {
-    const chaves = ['msg7dias', 'msg3dias', 'msgVencimento', 'msg3diasVencido', 'msgManual', 'emailAssunto', 'emailCorpo'];
+    const chaves = ['msg7dias', 'msg3dias', 'msgVencimento', 'msg3diasVencido', 'msgManual', 'comprovanteRenovacao', 'emailAssunto', 'emailCorpo'];
     const templates = {};
     chaves.forEach(chave => {
       templates[chave] = document.getElementById(`tpl-${chave}`).value;
@@ -701,6 +731,7 @@
           <td data-label="Status"><span class="badge ${c.status}">${c.status}</span></td>
           <td data-label="Ações">
             <div class="actions">
+              <button class="icon-btn whats" onclick="abrirRenovacao('${c.id}')" title="Renovar cliente">🔄</button>
               <a class="icon-btn" href="${linkAtivacao}" target="_blank" title="Enviar link de ativação">🔗</a>
               <a class="icon-btn whats" href="${linkWhats}" target="_blank" title="Enviar WhatsApp">💬</a>
               <button class="icon-btn push" onclick="enviarPushManual('${c.id}')" title="Enviar push">🔔</button>
@@ -841,6 +872,69 @@
     });
     fecharConfig();
     alert('Configurações salvas!');
+  }
+
+  let baseRenovacao = 'vencimento';
+
+  function abrirRenovacao(id) {
+    document.getElementById('renovar-cliente-id').value = id;
+    document.getElementById('renovar-dias').value = '30';
+    setBaseRenovacao('vencimento');
+    document.getElementById('overlay-renovar').classList.add('open');
+  }
+
+  function fecharRenovacao() {
+    document.getElementById('overlay-renovar').classList.remove('open');
+  }
+
+  function setBaseRenovacao(tipo) {
+    baseRenovacao = tipo;
+    document.getElementById('base-vencimento').classList.toggle('active', tipo === 'vencimento');
+    document.getElementById('base-hoje').classList.toggle('active', tipo === 'hoje');
+  }
+
+  async function confirmarRenovacao() {
+    const id = document.getElementById('renovar-cliente-id').value;
+    const dias = parseInt(document.getElementById('renovar-dias').value, 10);
+    if (!dias || dias <= 0) { alert('Informe uma quantidade de dias válida.'); return; }
+
+    const cliente = clientes.find(c => c.id === id);
+    if (!cliente) return;
+
+    const agora = Date.now();
+    const baseTimestamp = baseRenovacao === 'hoje'
+      ? agora
+      : Math.max(cliente.vencimento, agora);
+
+    const novoVencimento = baseTimestamp + dias * 24 * 60 * 60 * 1000;
+
+    try {
+      const res = await fetch('/api/renovar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clienteId: id, novoVencimento })
+      });
+      const data = await res.json();
+
+      if (!data.ok) {
+        alert('Erro ao renovar: ' + (data.erro || 'desconhecido'));
+        return;
+      }
+
+      fecharRenovacao();
+      await carregarClientes();
+
+      // Abre o WhatsApp DO CLIENTE (não o do suporte) com o comprovante pronto
+      const whatsappCliente = data.cliente.whatsapp;
+      const comprovante = data.comprovante || preencherTemplateJS(TEMPLATES_PADRAO.comprovanteRenovacao, data.cliente);
+      window.open(`https://wa.me/${whatsappCliente}?text=${encodeURIComponent(comprovante)}`, '_blank');
+
+      alert(data.pushEnviado
+        ? 'Renovado! Push enviado e WhatsApp aberto com o comprovante.'
+        : 'Renovado! (o cliente ainda não ativou push, mas o WhatsApp com o comprovante foi aberto)');
+    } catch (err) {
+      alert('Erro ao renovar cliente.');
+    }
   }
 
   carregarClientes();
