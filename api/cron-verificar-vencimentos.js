@@ -30,7 +30,7 @@ module.exports = async (req, res) => {
     const templates = templatesSnap.val() || {};
     const hojeStr = new Date().toDateString();
 
-    const log = { processados: 0, push3dias: 0, pushVencimento: 0, emails: 0, erros: [] };
+    const log = { processados: 0, emails: 0, erros: [] };
 
     for (const [id, cliente] of Object.entries(clientes)) {
       if (cliente.status !== 'ativo') continue;
@@ -38,8 +38,10 @@ module.exports = async (req, res) => {
 
       const dias = diasAte(cliente.vencimento);
       let tipo = null;
-      if (dias === 3) tipo = '3dias';
+      if (dias === 7) tipo = '7dias';
+      else if (dias === 3) tipo = '3dias';
       else if (dias === 0) tipo = 'vencimento';
+      else if (dias === -3) tipo = '3diasVencido';
       if (!tipo) continue;
 
       // Evita duplicar envio no mesmo dia para o mesmo tipo
@@ -48,7 +50,13 @@ module.exports = async (req, res) => {
         new Date(cliente.ultimaNotificacao?.data || 0).toDateString() === hojeStr;
       if (jaEnviadoHoje) continue;
 
-      const templateMsg = tipo === '3dias' ? templates.msg3dias : templates.msgVencimento;
+      const mapaTemplate = {
+        '7dias': templates.msg7dias,
+        '3dias': templates.msg3dias,
+        vencimento: templates.msgVencimento,
+        '3diasVencido': templates.msg3diasVencido,
+      };
+      const templateMsg = mapaTemplate[tipo];
       const corpo = preencherTemplate(templateMsg || '', cliente);
 
       // Push
@@ -61,8 +69,7 @@ module.exports = async (req, res) => {
               fcmOptions: { link: `${process.env.APP_URL}/meu-plano.html?id=${id}` },
             },
           });
-          if (tipo === '3dias') log.push3dias++;
-          else log.pushVencimento++;
+          log[`push_${tipo}`] = (log[`push_${tipo}`] || 0) + 1;
         } catch (err) {
           log.erros.push(`push ${id}: ${err.message}`);
         }
