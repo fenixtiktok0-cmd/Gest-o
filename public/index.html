@@ -555,7 +555,7 @@
   <button class="btn btn-primary" style="width:100%; margin-bottom:18px; padding:13px;" onclick="abrirModal()">+ Novo cliente</button>
 
   <div class="toolbar">
-    <input type="text" id="busca" placeholder="Buscar por nome, usuário ou telefone..." oninput="renderizar()">
+    <input type="text" id="busca" placeholder="Buscar por nome, usuário ou telefone..." oninput="buscaComAtraso()">
     <div style="display:flex; gap:4px;">
       <button class="filter-chip active" id="btn-view-grade" onclick="setModoVisualizacao('grade')">🔲 Grade</button>
       <button class="filter-chip" id="btn-view-lista" onclick="setModoVisualizacao('lista')">☰ Lista</button>
@@ -1385,6 +1385,12 @@
     document.getElementById('stat-vencidos').textContent = vencidos;
   }
 
+  let timeoutBusca = null;
+  function buscaComAtraso() {
+    clearTimeout(timeoutBusca);
+    timeoutBusca = setTimeout(renderizar, 250);
+  }
+
   function filtrar(tipo) {
     filtroAtual = tipo;
     document.querySelectorAll('.filter-chip').forEach(el => el.classList.remove('active'));
@@ -1702,10 +1708,11 @@
 
   function renderizar() {
     const busca = document.getElementById('busca').value.toLowerCase();
+    const buscaDigitos = busca.replace(/\D/g, '');
     let lista = clientes.filter(c =>
       c.nome?.toLowerCase().includes(busca) ||
       c.usuario?.toLowerCase().includes(busca) ||
-      c.whatsapp?.includes(busca.replace(/\D/g, ''))
+      (buscaDigitos.length > 0 && c.whatsapp?.includes(buscaDigitos))
     );
 
     if (filtroAtual === 'ativo') lista = lista.filter(c => statusCalculado(c) === 'ativo');
