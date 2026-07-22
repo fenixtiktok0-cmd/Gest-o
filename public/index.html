@@ -1233,7 +1233,7 @@
       .replaceAll('{valor_plano}', Number(c.planoValor || 0).toFixed(2))
       .replaceAll('{servidor}', c.servidor || '')
       .replaceAll('{dias_restantes}', String(dias))
-      .replaceAll('{status}', c.status || '');
+      .replaceAll('{status}', statusCalculado(c));
   }
 
   function montarChips() {
@@ -1351,11 +1351,15 @@
     if (valorAtual) select.value = valorAtual;
   }
 
+  function statusCalculado(c) {
+    return diasAte(c.vencimento) < 0 ? 'inativo' : 'ativo';
+  }
+
   function atualizarStats() {
-    const ativos = clientes.filter(c => c.status === 'ativo');
-    const em3dias = ativos.filter(c => diasAte(c.vencimento) === 3).length;
-    const hoje = ativos.filter(c => diasAte(c.vencimento) === 0).length;
-    const vencidos = ativos.filter(c => diasAte(c.vencimento) < 0).length;
+    const ativos = clientes.filter(c => statusCalculado(c) === 'ativo');
+    const em3dias = clientes.filter(c => diasAte(c.vencimento) === 3).length;
+    const hoje = clientes.filter(c => diasAte(c.vencimento) === 0).length;
+    const vencidos = clientes.filter(c => diasAte(c.vencimento) < 0).length;
 
     document.getElementById('stat-total').textContent = clientes.length;
     document.getElementById('stat-ativos').textContent = ativos.length;
@@ -1583,7 +1587,7 @@
     const status = document.getElementById('remkt-status').value;
     const servidor = document.getElementById('remkt-servidor').value;
     let lista = clientes;
-    if (status === 'ativo') lista = lista.filter(c => c.status === 'ativo');
+    if (status === 'ativo') lista = lista.filter(c => statusCalculado(c) === 'ativo');
     if (status === '3dias') lista = lista.filter(c => diasAte(c.vencimento) === 3);
     if (status === 'hoje') lista = lista.filter(c => diasAte(c.vencimento) === 0);
     if (status === 'vencido') lista = lista.filter(c => diasAte(c.vencimento) < 0);
@@ -1683,7 +1687,7 @@
     const busca = document.getElementById('busca').value.toLowerCase();
     let lista = clientes.filter(c => c.nome?.toLowerCase().includes(busca));
 
-    if (filtroAtual === 'ativo') lista = lista.filter(c => c.status === 'ativo');
+    if (filtroAtual === 'ativo') lista = lista.filter(c => statusCalculado(c) === 'ativo');
     if (filtroAtual === '3dias') lista = lista.filter(c => diasAte(c.vencimento) === 3);
     if (filtroAtual === 'hoje') lista = lista.filter(c => diasAte(c.vencimento) === 0);
     if (filtroAtual === 'vencido') lista = lista.filter(c => diasAte(c.vencimento) < 0);
@@ -1733,7 +1737,7 @@
           <td data-label="Notif." class="td-hide-mobile">
             <span class="badge ${c.notificacaoAtiva ? 'ativo' : 'inativo'}">${c.notificacaoAtiva ? '🔔 ativa' : '🔕 inativa'}</span>
           </td>
-          <td data-label="Status" class="td-hide-mobile"><span class="badge ${c.status}">${c.status}</span></td>
+          <td data-label="Status" class="td-hide-mobile"><span class="badge ${statusCalculado(c)}">${statusCalculado(c)}</span></td>
           <td data-label="Ações" class="actions-cell">
             <div class="actions">
               <button class="icon-btn whats" onclick="abrirRenovacao('${c.id}')" title="Renovar cliente">🔄</button>
