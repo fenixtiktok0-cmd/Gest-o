@@ -429,10 +429,45 @@
   <button class="btn" onclick="abrirMenu()" style="font-size:20px; padding:8px 14px;">☰</button>
 </header>
 
+<div class="overlay" id="overlay-personalizacao">
+  <div class="modal">
+    <h2>Personalização da página do cliente</h2>
+    <p style="font-size:12px; color:var(--text-muted); margin-top:-10px; margin-bottom:16px;">
+      Isso muda como o cliente vê a página /meu-plano.html
+    </p>
+    <div class="field">
+      <label>Nome da marca</label>
+      <input type="text" id="pz-nome" placeholder="Fênix Play">
+    </div>
+    <div class="field">
+      <label>URL do logo (opcional)</label>
+      <input type="text" id="pz-logo" placeholder="https://exemplo.com/logo.png">
+    </div>
+    <div class="field">
+      <label>Cor principal do tema</label>
+      <input type="color" id="pz-cor" value="#34D399" style="width:100%; height:44px; padding:4px; background:var(--surface-2); border:1px solid var(--border); border-radius:8px;">
+    </div>
+    <div class="field">
+      <label>Texto do botão de notificação</label>
+      <input type="text" id="pz-texto-notif" placeholder="Ativar notificações">
+    </div>
+    <div class="field">
+      <label>Texto do botão de suporte</label>
+      <input type="text" id="pz-texto-suporte" placeholder="💬 Falar com o suporte agora">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharPersonalizacao()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarPersonalizacao()">Salvar</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="overlay-menu">
   <div class="modal" style="max-width:340px;">
     <h2>Menu</h2>
     <div style="display:flex; flex-direction:column; gap:8px;">
+      <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirPersonalizacao();">🎨 Personalização</button>
+      <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirAplicativos();">📲 Aplicativos</button>
       <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirServidores();">🖥️ Servidores</button>
       <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirRemarketing();">📣 Remarketing</button>
       <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirNotificacoes();">🔔 Notificações</button>
@@ -525,6 +560,15 @@
     <div class="field">
       <label>Senha (do servidor)</label>
       <input type="text" id="f-senha" placeholder="senha123">
+    </div>
+    <div class="field">
+      <label>Aplicativos que o cliente usa</label>
+      <div id="f-aplicativos-lista" style="display:flex; flex-direction:column; gap:6px;">
+        <div style="color:var(--text-muted); font-size:12px;">Nenhum aplicativo cadastrado ainda.</div>
+      </div>
+      <div style="margin-top:6px;">
+        <a href="javascript:void(0)" onclick="abrirAplicativos()" style="font-size:12px; color:var(--text-muted);">+ cadastrar novo aplicativo</a>
+      </div>
     </div>
     <div class="field">
       <label>WhatsApp (com DDI, só números)</label>
@@ -629,6 +673,25 @@
       <button class="btn btn-primary" onclick="enviarEmailMassa()">✉️ E-mail em massa</button>
     </div>
     <div id="remkt-links-whats" style="margin-top:14px; max-height:220px; overflow-y:auto;"></div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-aplicativos">
+  <div class="modal">
+    <h2>Aplicativos</h2>
+    <div class="field">
+      <label>Nome do app</label>
+      <input type="text" id="novo-app-nome" placeholder="Ex: IBO Player">
+    </div>
+    <div class="field">
+      <label>Código de ativação</label>
+      <input type="text" id="novo-app-codigo" placeholder="Ex: 123456">
+    </div>
+    <button class="btn btn-primary" style="width:100%;" onclick="adicionarAplicativo()">Adicionar</button>
+    <div id="lista-aplicativos" style="margin-top:16px;"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharAplicativos()">Fechar</button>
+    </div>
   </div>
 </div>
 
@@ -810,6 +873,36 @@
     if (e.key === 'Enter') verificarPin();
   });
 
+  // ---- Personalização ----
+  async function abrirPersonalizacao() {
+    const res = await fetch(`${FIREBASE_DB}/config/marca.json`);
+    const marca = await res.json() || {};
+    document.getElementById('pz-nome').value = marca.nome || '';
+    document.getElementById('pz-logo').value = marca.logoUrl || '';
+    document.getElementById('pz-cor').value = marca.corPrimaria || '#34D399';
+    document.getElementById('pz-texto-notif').value = marca.textoBotaoNotificacao || 'Ativar notificações';
+    document.getElementById('pz-texto-suporte').value = marca.textoBotaoSuporte || '💬 Falar com o suporte agora';
+    document.getElementById('overlay-personalizacao').classList.add('open');
+  }
+  function fecharPersonalizacao() {
+    document.getElementById('overlay-personalizacao').classList.remove('open');
+  }
+  async function salvarPersonalizacao() {
+    const marca = {
+      nome: document.getElementById('pz-nome').value.trim(),
+      logoUrl: document.getElementById('pz-logo').value.trim(),
+      corPrimaria: document.getElementById('pz-cor').value,
+      textoBotaoNotificacao: document.getElementById('pz-texto-notif').value.trim() || 'Ativar notificações',
+      textoBotaoSuporte: document.getElementById('pz-texto-suporte').value.trim() || '💬 Falar com o suporte agora'
+    };
+    await fetch(`${FIREBASE_DB}/config.json`, {
+      method: 'PATCH',
+      body: JSON.stringify({ marca })
+    });
+    fecharPersonalizacao();
+    alert('Personalização salva! A página do cliente já reflete isso.');
+  }
+
   // ---- Menu (mobile) ----
   function abrirMenu() {
     document.getElementById('overlay-menu').classList.add('open');
@@ -833,6 +926,7 @@
 
   let clientes = [];
   let servidores = [];
+  let aplicativos = [];
   let filtroAtual = 'todos';
   let templatesConfig = {};
 
@@ -932,8 +1026,29 @@
     clientes = Object.entries(data).map(([id, c]) => ({ id, ...c }));
     await carregarTemplatesConfig();
     await carregarServidores();
+    await carregarAplicativos();
     atualizarStats();
     renderizar();
+  }
+
+  async function carregarAplicativos() {
+    const res = await fetch(`${FIREBASE_DB}/aplicativos.json`);
+    const data = await res.json() || {};
+    aplicativos = Object.entries(data).map(([id, a]) => ({ id, ...a }));
+  }
+
+  function preencherChecklistAplicativos(selecionados = []) {
+    const container = document.getElementById('f-aplicativos-lista');
+    if (aplicativos.length === 0) {
+      container.innerHTML = '<div style="color:var(--text-muted); font-size:12px;">Nenhum aplicativo cadastrado ainda.</div>';
+      return;
+    }
+    container.innerHTML = aplicativos.map(a => `
+      <label style="display:flex; align-items:center; gap:8px; font-size:14px; cursor:pointer;">
+        <input type="checkbox" class="chk-app" value="${a.id}" ${selecionados.includes(a.id) ? 'checked' : ''}>
+        ${a.nome} <span class="mono" style="color:var(--text-muted); font-size:12px;">(${a.codigo})</span>
+      </label>
+    `).join('');
   }
 
   async function carregarServidores() {
@@ -1009,6 +1124,47 @@
     await fetch(`${FIREBASE_DB}/servidores/${id}.json`, { method: 'DELETE' });
     await carregarServidores();
     renderizarListaServidores();
+  }
+
+  // ---- Aplicativos ----
+  function abrirAplicativos() {
+    renderizarListaAplicativos();
+    document.getElementById('overlay-aplicativos').classList.add('open');
+  }
+  function fecharAplicativos() {
+    document.getElementById('overlay-aplicativos').classList.remove('open');
+  }
+  function renderizarListaAplicativos() {
+    const container = document.getElementById('lista-aplicativos');
+    if (aplicativos.length === 0) {
+      container.innerHTML = '<div style="color:var(--text-muted); font-size:13px;">Nenhum aplicativo cadastrado ainda.</div>';
+      return;
+    }
+    container.innerHTML = aplicativos.map(a => `
+      <div class="lista-item">
+        <span>${a.nome} <span class="mono" style="color:var(--text-muted); font-size:12px;">(${a.codigo})</span></span>
+        <button class="del-mini" onclick="excluirAplicativo('${a.id}')">remover</button>
+      </div>
+    `).join('');
+  }
+  async function adicionarAplicativo() {
+    const nome = document.getElementById('novo-app-nome').value.trim();
+    const codigo = document.getElementById('novo-app-codigo').value.trim();
+    if (!nome || !codigo) { alert('Preenche o nome e o código.'); return; }
+    await fetch(`${FIREBASE_DB}/aplicativos.json`, {
+      method: 'POST',
+      body: JSON.stringify({ nome, codigo })
+    });
+    document.getElementById('novo-app-nome').value = '';
+    document.getElementById('novo-app-codigo').value = '';
+    await carregarAplicativos();
+    renderizarListaAplicativos();
+  }
+  async function excluirAplicativo(id) {
+    if (!confirm('Remover esse aplicativo da lista?')) return;
+    await fetch(`${FIREBASE_DB}/aplicativos/${id}.json`, { method: 'DELETE' });
+    await carregarAplicativos();
+    renderizarListaAplicativos();
   }
 
   // ---- Notificações ----
@@ -1295,6 +1451,7 @@
           <td data-label="Ações" class="actions-cell">
             <div class="actions">
               <button class="icon-btn whats" onclick="abrirRenovacao('${c.id}')" title="Renovar cliente">🔄</button>
+              <button class="icon-btn" onclick="enviarAcesso('${c.id}')" title="Enviar dados de acesso">📲</button>
               <a class="icon-btn" href="${linkAtivacao}" target="_blank" title="Enviar link de ativação">🔗</a>
               <a class="icon-btn whats" href="${linkWhats}" target="_blank" title="Enviar WhatsApp">💬</a>
               <button class="icon-btn push" onclick="enviarPushManual('${c.id}')" title="Enviar push">🔔</button>
@@ -1320,6 +1477,28 @@
     return preencherTemplateJS(template, c);
   }
 
+  function enviarAcesso(id) {
+    const c = clientes.find(x => x.id === id);
+    if (!c) return;
+
+    const appsDoCliente = (c.aplicativosIds || [])
+      .map(appId => aplicativos.find(a => a.id === appId))
+      .filter(Boolean);
+
+    let mensagem = `Olá ${c.nome}! Segue seus dados de acesso:\n`;
+
+    if (appsDoCliente.length > 0) {
+      appsDoCliente.forEach(app => {
+        mensagem += `\n📱 App: ${app.nome}\n🔑 Código: ${app.codigo}`;
+      });
+      mensagem += '\n';
+    }
+
+    mensagem += `\n👤 Usuário: ${c.usuario || '—'}\n🔒 Senha: ${c.senha || '—'}`;
+
+    window.open(`https://wa.me/${c.whatsapp}?text=${encodeURIComponent(mensagem)}`, '_blank');
+  }
+
   function abrirModal() {
     document.getElementById('modal-titulo').textContent = 'Novo cliente';
     document.getElementById('cliente-id').value = '';
@@ -1330,6 +1509,7 @@
     document.getElementById('f-email').value = '';
     preencherSelectServidores();
     document.getElementById('f-servidor').value = '';
+    preencherChecklistAplicativos([]);
     document.getElementById('f-valor').value = '';
     document.getElementById('f-vencimento').value = '';
     document.getElementById('overlay').classList.add('open');
@@ -1351,6 +1531,7 @@
     document.getElementById('f-email').value = c.email || '';
     preencherSelectServidores();
     document.getElementById('f-servidor').value = c.servidor || '';
+    preencherChecklistAplicativos(c.aplicativosIds || []);
     document.getElementById('f-valor').value = c.planoValor || '';
     document.getElementById('f-vencimento').value = new Date(c.vencimento).toISOString().slice(0,10);
     document.getElementById('overlay').classList.add('open');
@@ -1364,6 +1545,7 @@
     const whatsapp = document.getElementById('f-whatsapp').value.replace(/\D/g,'');
     const email = document.getElementById('f-email').value.trim();
     const servidor = document.getElementById('f-servidor').value.trim();
+    const aplicativosIds = Array.from(document.querySelectorAll('.chk-app:checked')).map(el => el.value);
     const planoValor = parseFloat(document.getElementById('f-valor').value) || 0;
     const vencimentoInput = document.getElementById('f-vencimento').value;
 
@@ -1377,11 +1559,11 @@
     if (id) {
       await fetch(`${FIREBASE_DB}/clientes/${id}.json`, {
         method: 'PATCH',
-        body: JSON.stringify({ nome, usuario, senha, whatsapp, email, servidor, planoValor, vencimento })
+        body: JSON.stringify({ nome, usuario, senha, whatsapp, email, servidor, aplicativosIds, planoValor, vencimento })
       });
     } else {
       const novoCliente = {
-        nome, usuario, senha, whatsapp, email, servidor, planoValor, vencimento,
+        nome, usuario, senha, whatsapp, email, servidor, aplicativosIds, planoValor, vencimento,
         status: 'ativo',
         fcmToken: null,
         notificacaoAtiva: false,
