@@ -426,16 +426,25 @@
 
 <header>
   <h1><span class="signal-dot"></span> Gestão de Clientes</h1>
-  <div style="display:flex; gap:10px; flex-wrap:wrap;">
-    <button class="btn" onclick="abrirServidores()">🖥️ Servidores</button>
-    <button class="btn" onclick="abrirRemarketing()">📣 Remarketing</button>
-    <button class="btn" onclick="abrirNotificacoes()">🔔 Notificações</button>
-    <button class="btn" onclick="abrirFinanceiro()">💰 Financeiro</button>
-    <button class="btn" onclick="abrirMensagens()">✉️ Mensagens</button>
-    <button class="btn" onclick="abrirConfig()">⚙️ Configurações</button>
-    <button class="btn btn-primary" onclick="abrirModal()">+ Novo cliente</button>
-  </div>
+  <button class="btn" onclick="abrirMenu()" style="font-size:20px; padding:8px 14px;">☰</button>
 </header>
+
+<div class="overlay" id="overlay-menu">
+  <div class="modal" style="max-width:340px;">
+    <h2>Menu</h2>
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirServidores();">🖥️ Servidores</button>
+      <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirRemarketing();">📣 Remarketing</button>
+      <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirNotificacoes();">🔔 Notificações</button>
+      <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirFinanceiro();">💰 Financeiro</button>
+      <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirMensagens();">✉️ Mensagens</button>
+      <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirConfig();">⚙️ Configurações</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharMenu()">Fechar</button>
+    </div>
+  </div>
+</div>
 
 <main>
   <div class="stats">
@@ -460,6 +469,8 @@
       <div class="value mono" id="stat-vencidos">0</div>
     </div>
   </div>
+
+  <button class="btn btn-primary" style="width:100%; margin-bottom:18px; padding:13px;" onclick="abrirModal()">+ Novo cliente</button>
 
   <div class="toolbar">
     <input type="text" id="busca" placeholder="Buscar cliente..." oninput="renderizar()">
@@ -661,9 +672,19 @@
 <div class="overlay" id="overlay-financeiro">
   <div class="modal wide">
     <h2>Financeiro</h2>
+    <div style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
+      <div class="field" style="flex:1; min-width:140px; margin-bottom:0;">
+        <label>Mês</label>
+        <select id="fin-filtro-mes"><option value="todos">Todos os meses</option></select>
+      </div>
+      <div class="field" style="flex:1; min-width:140px; margin-bottom:0;">
+        <label>Servidor</label>
+        <select id="fin-filtro-servidor"><option value="todos">Todos os servidores</option></select>
+      </div>
+    </div>
     <div class="stats" style="grid-template-columns: 1fr 1fr 1fr; margin-bottom:18px;">
       <div class="stat-card ok">
-        <div class="label">Total arrecadado</div>
+        <div class="label">Total no período</div>
         <div class="value mono" id="fin-total" style="font-size:22px;">R$ 0</div>
       </div>
       <div class="stat-card">
@@ -675,6 +696,9 @@
         <div class="value mono" id="fin-renovacoes" style="font-size:22px;">R$ 0</div>
       </div>
     </div>
+    <h3 style="font-size:14px; margin-bottom:8px;">Por servidor (no período)</h3>
+    <div id="fin-por-servidor" style="margin-bottom:18px;"></div>
+    <h3 style="font-size:14px; margin-bottom:8px;">Lançamentos</h3>
     <div id="lista-financeiro"></div>
     <div class="modal-actions">
       <button class="btn" onclick="fecharFinanceiro()">Fechar</button>
@@ -785,6 +809,14 @@
   document.getElementById('pin-input').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') verificarPin();
   });
+
+  // ---- Menu (mobile) ----
+  function abrirMenu() {
+    document.getElementById('overlay-menu').classList.add('open');
+  }
+  function fecharMenu() {
+    document.getElementById('overlay-menu').classList.remove('open');
+  }
 
   // ---- Modo de visualização (Grade / Lista) ----
   function setModoVisualizacao(modo) {
@@ -1009,6 +1041,7 @@
       body: JSON.stringify({
         clienteId: cliente.id,
         clienteNome: cliente.nome,
+        servidor: cliente.servidor || '—',
         valor: Number(valor) || 0,
         tipo,
         data: Date.now()
@@ -1016,11 +1049,50 @@
     });
   }
 
+  let financeiroRegistros = [];
+
+  function chaveMes(timestamp) {
+    const d = new Date(timestamp);
+    return `${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+  }
+  function nomeMes(chave) {
+    const [mes, ano] = chave.split('/');
+    const nomes = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+    return `${nomes[parseInt(mes,10)-1]}/${ano}`;
+  }
+
   async function abrirFinanceiro() {
     const res = await fetch(`${FIREBASE_DB}/financeiro.json`);
     const data = await res.json() || {};
-    const registros = Object.entries(data).map(([id, r]) => ({ id, ...r }))
+    financeiroRegistros = Object.entries(data).map(([id, r]) => ({ id, ...r }))
       .sort((a, b) => b.data - a.data);
+
+    // Popula filtro de meses com os meses que realmente têm lançamento
+    const meses = [...new Set(financeiroRegistros.map(r => chaveMes(r.data)))]
+      .sort((a, b) => {
+        const [ma, aa] = a.split('/'); const [mb, ab] = b.split('/');
+        return new Date(aa, ma) - new Date(ab, mb);
+      }).reverse();
+    const selectMes = document.getElementById('fin-filtro-mes');
+    selectMes.innerHTML = '<option value="todos">Todos os meses</option>' +
+      meses.map(m => `<option value="${m}">${nomeMes(m)}</option>`).join('');
+
+    // Popula filtro de servidor
+    const selectServidor = document.getElementById('fin-filtro-servidor');
+    selectServidor.innerHTML = '<option value="todos">Todos os servidores</option>' +
+      servidores.map(s => `<option value="${s.nome}">${s.nome}</option>`).join('');
+
+    renderizarFinanceiro();
+    document.getElementById('overlay-financeiro').classList.add('open');
+  }
+
+  function renderizarFinanceiro() {
+    const mesFiltro = document.getElementById('fin-filtro-mes').value;
+    const servidorFiltro = document.getElementById('fin-filtro-servidor').value;
+
+    let registros = financeiroRegistros;
+    if (mesFiltro !== 'todos') registros = registros.filter(r => chaveMes(r.data) === mesFiltro);
+    if (servidorFiltro !== 'todos') registros = registros.filter(r => r.servidor === servidorFiltro);
 
     const totalCadastros = registros.filter(r => r.tipo === 'cadastro').reduce((s, r) => s + r.valor, 0);
     const totalRenovacoes = registros.filter(r => r.tipo === 'renovacao').reduce((s, r) => s + r.valor, 0);
@@ -1030,6 +1102,24 @@
     document.getElementById('fin-cadastros').textContent = `R$ ${totalCadastros.toFixed(2)}`;
     document.getElementById('fin-renovacoes').textContent = `R$ ${totalRenovacoes.toFixed(2)}`;
 
+    // Resumo por servidor
+    const porServidor = {};
+    registros.forEach(r => {
+      const s = r.servidor || '—';
+      porServidor[s] = (porServidor[s] || 0) + r.valor;
+    });
+    const containerServidor = document.getElementById('fin-por-servidor');
+    const entradas = Object.entries(porServidor).sort((a, b) => b[1] - a[1]);
+    containerServidor.innerHTML = entradas.length === 0
+      ? '<div style="color:var(--text-muted); font-size:13px;">Nenhum lançamento nesse filtro.</div>'
+      : entradas.map(([servidor, valor]) => `
+        <div class="lista-item">
+          <span>${servidor}</span>
+          <span class="mono">R$ ${valor.toFixed(2)}</span>
+        </div>
+      `).join('');
+
+    // Lançamentos individuais
     const container = document.getElementById('lista-financeiro');
     container.innerHTML = registros.length === 0
       ? '<div style="color:var(--text-muted); font-size:13px;">Nenhum registro financeiro ainda.</div>'
@@ -1037,14 +1127,13 @@
         <div class="lista-item">
           <div>
             <div>${r.clienteNome}</div>
-            <div class="sub">${r.tipo === 'cadastro' ? 'Cadastro' : 'Renovação'} · ${new Date(r.data).toLocaleDateString('pt-BR')}</div>
+            <div class="sub">${r.tipo === 'cadastro' ? 'Cadastro' : 'Renovação'} · ${r.servidor || '—'} · ${new Date(r.data).toLocaleDateString('pt-BR')}</div>
           </div>
           <span class="mono">R$ ${Number(r.valor).toFixed(2)}</span>
         </div>
       `).join('');
-
-    document.getElementById('overlay-financeiro').classList.add('open');
   }
+
   function fecharFinanceiro() {
     document.getElementById('overlay-financeiro').classList.remove('open');
   }
@@ -1304,7 +1393,7 @@
         body: JSON.stringify(novoCliente)
       });
       const criado = await res.json();
-      await registrarFinanceiro({ id: criado.name, nome }, planoValor, 'cadastro');
+      await registrarFinanceiro({ id: criado.name, nome, servidor }, planoValor, 'cadastro');
     }
 
     fecharModal();
@@ -1438,7 +1527,7 @@
       }
 
       fecharRenovacao();
-      await registrarFinanceiro({ id: cliente.id, nome: cliente.nome }, cliente.planoValor, 'renovacao');
+      await registrarFinanceiro({ id: cliente.id, nome: cliente.nome, servidor: cliente.servidor }, cliente.planoValor, 'renovacao');
       await carregarClientes();
 
       // Abre o WhatsApp DO CLIENTE (não o do suporte) com o comprovante pronto
@@ -1456,6 +1545,8 @@
 
   document.getElementById('remkt-status').addEventListener('change', atualizarContagemRemarketing);
   document.getElementById('remkt-servidor').addEventListener('change', atualizarContagemRemarketing);
+  document.getElementById('fin-filtro-mes').addEventListener('change', renderizarFinanceiro);
+  document.getElementById('fin-filtro-servidor').addEventListener('change', renderizarFinanceiro);
 
   carregarClientes();
 </script>
