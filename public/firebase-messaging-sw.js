@@ -17,12 +17,21 @@ const messaging = firebase.messaging();
 // que o campo "data.link" chega certinho até o clique, sem depender da
 // estrutura interna que o Firebase usa quando exibe a notificação sozinho.
 messaging.onBackgroundMessage(function (payload) {
-  const titulo = payload.data?.title || 'Aviso';
-  const opcoes = {
-    body: payload.data?.body || '',
-    data: { link: payload.data?.link || '' },
-  };
-  return self.registration.showNotification(titulo, opcoes);
+  try {
+    const titulo = payload.data?.title || 'Aviso sobre seu plano';
+    const opcoes = {
+      body: payload.data?.body || '',
+      data: { link: payload.data?.link || '' },
+    };
+    return self.registration.showNotification(titulo, opcoes);
+  } catch (err) {
+    // Garante que SEMPRE aparece alguma notificação, mesmo se algo
+    // inesperado acontecer acima — evita o aviso genérico do Chrome
+    // ("este site foi atualizado em segundo plano").
+    return self.registration.showNotification('Aviso sobre seu plano', {
+      body: 'Você tem uma atualização. Abra o app pra ver.',
+    });
+  }
 });
 
 self.addEventListener('notificationclick', function (event) {
