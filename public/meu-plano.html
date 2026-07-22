@@ -81,11 +81,23 @@
   const FIREBASE_DB = firebaseConfig.databaseURL;
   const params = new URLSearchParams(window.location.search);
   const clienteId = params.get('id');
+  let marca = {};
 
   function diasAte(timestamp) {
     const hoje = new Date(); hoje.setHours(0,0,0,0);
     const venc = new Date(timestamp); venc.setHours(0,0,0,0);
     return Math.round((venc - hoje) / (1000*60*60*24));
+  }
+
+  async function carregarMarca() {
+    const res = await fetch(`${FIREBASE_DB}/config/marca.json`);
+    marca = await res.json() || {};
+    if (marca.corPrimaria) {
+      document.documentElement.style.setProperty('--ok', marca.corPrimaria);
+    }
+    if (marca.nome) {
+      document.title = marca.nome;
+    }
   }
 
   async function carregar() {
@@ -110,16 +122,43 @@
     else if (dias <= 3) { statusClasse = 'warn'; statusTexto = `Vence em ${dias} dias`; }
 
     const notifAtiva = c.notificacaoAtiva;
+    const logoHtml = marca.logoUrl
+      ? `<img src="${marca.logoUrl}" alt="${marca.nome || ''}" style="max-height:36px; margin-bottom:14px; display:block;">`
+      : '';
+    const textoBotaoNotif = marca.textoBotaoNotificacao || 'Ativar notificações';
+    const textoBotaoSuporte = marca.textoBotaoSuporte || '💬 Falar com o suporte agora';
+
+    let dadosAcessoHtml = '';
+    if (c.usuario || c.senha || (c.aplicativosIds && c.aplicativosIds.length > 0)) {
+      const appsRes = await fetch(`${FIREBASE_DB}/aplicativos.json`);
+      const appsData = await appsRes.json() || {};
+      const apps = Object.entries(appsData).map(([id, a]) => ({ id, ...a }));
+      const appsDoCliente = (c.aplicativosIds || []).map(id => apps.find(a => a.id === id)).filter(Boolean);
+
+      dadosAcessoHtml = `
+        <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border);">
+          <div class="sub" style="margin-bottom:10px;">Dados de acesso</div>
+          ${appsDoCliente.map(app => `
+            <div class="linha"><span class="label">App</span><span class="mono">${app.nome}</span></div>
+            <div class="linha"><span class="label">Código</span><span class="mono">${app.codigo}</span></div>
+          `).join('')}
+          ${c.usuario ? `<div class="linha"><span class="label">Usuário</span><span class="mono">${c.usuario}</span></div>` : ''}
+          ${c.senha ? `<div class="linha"><span class="label">Senha</span><span class="mono">${c.senha}</span></div>` : ''}
+        </div>
+      `;
+    }
 
     card.innerHTML = `
+      ${logoHtml}
       <h1>Olá, ${c.nome}</h1>
-      <div class="sub">Status do seu plano</div>
+      <div class="sub">${marca.nome ? `Status do seu plano · ${marca.nome}` : 'Status do seu plano'}</div>
       <div class="linha"><span class="label">Servidor</span><span class="mono">${c.servidor || '—'}</span></div>
       <div class="linha"><span class="label">Valor</span><span class="mono">R$ ${Number(c.planoValor||0).toFixed(2)}</span></div>
       <div class="linha"><span class="label">Vencimento</span><span class="mono">${new Date(c.vencimento).toLocaleDateString('pt-BR')}</span></div>
       <div class="linha"><span class="label">Situação</span><span class="status-pill ${statusClasse}">${statusTexto}</span></div>
-      <button id="btn-notif" ${notifAtiva ? 'disabled' : ''}>${notifAtiva ? 'Notificações ativadas ✓' : 'Ativar notificações'}</button>
-      <a id="btn-suporte" class="btn-suporte" target="_blank">💬 Falar com o suporte agora</a>
+      ${dadosAcessoHtml}
+      <button id="btn-notif" ${notifAtiva ? 'disabled' : ''}>${notifAtiva ? 'Notificações ativadas ✓' : textoBotaoNotif}</button>
+      <a id="btn-suporte" class="btn-suporte" target="_blank">${textoBotaoSuporte}</a>
     `;
 
     document.getElementById('btn-notif').onclick = () => ativarNotificacoes(clienteId);
@@ -172,7 +211,7 @@
     }
   }
 
-  carregar();
+  carregarMarca().then(carregar);
 </script>
 </body>
 </html>
