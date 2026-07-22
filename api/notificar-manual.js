@@ -46,11 +46,7 @@ module.exports = async (req, res) => {
             title: 'Aviso sobre seu plano',
             body: corpo,
           },
-          webpush: {
-            fcmOptions: {
-              link: linkClique,
-            },
-          },
+          data: { link: linkClique },
         });
 
         await db.ref(`clientes/${id}/ultimaNotificacao`).set({
