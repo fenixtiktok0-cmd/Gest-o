@@ -129,7 +129,9 @@
     const textoBotaoSuporte = marca.textoBotaoSuporte || '💬 Falar com o suporte agora';
 
     let dadosAcessoHtml = '';
-    if (c.usuario || c.senha || (c.aplicativosIds && c.aplicativosIds.length > 0)) {
+    const temDadosAcesso = c.usuario || c.senha || (c.aplicativosIds && c.aplicativosIds.length > 0);
+
+    if (notifAtiva && temDadosAcesso) {
       const appsRes = await fetch(`${FIREBASE_DB}/aplicativos.json`);
       const appsData = await appsRes.json() || {};
       const apps = Object.entries(appsData).map(([id, a]) => ({ id, ...a }));
@@ -160,12 +162,25 @@
 
       dadosAcessoHtml = `
         <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border);">
-          <div class="sub" style="margin-bottom:10px;">Dados de acesso</div>
+          <div class="sub" style="margin-bottom:10px; color:var(--ok);">✅ Notificações ativadas — seus dados de acesso:</div>
           ${appsHtml}
           ${credenciaisHtml}
         </div>
       `;
     }
+
+    // Enquanto não ativa notificação, mostra o campo de e-mail no lugar dos dados de acesso.
+    const emailCapturaHtml = (!notifAtiva && temDadosAcesso) ? `
+      <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border);">
+        <div class="sub" style="margin-bottom:8px;">🔒 Dados de acesso bloqueados</div>
+        <p style="font-size:12px; color:var(--text-muted); margin:0 0 12px;">
+          Ative as notificações abaixo pra ver seu usuário, senha e apps. Isso não muda o status do seu plano — é só pra você não perder o vencimento.
+        </p>
+        <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:6px;">Seu e-mail (opcional)</label>
+        <input type="email" id="input-email-cliente" value="${c.email || ''}" placeholder="seuemail@exemplo.com"
+          style="width:100%; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:10px 12px; color:var(--text); font-family:'Inter',sans-serif; font-size:14px; box-sizing:border-box;">
+      </div>
+    ` : '';
 
     card.innerHTML = `
       ${logoHtml}
@@ -175,6 +190,7 @@
       <div class="linha"><span class="label">Valor</span><span class="mono">R$ ${Number(c.planoValor||0).toFixed(2)}</span></div>
       <div class="linha"><span class="label">Vencimento</span><span class="mono">${new Date(c.vencimento).toLocaleDateString('pt-BR')}</span></div>
       <div class="linha"><span class="label">Situação</span><span class="status-pill ${statusClasse}">${statusTexto}</span></div>
+      ${emailCapturaHtml}
       ${dadosAcessoHtml}
       <button id="btn-notif" ${notifAtiva ? 'disabled' : ''}>${notifAtiva ? 'Notificações ativadas ✓' : textoBotaoNotif}</button>
       <a id="btn-suporte" class="btn-suporte" target="_blank">${textoBotaoSuporte}</a>
@@ -207,9 +223,14 @@
         serviceWorkerRegistration: registration
       });
 
+      const dadosParaSalvar = { fcmToken: token, notificacaoAtiva: true };
+      const inputEmail = document.getElementById('input-email-cliente');
+      const emailDigitado = inputEmail ? inputEmail.value.trim() : '';
+      if (emailDigitado) dadosParaSalvar.email = emailDigitado;
+
       await fetch(`${FIREBASE_DB}/clientes/${id}.json`, {
         method: 'PATCH',
-        body: JSON.stringify({ fcmToken: token, notificacaoAtiva: true })
+        body: JSON.stringify(dadosParaSalvar)
       });
 
       // Com a página aberta em primeiro plano, o Firebase não mostra a
