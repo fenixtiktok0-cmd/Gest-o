@@ -82,6 +82,30 @@
   const params = new URLSearchParams(window.location.search);
   const clienteId = params.get('id');
   let marca = {};
+  let escutaForegroundAtiva = false;
+
+  // Escuta mensagens em primeiro plano. Chamada tanto no carregamento
+  // da página (se a permissão já existia de uma visita anterior) quanto
+  // logo após o cliente ativar agora — a trava evita registrar duas vezes.
+  function configurarEscutaForeground() {
+    if (escutaForegroundAtiva) return;
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    try {
+      const messagingForeground = firebase.messaging();
+      messagingForeground.onMessage((payload) => {
+        const titulo = payload.data?.title || 'Aviso sobre seu plano';
+        const corpo = payload.data?.body || '';
+        const notif = new Notification(titulo, { body: corpo });
+        notif.onclick = () => {
+          if (payload.data?.link) window.open(payload.data.link, '_blank');
+        };
+      });
+      escutaForegroundAtiva = true;
+    } catch (err) {
+      console.error('Erro ao configurar escuta de mensagens em primeiro plano:', err);
+    }
+  }
+  configurarEscutaForeground();
 
   function diasAte(timestamp) {
     const hoje = new Date(); hoje.setHours(0,0,0,0);
@@ -233,17 +257,7 @@
         body: JSON.stringify(dadosParaSalvar)
       });
 
-      // Com a página aberta em primeiro plano, o Firebase não mostra a
-      // notificação sozinho (mensagens "somente dados") — mostramos na mão.
-      messaging.onMessage((payload) => {
-        const titulo = payload.data?.title || 'Aviso sobre seu plano';
-        const corpo = payload.data?.body || '';
-        const notif = new Notification(titulo, { body: corpo });
-        notif.onclick = () => {
-          if (payload.data?.link) window.open(payload.data.link, '_blank');
-        };
-      });
-
+      configurarEscutaForeground();
       await carregar();
     } catch (err) {
       console.error(err);
