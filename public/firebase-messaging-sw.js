@@ -13,6 +13,13 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-// Notificações recebidas com o app/aba fechada aparecem automaticamente
-// via messaging.onBackgroundMessage — o Firebase já cuida disso por padrão
-// quando o payload tem o campo "notification".
+// Controle manual do clique na notificação — garante que sempre abre
+// o link certo (inclusive links externos como wa.me), em vez de só
+// focar uma aba já aberta do site (comportamento padrão do Firebase).
+self.addEventListener('notificationclick', function (event) {
+  event.notification.close();
+  const link = event.notification?.data?.link;
+  if (link) {
+    event.waitUntil(clients.openWindow(link));
+  }
+});
