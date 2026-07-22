@@ -135,15 +135,34 @@
       const apps = Object.entries(appsData).map(([id, a]) => ({ id, ...a }));
       const appsDoCliente = (c.aplicativosIds || []).map(id => apps.find(a => a.id === id)).filter(Boolean);
 
+      const cores = ['#34D399', '#60A5FA', '#F472B6', '#A78BFA', '#FB923C', '#22D3EE'];
+
+      const appsHtml = appsDoCliente.map((app, i) => {
+        const cor = cores[i % cores.length];
+        return `
+          <div style="background:${cor}1a; border:1px solid ${cor}55; border-radius:10px; padding:10px 12px; margin-bottom:8px;">
+            <div style="display:flex; align-items:center; gap:6px; color:${cor}; font-weight:600; font-size:14px;">
+              📺 ${app.nome}
+            </div>
+            <div class="mono" style="color:${cor}; opacity:0.75; font-size:13px; margin-top:3px;">
+              Código: ${app.codigo}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      const credenciaisHtml = (c.usuario || c.senha) ? `
+        <div style="background:rgba(251,191,36,0.12); border:1px solid rgba(251,191,36,0.4); border-radius:10px; padding:10px 12px; margin-top:4px;">
+          ${c.usuario ? `<div style="display:flex; justify-content:space-between; font-size:13px; padding:4px 0;"><span style="color:var(--text-muted);">Usuário</span><span class="mono" style="color:var(--warn); font-weight:600;">${c.usuario}</span></div>` : ''}
+          ${c.senha ? `<div style="display:flex; justify-content:space-between; font-size:13px; padding:4px 0;"><span style="color:var(--text-muted);">Senha</span><span class="mono" style="color:var(--warn); font-weight:600;">${c.senha}</span></div>` : ''}
+        </div>
+      ` : '';
+
       dadosAcessoHtml = `
         <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border);">
           <div class="sub" style="margin-bottom:10px;">Dados de acesso</div>
-          ${appsDoCliente.map(app => `
-            <div class="linha"><span class="label">App</span><span class="mono">${app.nome}</span></div>
-            <div class="linha"><span class="label">Código</span><span class="mono">${app.codigo}</span></div>
-          `).join('')}
-          ${c.usuario ? `<div class="linha"><span class="label">Usuário</span><span class="mono">${c.usuario}</span></div>` : ''}
-          ${c.senha ? `<div class="linha"><span class="label">Senha</span><span class="mono">${c.senha}</span></div>` : ''}
+          ${appsHtml}
+          ${credenciaisHtml}
         </div>
       `;
     }
