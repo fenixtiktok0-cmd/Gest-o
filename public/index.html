@@ -497,6 +497,13 @@
     </div>
 
     <div class="template-block">
+      <h3>Push manual (botão 🔔)</h3>
+      <div class="quando">Usada quando você clica no sino pra mandar um aviso avulso</div>
+      <textarea id="tpl-msgManual"></textarea>
+      <div class="var-chips" data-target="tpl-msgManual"></div>
+    </div>
+
+    <div class="template-block">
       <h3>Assunto do e-mail</h3>
       <div class="quando">Usado em todos os e-mails automáticos</div>
       <textarea id="tpl-emailAssunto" style="min-height:36px"></textarea>
@@ -530,6 +537,7 @@
     msg3dias: 'Olá {nome}! Seu plano vence em {dias_restantes} dias ({data_vencimento}). Valor: R$ {valor_plano}. Quer renovar agora?',
     msgVencimento: 'Olá {nome}! Seu plano vence hoje ({data_vencimento}). Valor: R$ {valor_plano}. Renova pra não perder o acesso?',
     msg3diasVencido: 'Olá {nome}! Seu plano venceu há 3 dias ({data_vencimento}). Valor: R$ {valor_plano}. Vamos regularizar hoje?',
+    msgManual: 'Olá {nome}! Passando aqui sobre o seu plano ({servidor}), vencimento em {data_vencimento}. Qualquer coisa me chama!',
     emailAssunto: 'Seu plano vence em breve',
     emailCorpo: 'Olá {nome},\n\nSeu plano ({servidor}) vence em {data_vencimento}. Valor: R$ {valor_plano}.\n\nQualquer dúvida, chama no WhatsApp.'
   };
@@ -568,7 +576,7 @@
   async function abrirMensagens() {
     const res = await fetch(`${FIREBASE_DB}/config/templates.json`);
     const salvos = await res.json() || {};
-    const chaves = ['msg7dias', 'msg3dias', 'msgVencimento', 'msg3diasVencido', 'emailAssunto', 'emailCorpo'];
+    const chaves = ['msg7dias', 'msg3dias', 'msgVencimento', 'msg3diasVencido', 'msgManual', 'emailAssunto', 'emailCorpo'];
     chaves.forEach(chave => {
       document.getElementById(`tpl-${chave}`).value = salvos[chave] || TEMPLATES_PADRAO[chave];
     });
@@ -581,7 +589,7 @@
   }
 
   async function salvarMensagens() {
-    const chaves = ['msg7dias', 'msg3dias', 'msgVencimento', 'msg3diasVencido', 'emailAssunto', 'emailCorpo'];
+    const chaves = ['msg7dias', 'msg3dias', 'msgVencimento', 'msg3diasVencido', 'msgManual', 'emailAssunto', 'emailCorpo'];
     const templates = {};
     chaves.forEach(chave => {
       templates[chave] = document.getElementById(`tpl-${chave}`).value;
