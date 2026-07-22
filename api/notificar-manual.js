@@ -42,11 +42,11 @@ module.exports = async (req, res) => {
       try {
         await messaging.send({
           token: cliente.fcmToken,
-          notification: {
+          data: {
             title: 'Aviso sobre seu plano',
             body: corpo,
+            link: linkClique,
           },
-          data: { link: linkClique },
         });
 
         await db.ref(`clientes/${id}/ultimaNotificacao`).set({
