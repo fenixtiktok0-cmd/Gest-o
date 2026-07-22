@@ -639,20 +639,23 @@
     <div class="field">
       <label>WhatsApp</label>
       <div style="display:flex; gap:8px;">
-        <select id="f-ddi" style="width:150px; flex-shrink:0; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:10px 8px; color:var(--text); font-family:'Inter',sans-serif; font-size:14px;">
-          <option value="55" selected>🇧🇷 +55 Brasil</option>
-          <option value="1">🇺🇸 +1 EUA/Canadá</option>
-          <option value="351">🇵🇹 +351 Portugal</option>
-          <option value="34">🇪🇸 +34 Espanha</option>
-          <option value="44">🇬🇧 +44 Reino Unido</option>
-          <option value="54">🇦🇷 +54 Argentina</option>
-          <option value="598">🇺🇾 +598 Uruguai</option>
-          <option value="595">🇵🇾 +595 Paraguai</option>
-          <option value="591">🇧🇴 +591 Bolívia</option>
-          <option value="56">🇨🇱 +56 Chile</option>
-        </select>
-        <input type="text" id="f-whatsapp-numero" placeholder="21999999999" style="flex:1;">
+        <input type="text" id="f-ddi" list="lista-ddis" value="55" placeholder="DDI"
+          style="width:90px; flex-shrink:0; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:10px 8px; color:var(--text); font-family:'Inter',sans-serif; font-size:14px;">
+        <datalist id="lista-ddis">
+          <option value="55">🇧🇷 Brasil</option>
+          <option value="1">🇺🇸 EUA/Canadá</option>
+          <option value="351">🇵🇹 Portugal</option>
+          <option value="34">🇪🇸 Espanha</option>
+          <option value="44">🇬🇧 Reino Unido</option>
+          <option value="54">🇦🇷 Argentina</option>
+          <option value="598">🇺🇾 Uruguai</option>
+          <option value="595">🇵🇾 Paraguai</option>
+          <option value="591">🇧🇴 Bolívia</option>
+          <option value="56">🇨🇱 Chile</option>
+        </datalist>
+        <input type="text" id="f-whatsapp-numero" placeholder="Número (qualquer formato)" style="flex:1;">
       </div>
+      <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">DDI: escolhe da lista ou digita o número direto (sem o +)</div>
     </div>
     <div class="field">
       <label>E-mail</label>
@@ -1866,7 +1869,7 @@
     const nome = document.getElementById('f-nome').value.trim();
     const usuario = document.getElementById('f-usuario').value.trim();
     const senha = document.getElementById('f-senha').value.trim();
-    const ddi = document.getElementById('f-ddi').value;
+    const ddi = document.getElementById('f-ddi').value.replace(/\D/g, '') || '55';
     const numeroWhats = document.getElementById('f-whatsapp-numero').value.replace(/\D/g, '');
     const whatsapp = numeroWhats ? ddi + numeroWhats : '';
     const email = document.getElementById('f-email').value.trim();
