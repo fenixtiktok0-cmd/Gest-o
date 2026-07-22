@@ -71,8 +71,11 @@ module.exports = async (req, res) => {
 
           await messaging.send({
             token: cliente.fcmToken,
-            notification: { title: 'Aviso sobre seu plano', body: corpo },
-            data: { link: linkClique },
+            data: {
+              title: 'Aviso sobre seu plano',
+              body: corpo,
+              link: linkClique,
+            },
           });
           log[`push_${tipo}`] = (log[`push_${tipo}`] || 0) + 1;
         } catch (err) {
