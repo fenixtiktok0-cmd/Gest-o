@@ -637,8 +637,22 @@
       </div>
     </div>
     <div class="field">
-      <label>WhatsApp (com DDI, só números)</label>
-      <input type="text" id="f-whatsapp" placeholder="5521999999999">
+      <label>WhatsApp</label>
+      <div style="display:flex; gap:8px;">
+        <select id="f-ddi" style="width:150px; flex-shrink:0; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:10px 8px; color:var(--text); font-family:'Inter',sans-serif; font-size:14px;">
+          <option value="55" selected>🇧🇷 +55 Brasil</option>
+          <option value="1">🇺🇸 +1 EUA/Canadá</option>
+          <option value="351">🇵🇹 +351 Portugal</option>
+          <option value="34">🇪🇸 +34 Espanha</option>
+          <option value="44">🇬🇧 +44 Reino Unido</option>
+          <option value="54">🇦🇷 +54 Argentina</option>
+          <option value="598">🇺🇾 +598 Uruguai</option>
+          <option value="595">🇵🇾 +595 Paraguai</option>
+          <option value="591">🇧🇴 +591 Bolívia</option>
+          <option value="56">🇨🇱 +56 Chile</option>
+        </select>
+        <input type="text" id="f-whatsapp-numero" placeholder="21999999999" style="flex:1;">
+      </div>
     </div>
     <div class="field">
       <label>E-mail</label>
@@ -1791,13 +1805,25 @@
     window.open(`https://wa.me/${c.whatsapp}?text=${encodeURIComponent(mensagem)}`, '_blank');
   }
 
+  function separarDDI(numeroCompleto) {
+    const DDIS = ['591', '595', '598', '351', '54', '56', '44', '55', '1'];
+    const limpo = (numeroCompleto || '').replace(/\D/g, '');
+    for (const ddi of DDIS) {
+      if (limpo.startsWith(ddi) && limpo.length > ddi.length + 6) {
+        return { ddi, numero: limpo.slice(ddi.length) };
+      }
+    }
+    return { ddi: '55', numero: limpo };
+  }
+
   function abrirModal() {
     document.getElementById('modal-titulo').textContent = 'Novo cliente';
     document.getElementById('cliente-id').value = '';
     document.getElementById('f-nome').value = '';
     document.getElementById('f-usuario').value = '';
     document.getElementById('f-senha').value = '';
-    document.getElementById('f-whatsapp').value = '';
+    document.getElementById('f-ddi').value = '55';
+    document.getElementById('f-whatsapp-numero').value = '';
     document.getElementById('f-email').value = '';
     preencherSelectServidores();
     document.getElementById('f-servidor').value = '';
@@ -1819,7 +1845,9 @@
     document.getElementById('f-nome').value = c.nome || '';
     document.getElementById('f-usuario').value = c.usuario || '';
     document.getElementById('f-senha').value = c.senha || '';
-    document.getElementById('f-whatsapp').value = c.whatsapp || '';
+    const { ddi, numero } = separarDDI(c.whatsapp || '');
+    document.getElementById('f-ddi').value = ddi;
+    document.getElementById('f-whatsapp-numero').value = numero;
     document.getElementById('f-email').value = c.email || '';
     preencherSelectServidores();
     document.getElementById('f-servidor').value = c.servidor || '';
@@ -1834,7 +1862,9 @@
     const nome = document.getElementById('f-nome').value.trim();
     const usuario = document.getElementById('f-usuario').value.trim();
     const senha = document.getElementById('f-senha').value.trim();
-    const whatsapp = document.getElementById('f-whatsapp').value.replace(/\D/g,'');
+    const ddi = document.getElementById('f-ddi').value;
+    const numeroWhats = document.getElementById('f-whatsapp-numero').value.replace(/\D/g, '');
+    const whatsapp = numeroWhats ? ddi + numeroWhats : '';
     const email = document.getElementById('f-email').value.trim();
     const servidor = document.getElementById('f-servidor').value.trim();
     const aplicativosIds = Array.from(document.querySelectorAll('.chk-app:checked')).map(el => el.value);
