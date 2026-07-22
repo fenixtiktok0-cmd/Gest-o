@@ -488,10 +488,31 @@
   </div>
 </div>
 
+<div class="overlay" id="overlay-importar">
+  <div class="modal wide">
+    <h2>Importar clientes (CSV)</h2>
+    <p style="font-size:12px; color:var(--text-muted); margin-top:-10px; margin-bottom:16px;">
+      Colunas esperadas: WhatsApp, Nome, Login, Senha, Provedor, Plano, Fatura, Vencimento
+    </p>
+    <div class="field">
+      <label>Arquivo CSV</label>
+      <input type="file" id="importar-arquivo" accept=".csv" style="width:100%; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:10px; color:var(--text);">
+    </div>
+    <button class="btn" style="width:100%;" onclick="prepararImportacao()">Analisar arquivo</button>
+    <div id="importar-resumo" style="margin-top:16px;"></div>
+    <div id="importar-progresso" style="margin-top:12px; font-size:13px; color:var(--text-muted);"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharImportar()">Fechar</button>
+      <button class="btn btn-primary" id="btn-confirmar-importacao" style="display:none;" onclick="confirmarImportacao()">Confirmar importação</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="overlay-menu">
   <div class="modal" style="max-width:340px;">
     <h2>Menu</h2>
     <div style="display:flex; flex-direction:column; gap:8px;">
+      <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirImportar();">📥 Importar clientes</button>
       <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirPersonalizacao();">🎨 Personalização</button>
       <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirAplicativos();">📲 Aplicativos</button>
       <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirServidores();">🖥️ Servidores</button>
@@ -927,6 +948,161 @@
     });
     fecharPersonalizacao();
     alert('Personalização salva! A página do cliente já reflete isso.');
+  }
+
+  // ---- Importar clientes (CSV) ----
+  let importarDadosValidos = [];
+  let importarResumoExclusao = {};
+
+  function abrirImportar() {
+    document.getElementById('importar-arquivo').value = '';
+    document.getElementById('importar-resumo').innerHTML = '';
+    document.getElementById('importar-progresso').innerHTML = '';
+    document.getElementById('btn-confirmar-importacao').style.display = 'none';
+    importarDadosValidos = [];
+    document.getElementById('overlay-importar').classList.add('open');
+  }
+  function fecharImportar() {
+    document.getElementById('overlay-importar').classList.remove('open');
+  }
+
+  // Parser CSV simples com suporte a campos entre aspas (podem conter vírgula)
+  function parseCSV(texto) {
+    const linhas = [];
+    let linhaAtual = [];
+    let campoAtual = '';
+    let dentroAspas = false;
+
+    for (let i = 0; i < texto.length; i++) {
+      const char = texto[i];
+      const proximo = texto[i + 1];
+
+      if (dentroAspas) {
+        if (char === '"' && proximo === '"') { campoAtual += '"'; i++; }
+        else if (char === '"') { dentroAspas = false; }
+        else { campoAtual += char; }
+      } else {
+        if (char === '"') { dentroAspas = true; }
+        else if (char === ',') { linhaAtual.push(campoAtual); campoAtual = ''; }
+        else if (char === '\n' || char === '\r') {
+          if (char === '\r' && proximo === '\n') i++;
+          linhaAtual.push(campoAtual);
+          campoAtual = '';
+          if (linhaAtual.length > 1 || linhaAtual[0] !== '') linhas.push(linhaAtual);
+          linhaAtual = [];
+        } else { campoAtual += char; }
+      }
+    }
+    if (campoAtual !== '' || linhaAtual.length > 0) {
+      linhaAtual.push(campoAtual);
+      linhas.push(linhaAtual);
+    }
+
+    const cabecalho = linhas[0];
+    return linhas.slice(1).map(linha => {
+      const obj = {};
+      cabecalho.forEach((col, i) => { obj[col.trim()] = (linha[i] || '').trim(); });
+      return obj;
+    });
+  }
+
+  function extrairValorPlano(str) {
+    const match = (str || '').match(/\(R\$\s*([\d.,]+)\)/);
+    if (!match) return 0;
+    return parseFloat(match[1].replace(',', '.')) || 0;
+  }
+
+  function parseDataBR(str) {
+    const partes = (str || '').split('/');
+    if (partes.length !== 3) return null;
+    const [dia, mes, ano] = partes.map(p => parseInt(p, 10));
+    if (!dia || !mes || ano < 2000) return null;
+    return new Date(ano, mes - 1, dia, 12, 0, 0).getTime();
+  }
+
+  const PROVEDORES_EXCLUIR = new Set(['SEM INTERESSE - EX CLIENTES', 'Sem interesse']);
+
+  function prepararImportacao() {
+    const arquivo = document.getElementById('importar-arquivo').files[0];
+    if (!arquivo) { alert('Escolhe o arquivo CSV primeiro.'); return; }
+
+    const leitor = new FileReader();
+    leitor.onload = (e) => {
+      const linhas = parseCSV(e.target.result);
+
+      let excluidosProvedor = 0, excluidosWhats = 0, excluidosData = 0;
+      importarDadosValidos = [];
+
+      linhas.forEach(linha => {
+        const provedor = (linha.Provedor || '').trim();
+        const whatsapp = (linha.WhatsApp || '').replace(/\D/g, '');
+        const vencimento = parseDataBR(linha.Vencimento);
+
+        if (PROVEDORES_EXCLUIR.has(provedor)) { excluidosProvedor++; return; }
+        if (!whatsapp) { excluidosWhats++; return; }
+        if (!vencimento) { excluidosData++; return; }
+
+        const nome = (linha.Nome || '').trim() || (linha.Login || '').trim() || 'Sem nome';
+
+        importarDadosValidos.push({
+          nome,
+          usuario: (linha.Login || '').trim(),
+          senha: (linha.Senha || '').trim(),
+          whatsapp,
+          email: '',
+          servidor: '',
+          aplicativosIds: [],
+          planoValor: extrairValorPlano(linha.Plano),
+          vencimento,
+          status: 'ativo',
+          fcmToken: null,
+          notificacaoAtiva: false,
+          ultimaNotificacao: { tipo: null, data: 0 },
+          criadoEm: Date.now()
+        });
+      });
+
+      const totalLinhas = linhas.length;
+      document.getElementById('importar-resumo').innerHTML = `
+        <div class="lista-item"><span>Total no arquivo</span><span class="mono">${totalLinhas}</span></div>
+        <div class="lista-item"><span>Válidos pra importar</span><span class="mono" style="color:var(--ok);">${importarDadosValidos.length}</span></div>
+        <div class="lista-item"><span>Excluídos (sem WhatsApp)</span><span class="mono">${excluidosWhats}</span></div>
+        <div class="lista-item"><span>Excluídos (data inválida)</span><span class="mono">${excluidosData}</span></div>
+        <div class="lista-item"><span>Excluídos (sem interesse)</span><span class="mono">${excluidosProvedor}</span></div>
+      `;
+
+      document.getElementById('btn-confirmar-importacao').style.display = importarDadosValidos.length > 0 ? 'inline-block' : 'none';
+    };
+    leitor.readAsText(arquivo, 'UTF-8');
+  }
+
+  async function confirmarImportacao() {
+    if (importarDadosValidos.length === 0) return;
+    if (!confirm(`Importar ${importarDadosValidos.length} clientes agora? Isso não pode ser desfeito automaticamente.`)) return;
+
+    const btn = document.getElementById('btn-confirmar-importacao');
+    btn.disabled = true;
+    const progresso = document.getElementById('importar-progresso');
+
+    const TAMANHO_LOTE = 20;
+    let importados = 0;
+
+    for (let i = 0; i < importarDadosValidos.length; i += TAMANHO_LOTE) {
+      const lote = importarDadosValidos.slice(i, i + TAMANHO_LOTE);
+      await Promise.all(lote.map(cliente =>
+        fetch(`${FIREBASE_DB}/clientes.json`, {
+          method: 'POST',
+          body: JSON.stringify(cliente)
+        })
+      ));
+      importados += lote.length;
+      progresso.textContent = `Importando... ${importados} / ${importarDadosValidos.length}`;
+    }
+
+    progresso.textContent = `✅ Importação concluída! ${importados} clientes cadastrados.`;
+    btn.disabled = false;
+    btn.style.display = 'none';
+    await carregarClientes();
   }
 
   // ---- Menu (mobile) ----
