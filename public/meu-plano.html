@@ -65,7 +65,7 @@
 
   // TODO Marcos: cole aqui a VAPID key gerada em
   // Configurações do projeto > Cloud Messaging > Web Push certificates
-  const VAPID_KEY = "COLE_SUA_VAPID_KEY_AQUI";
+  const VAPID_KEY = "BB7h2P--2AyZfHmes1ibhzHlWY1DVPFvyWp6r4CIyQrPbDLOS_xx0zteP8SIbH34m2Txx0KLnLu8ZOF6RbSzY8U";
 
   const FIREBASE_DB = firebaseConfig.databaseURL;
   const params = new URLSearchParams(window.location.search);
@@ -108,9 +108,19 @@
       <div class="linha"><span class="label">Vencimento</span><span class="mono">${new Date(c.vencimento).toLocaleDateString('pt-BR')}</span></div>
       <div class="linha"><span class="label">Situação</span><span class="status-pill ${statusClasse}">${statusTexto}</span></div>
       <button id="btn-notif" ${notifAtiva ? 'disabled' : ''}>${notifAtiva ? 'Notificações ativadas ✓' : 'Ativar notificações'}</button>
+      <a id="btn-suporte" style="display:block;text-align:center;margin-top:12px;color:var(--text-muted);font-size:13px;text-decoration:none;" target="_blank">💬 Falar com o suporte</a>
     `;
 
     document.getElementById('btn-notif').onclick = () => ativarNotificacoes(clienteId);
+    carregarSuporte(c);
+  }
+
+  async function carregarSuporte(c) {
+    const res = await fetch(`${FIREBASE_DB}/config/whatsappAdmin.json`);
+    const whatsappAdmin = await res.json();
+    if (!whatsappAdmin) return;
+    const msg = encodeURIComponent(`Olá! Sou o cliente ${c.nome} e preciso de suporte sobre meu plano.`);
+    document.getElementById('btn-suporte').href = `https://wa.me/${whatsappAdmin}?text=${msg}`;
   }
 
   async function ativarNotificacoes(id) {
