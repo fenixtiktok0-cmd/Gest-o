@@ -64,15 +64,15 @@ module.exports = async (req, res) => {
       // Push
       if (cliente.fcmToken && cliente.notificacaoAtiva) {
         try {
-          const mensagemWhats = encodeURIComponent(`Olá! Sou o cliente ${cliente.nome}. ${corpo}`);
-          const linkClique = whatsappAdmin
-            ? `https://wa.me/${whatsappAdmin}?text=${mensagemWhats}`
-            : `${process.env.APP_URL}/meu-plano.html?id=${id}`;
+          const linkClique = `${process.env.APP_URL}/meu-plano.html?id=${id}`;
 
           await messaging.send({
             token: cliente.fcmToken,
-            notification: { title: 'Aviso sobre seu plano', body: corpo },
-            data: { link: linkClique },
+            data: {
+              title: 'Aviso sobre seu plano',
+              body: corpo,
+              link: linkClique,
+            },
           });
           log[`push_${tipo}`] = (log[`push_${tipo}`] || 0) + 1;
         } catch (err) {
