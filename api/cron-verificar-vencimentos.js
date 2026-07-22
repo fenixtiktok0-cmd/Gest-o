@@ -21,13 +21,15 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const [clientesSnap, templatesSnap] = await Promise.all([
+    const [clientesSnap, configSnap] = await Promise.all([
       db.ref('clientes').once('value'),
-      db.ref('config/templates').once('value'),
+      db.ref('config').once('value'),
     ]);
 
     const clientes = clientesSnap.val() || {};
-    const templates = templatesSnap.val() || {};
+    const config = configSnap.val() || {};
+    const templates = config.templates || {};
+    const whatsappAdmin = config.whatsappAdmin;
     const hojeStr = new Date().toDateString();
 
     const log = { processados: 0, emails: 0, erros: [] };
@@ -62,11 +64,16 @@ module.exports = async (req, res) => {
       // Push
       if (cliente.fcmToken && cliente.notificacaoAtiva) {
         try {
+          const mensagemWhats = encodeURIComponent(`Olá! Sou o cliente ${cliente.nome}. ${corpo}`);
+          const linkClique = whatsappAdmin
+            ? `https://wa.me/${whatsappAdmin}?text=${mensagemWhats}`
+            : `${process.env.APP_URL}/meu-plano.html?id=${id}`;
+
           await messaging.send({
             token: cliente.fcmToken,
             notification: { title: 'Aviso sobre seu plano', body: corpo },
             webpush: {
-              fcmOptions: { link: `${process.env.APP_URL}/meu-plano.html?id=${id}` },
+              fcmOptions: { link: linkClique },
             },
           });
           log[`push_${tipo}`] = (log[`push_${tipo}`] || 0) + 1;
