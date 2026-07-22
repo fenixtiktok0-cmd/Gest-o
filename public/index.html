@@ -567,10 +567,19 @@
     <button class="filter-chip" data-filtro="vencido" onclick="filtrar('vencido')">Vencidos</button>
   </div>
 
+  <div id="barra-selecao" style="display:none; align-items:center; justify-content:space-between; background:var(--danger-bg); border:1px solid var(--danger); border-radius:10px; padding:12px 16px; margin-bottom:14px;">
+    <span id="texto-selecao" style="font-size:14px; font-weight:600; color:var(--danger);">0 selecionado(s)</span>
+    <div style="display:flex; gap:8px;">
+      <button class="btn" onclick="limparSelecao()">Cancelar</button>
+      <button class="btn" style="background:var(--danger); border-color:var(--danger); color:#fff;" onclick="excluirSelecionados()">🗑️ Excluir selecionados</button>
+    </div>
+  </div>
+
   <div class="table-scroll">
     <table>
       <thead>
         <tr>
+          <th><input type="checkbox" id="chk-selecionar-todos" onchange="toggleSelecionarTodos()"></th>
           <th></th>
           <th>Cliente</th>
           <th>Usuário</th>
@@ -948,6 +957,53 @@
     });
     fecharPersonalizacao();
     alert('Personalização salva! A página do cliente já reflete isso.');
+  }
+
+  // ---- Seleção em massa ----
+  let selecionados = new Set();
+
+  function toggleSelecao(id) {
+    if (selecionados.has(id)) selecionados.delete(id);
+    else selecionados.add(id);
+    atualizarBarraSelecao();
+  }
+
+  function toggleSelecionarTodos() {
+    const marcarTodos = document.getElementById('chk-selecionar-todos').checked;
+    const idsVisiveis = Array.from(document.querySelectorAll('.chk-cliente')).map(el => el.value);
+    if (marcarTodos) idsVisiveis.forEach(id => selecionados.add(id));
+    else idsVisiveis.forEach(id => selecionados.delete(id));
+    renderizar();
+  }
+
+  function limparSelecao() {
+    selecionados.clear();
+    document.getElementById('chk-selecionar-todos').checked = false;
+    renderizar();
+  }
+
+  function atualizarBarraSelecao() {
+    const barra = document.getElementById('barra-selecao');
+    if (selecionados.size > 0) {
+      barra.style.display = 'flex';
+      document.getElementById('texto-selecao').textContent = `${selecionados.size} selecionado(s)`;
+    } else {
+      barra.style.display = 'none';
+    }
+  }
+
+  async function excluirSelecionados() {
+    const ids = Array.from(selecionados);
+    if (ids.length === 0) return;
+    if (!confirm(`Excluir ${ids.length} cliente(s)? Isso não pode ser desfeito.`)) return;
+
+    await Promise.all(ids.map(id =>
+      fetch(`${FIREBASE_DB}/clientes/${id}.json`, { method: 'DELETE' })
+    ));
+
+    selecionados.clear();
+    document.getElementById('chk-selecionar-todos').checked = false;
+    await carregarClientes();
   }
 
   // ---- Importar clientes (CSV) ----
@@ -1616,6 +1672,7 @@
     if (lista.length === 0) {
       tbody.innerHTML = '';
       emptyState.style.display = 'block';
+      atualizarBarraSelecao();
       return;
     }
     emptyState.style.display = 'none';
@@ -1636,6 +1693,7 @@
 
       return `
         <tr>
+          <td data-label=""><input type="checkbox" class="chk-cliente" value="${c.id}" ${selecionados.has(c.id) ? 'checked' : ''} onchange="toggleSelecao('${c.id}')"></td>
           <td data-label=""><span class="signal ${sinalClasse}"><span></span><span></span><span></span><span></span></span></td>
           <td data-label="Cliente" class="td-primary">
             <div class="cliente-nome">${c.nome}</div>
@@ -1666,6 +1724,8 @@
         </tr>
       `;
     }).join('');
+
+    atualizarBarraSelecao();
   }
 
   function mensagemPadrao(c, dias) {
