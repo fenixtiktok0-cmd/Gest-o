@@ -453,7 +453,14 @@
     <input type="hidden" id="renovar-cliente-id">
     <div class="field">
       <label>Renovar por quantos dias?</label>
-      <input type="text" id="renovar-dias" value="30">
+      <div style="display:flex; gap:6px; flex-wrap:wrap;">
+        <button class="filter-chip dia-chip" data-dias="15" onclick="setDiasRenovacao(15)">+15</button>
+        <button class="filter-chip dia-chip active" data-dias="30" onclick="setDiasRenovacao(30)">+30</button>
+        <button class="filter-chip dia-chip" data-dias="60" onclick="setDiasRenovacao(60)">+60</button>
+        <button class="filter-chip dia-chip" data-dias="90" onclick="setDiasRenovacao(90)">+90</button>
+        <button class="filter-chip dia-chip" data-dias="180" onclick="setDiasRenovacao(180)">+180</button>
+        <button class="filter-chip dia-chip" data-dias="360" onclick="setDiasRenovacao(360)">+360</button>
+      </div>
     </div>
     <div class="field">
       <label>Base da renovação</label>
@@ -461,6 +468,14 @@
         <button class="filter-chip active" id="base-vencimento" onclick="setBaseRenovacao('vencimento')">A partir do vencimento atual</button>
         <button class="filter-chip" id="base-hoje" onclick="setBaseRenovacao('hoje')">A partir de hoje</button>
       </div>
+    </div>
+    <div class="field">
+      <label>Ou escolha uma data exata (opcional — se preencher, ignora as opções acima)</label>
+      <input type="date" id="renovar-data-manual">
+    </div>
+    <div class="field" style="margin-bottom:0;">
+      <label>Novo vencimento</label>
+      <div class="mono" id="preview-vencimento" style="font-size:16px; color:var(--ok);">—</div>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="fecharRenovacao()">Cancelar</button>
@@ -875,10 +890,14 @@
   }
 
   let baseRenovacao = 'vencimento';
+  let diasRenovacao = 30;
+  let clienteRenovandoId = null;
 
   function abrirRenovacao(id) {
+    clienteRenovandoId = id;
     document.getElementById('renovar-cliente-id').value = id;
-    document.getElementById('renovar-dias').value = '30';
+    document.getElementById('renovar-data-manual').value = '';
+    setDiasRenovacao(30);
     setBaseRenovacao('vencimento');
     document.getElementById('overlay-renovar').classList.add('open');
   }
@@ -891,22 +910,50 @@
     baseRenovacao = tipo;
     document.getElementById('base-vencimento').classList.toggle('active', tipo === 'vencimento');
     document.getElementById('base-hoje').classList.toggle('active', tipo === 'hoje');
+    atualizarPreviewRenovacao();
   }
+
+  function setDiasRenovacao(dias) {
+    diasRenovacao = dias;
+    document.querySelectorAll('.dia-chip').forEach(el => {
+      el.classList.toggle('active', Number(el.dataset.dias) === dias);
+    });
+    document.getElementById('renovar-data-manual').value = '';
+    atualizarPreviewRenovacao();
+  }
+
+  function calcularNovoVencimento() {
+    const dataManual = document.getElementById('renovar-data-manual').value;
+    if (dataManual) {
+      return new Date(dataManual + 'T12:00:00').getTime();
+    }
+    const cliente = clientes.find(c => c.id === clienteRenovandoId);
+    if (!cliente) return null;
+    const agora = Date.now();
+    const base = baseRenovacao === 'hoje' ? agora : Math.max(cliente.vencimento, agora);
+    return base + diasRenovacao * 24 * 60 * 60 * 1000;
+  }
+
+  function atualizarPreviewRenovacao() {
+    const novoVencimento = calcularNovoVencimento();
+    document.getElementById('preview-vencimento').textContent = novoVencimento
+      ? new Date(novoVencimento).toLocaleDateString('pt-BR')
+      : '—';
+  }
+
+  document.getElementById('renovar-data-manual').addEventListener('change', () => {
+    document.querySelectorAll('.dia-chip').forEach(el => el.classList.remove('active'));
+    atualizarPreviewRenovacao();
+  });
 
   async function confirmarRenovacao() {
     const id = document.getElementById('renovar-cliente-id').value;
-    const dias = parseInt(document.getElementById('renovar-dias').value, 10);
-    if (!dias || dias <= 0) { alert('Informe uma quantidade de dias válida.'); return; }
+    const novoVencimento = calcularNovoVencimento();
+
+    if (!novoVencimento) { alert('Escolha os dias ou uma data.'); return; }
 
     const cliente = clientes.find(c => c.id === id);
     if (!cliente) return;
-
-    const agora = Date.now();
-    const baseTimestamp = baseRenovacao === 'hoje'
-      ? agora
-      : Math.max(cliente.vencimento, agora);
-
-    const novoVencimento = baseTimestamp + dias * 24 * 60 * 60 * 1000;
 
     try {
       const res = await fetch('/api/renovar', {
