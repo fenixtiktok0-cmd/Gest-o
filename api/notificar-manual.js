@@ -30,23 +30,16 @@ module.exports = async (req, res) => {
       }
 
       const corpo = mensagemCustom || preencherTemplate(templates.msgManual || '', cliente);
-
-      // O clique na notificação abre o WhatsApp do suporte, com a mensagem já preenchida.
-      const mensagemWhats = encodeURIComponent(
-        `Olá! Sou o cliente ${cliente.nome}. ${corpo}`
-      );
-      const linkClique = whatsappAdmin
-        ? `https://wa.me/${whatsappAdmin}?text=${mensagemWhats}`
-        : `${process.env.APP_URL}/meu-plano.html?id=${id}`;
+      const linkClique = `${process.env.APP_URL}/meu-plano.html?id=${id}`;
 
       try {
         await messaging.send({
           token: cliente.fcmToken,
-          notification: {
+          data: {
             title: 'Aviso sobre seu plano',
             body: corpo,
+            link: linkClique,
           },
-          data: { link: linkClique },
         });
 
         await db.ref(`clientes/${id}/ultimaNotificacao`).set({
