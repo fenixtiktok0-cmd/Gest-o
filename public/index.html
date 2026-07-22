@@ -285,6 +285,41 @@
     margin-top: 20px;
   }
 
+  .modal.wide { max-width: 640px; max-height: 85vh; overflow-y: auto; }
+
+  .template-block { margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid var(--border); }
+  .template-block:last-of-type { border-bottom: none; }
+  .template-block h3 {
+    font-size: 14px; margin: 0 0 4px; font-weight: 600;
+  }
+  .template-block .quando {
+    font-size: 12px; color: var(--text-muted); margin-bottom: 10px;
+  }
+  .template-block textarea {
+    width: 100%;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    resize: vertical;
+    min-height: 64px;
+  }
+  .var-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .var-chip {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text-muted);
+    cursor: pointer;
+  }
+  .var-chip:hover { color: var(--ok); border-color: var(--ok); }
+
   .empty-state {
     text-align: center;
     padding: 60px 20px;
@@ -317,6 +352,7 @@
 <header>
   <h1><span class="signal-dot"></span> Gestão de Clientes</h1>
   <div style="display:flex; gap:10px;">
+    <button class="btn" onclick="abrirMensagens()">✉️ Mensagens</button>
     <button class="btn" onclick="abrirConfig()">⚙️ Configurações</button>
     <button class="btn btn-primary" onclick="abrirModal()">+ Novo cliente</button>
   </div>
@@ -425,12 +461,144 @@
   </div>
 </div>
 
+<div class="overlay" id="overlay-mensagens">
+  <div class="modal wide">
+    <h2>Mensagens automáticas</h2>
+    <p style="font-size:13px; color:var(--text-muted); margin-top:-10px; margin-bottom:20px;">
+      Clique numa variável pra inserir no texto onde o cursor estiver.
+    </p>
+
+    <div class="template-block">
+      <h3>7 dias antes do vencimento</h3>
+      <div class="quando">Push + e-mail automático</div>
+      <textarea id="tpl-msg7dias"></textarea>
+      <div class="var-chips" data-target="tpl-msg7dias"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>3 dias antes do vencimento</h3>
+      <div class="quando">Push + e-mail automático</div>
+      <textarea id="tpl-msg3dias"></textarea>
+      <div class="var-chips" data-target="tpl-msg3dias"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>No dia do vencimento</h3>
+      <div class="quando">Push + e-mail automático</div>
+      <textarea id="tpl-msgVencimento"></textarea>
+      <div class="var-chips" data-target="tpl-msgVencimento"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>3 dias após vencido</h3>
+      <div class="quando">Push + e-mail automático</div>
+      <textarea id="tpl-msg3diasVencido"></textarea>
+      <div class="var-chips" data-target="tpl-msg3diasVencido"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>Assunto do e-mail</h3>
+      <div class="quando">Usado em todos os e-mails automáticos</div>
+      <textarea id="tpl-emailAssunto" style="min-height:36px"></textarea>
+      <div class="var-chips" data-target="tpl-emailAssunto"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>Corpo do e-mail</h3>
+      <div class="quando">Usado em todos os e-mails automáticos</div>
+      <textarea id="tpl-emailCorpo" style="min-height:90px"></textarea>
+      <div class="var-chips" data-target="tpl-emailCorpo"></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharMensagens()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarMensagens()">Salvar</button>
+    </div>
+  </div>
+</div>
+
 <script>
   // ---- Config Firebase (REST API) ----
   const FIREBASE_DB = "https://gestao-clientes-a1664-default-rtdb.europe-west1.firebasedatabase.app";
 
   let clientes = [];
   let filtroAtual = 'todos';
+  let templatesConfig = {};
+
+  const TEMPLATES_PADRAO = {
+    msg7dias: 'Olá {nome}! Passando pra lembrar que seu plano vence em {dias_restantes} dias ({data_vencimento}). Valor: R$ {valor_plano}.',
+    msg3dias: 'Olá {nome}! Seu plano vence em {dias_restantes} dias ({data_vencimento}). Valor: R$ {valor_plano}. Quer renovar agora?',
+    msgVencimento: 'Olá {nome}! Seu plano vence hoje ({data_vencimento}). Valor: R$ {valor_plano}. Renova pra não perder o acesso?',
+    msg3diasVencido: 'Olá {nome}! Seu plano venceu há 3 dias ({data_vencimento}). Valor: R$ {valor_plano}. Vamos regularizar hoje?',
+    emailAssunto: 'Seu plano vence em breve',
+    emailCorpo: 'Olá {nome},\n\nSeu plano ({servidor}) vence em {data_vencimento}. Valor: R$ {valor_plano}.\n\nQualquer dúvida, chama no WhatsApp.'
+  };
+
+  const VARIAVEIS = ['{nome}', '{data_vencimento}', '{valor_plano}', '{servidor}', '{dias_restantes}', '{status}'];
+
+  function preencherTemplateJS(template, c) {
+    const dias = diasAte(c.vencimento);
+    return (template || '')
+      .replaceAll('{nome}', c.nome || '')
+      .replaceAll('{data_vencimento}', new Date(c.vencimento).toLocaleDateString('pt-BR'))
+      .replaceAll('{valor_plano}', Number(c.planoValor || 0).toFixed(2))
+      .replaceAll('{servidor}', c.servidor || '')
+      .replaceAll('{dias_restantes}', String(dias))
+      .replaceAll('{status}', c.status || '');
+  }
+
+  function montarChips() {
+    document.querySelectorAll('.var-chips').forEach(container => {
+      const targetId = container.dataset.target;
+      container.innerHTML = VARIAVEIS.map(v =>
+        `<span class="var-chip" onclick="inserirVariavel('${targetId}', '${v}')">${v}</span>`
+      ).join('');
+    });
+  }
+
+  function inserirVariavel(textareaId, variavel) {
+    const el = document.getElementById(textareaId);
+    const inicio = el.selectionStart || el.value.length;
+    const fim = el.selectionEnd || el.value.length;
+    el.value = el.value.slice(0, inicio) + variavel + el.value.slice(fim);
+    el.focus();
+    el.selectionStart = el.selectionEnd = inicio + variavel.length;
+  }
+
+  async function abrirMensagens() {
+    const res = await fetch(`${FIREBASE_DB}/config/templates.json`);
+    const salvos = await res.json() || {};
+    const chaves = ['msg7dias', 'msg3dias', 'msgVencimento', 'msg3diasVencido', 'emailAssunto', 'emailCorpo'];
+    chaves.forEach(chave => {
+      document.getElementById(`tpl-${chave}`).value = salvos[chave] || TEMPLATES_PADRAO[chave];
+    });
+    montarChips();
+    document.getElementById('overlay-mensagens').classList.add('open');
+  }
+
+  function fecharMensagens() {
+    document.getElementById('overlay-mensagens').classList.remove('open');
+  }
+
+  async function salvarMensagens() {
+    const chaves = ['msg7dias', 'msg3dias', 'msgVencimento', 'msg3diasVencido', 'emailAssunto', 'emailCorpo'];
+    const templates = {};
+    chaves.forEach(chave => {
+      templates[chave] = document.getElementById(`tpl-${chave}`).value;
+    });
+    await fetch(`${FIREBASE_DB}/config.json`, {
+      method: 'PATCH',
+      body: JSON.stringify({ templates })
+    });
+    templatesConfig = templates;
+    fecharMensagens();
+    alert('Mensagens salvas!');
+  }
+
+  async function carregarTemplatesConfig() {
+    const res = await fetch(`${FIREBASE_DB}/config/templates.json`);
+    templatesConfig = await res.json() || {};
+  }
 
   function diasAte(timestamp) {
     const hoje = new Date(); hoje.setHours(0,0,0,0);
@@ -449,6 +617,7 @@
     const res = await fetch(`${FIREBASE_DB}/clientes.json`);
     const data = await res.json() || {};
     clientes = Object.entries(data).map(([id, c]) => ({ id, ...c }));
+    await carregarTemplatesConfig();
     atualizarStats();
     renderizar();
   }
@@ -537,9 +706,16 @@
   }
 
   function mensagemPadrao(c, dias) {
-    if (dias < 0) return `Olá ${c.nome}! Seu plano venceu em ${new Date(c.vencimento).toLocaleDateString('pt-BR')}. Valor: R$ ${Number(c.planoValor||0).toFixed(2)}. Vamos regularizar?`;
-    if (dias === 0) return `Olá ${c.nome}! Seu plano vence hoje. Valor: R$ ${Number(c.planoValor||0).toFixed(2)}. Renova agora?`;
-    return `Olá ${c.nome}! Seu plano vence em ${dias} dias (${new Date(c.vencimento).toLocaleDateString('pt-BR')}). Valor: R$ ${Number(c.planoValor||0).toFixed(2)}.`;
+    let chave = 'msg3dias';
+    if (dias <= -3) chave = 'msg3diasVencido';
+    else if (dias < 0) chave = 'msgVencido';
+    else if (dias === 0) chave = 'msgVencimento';
+    else if (dias >= 7) chave = 'msg7dias';
+    else chave = 'msg3dias';
+
+    const template = templatesConfig[chave] || TEMPLATES_PADRAO[chave] ||
+      `Olá {nome}! Seu plano (${c.servidor}) está com vencimento em {data_vencimento}.`;
+    return preencherTemplateJS(template, c);
   }
 
   function abrirModal() {
