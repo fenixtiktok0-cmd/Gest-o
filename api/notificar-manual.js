@@ -1,6 +1,20 @@
 const { db, messaging } = require('../lib/firebaseAdmin');
 const { preencherTemplate } = require('../lib/templates');
 
+function diasAte(timestampVencimento) {
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const venc = new Date(timestampVencimento); venc.setHours(0, 0, 0, 0);
+  return Math.round((venc - hoje) / (1000 * 60 * 60 * 24));
+}
+
+function escolherTemplate(templates, dias) {
+  if (dias >= 7) return templates.msg7dias;
+  if (dias === 3 || (dias > 0 && dias < 7)) return templates.msg3dias;
+  if (dias === 0) return templates.msgVencimento;
+  if (dias <= -3) return templates.msg3diasVencido;
+  return templates.msgVencido || templates.msgVencimento;
+}
+
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
     res.setHeader('Allow', ['POST']);
@@ -27,7 +41,8 @@ module.exports = async (req, res) => {
         continue;
       }
 
-      const corpo = mensagemCustom || preencherTemplate(templates.msgVencimento || '', cliente);
+      const dias = diasAte(cliente.vencimento);
+      const corpo = mensagemCustom || preencherTemplate(escolherTemplate(templates, dias) || '', cliente);
 
       try {
         await messaging.send({
