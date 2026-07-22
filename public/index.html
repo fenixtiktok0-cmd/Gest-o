@@ -1513,13 +1513,13 @@
       .map(appId => aplicativos.find(a => a.id === appId))
       .filter(Boolean);
 
-    let mensagem = `Olá ${c.nome}! Segue seus dados de acesso:\n`;
+    let mensagem = `Olá ${c.nome}! Segue seus dados de acesso.\n`;
 
     if (appsDoCliente.length > 0) {
+      mensagem += `você pode usar os apps abaixo que são compatíveis com seu login:\n`;
       appsDoCliente.forEach(app => {
-        mensagem += `\n📱 App: ${app.nome}\n🔑 Código: ${app.codigo}`;
+        mensagem += `\n📺 App: ${app.nome}\n🔑 Código: ${app.codigo}\n`;
       });
-      mensagem += '\n';
     }
 
     mensagem += `\n👤 Usuário: ${c.usuario || '—'}\n🔒 Senha: ${c.senha || '—'}`;
