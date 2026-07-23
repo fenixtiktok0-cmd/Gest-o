@@ -649,11 +649,10 @@
       <div id="f-teste-horas-bloco" style="display:none; margin-top:10px;">
         <label>Duração do teste</label>
         <div style="display:flex; gap:6px; flex-wrap:wrap;">
-          <button type="button" class="filter-chip horas-chip" data-horas="6" onclick="setHorasTeste(6)">6h</button>
-          <button type="button" class="filter-chip horas-chip active" data-horas="12" onclick="setHorasTeste(12)">12h</button>
-          <button type="button" class="filter-chip horas-chip" data-horas="24" onclick="setHorasTeste(24)">24h</button>
-          <button type="button" class="filter-chip horas-chip" data-horas="48" onclick="setHorasTeste(48)">48h</button>
-          <button type="button" class="filter-chip horas-chip" data-horas="72" onclick="setHorasTeste(72)">72h</button>
+          <button type="button" class="filter-chip horas-chip" data-horas="1" onclick="setHorasTeste(1)">1h</button>
+          <button type="button" class="filter-chip horas-chip active" data-horas="2" onclick="setHorasTeste(2)">2h</button>
+          <button type="button" class="filter-chip horas-chip" data-horas="3" onclick="setHorasTeste(3)">3h</button>
+          <button type="button" class="filter-chip horas-chip" data-horas="4" onclick="setHorasTeste(4)">4h</button>
         </div>
         <div style="font-size:11px; color:var(--text-muted); margin-top:6px;">Teste não entra no Financeiro nem nos contadores de clientes ativos.</div>
       </div>
@@ -667,6 +666,7 @@
       <label>Link M3U (opcional — preenche usuário/senha/vencimento sozinho)</label>
       <div style="display:flex; gap:8px;">
         <input type="text" id="f-m3u" placeholder="http://painel.com/get.php?username=...&password=..." style="flex:1;">
+        <input type="hidden" id="f-vencimento-preciso">
         <button class="btn" type="button" onclick="buscarDadosM3U()" style="white-space:nowrap;">🔍 Buscar</button>
       </div>
       <div id="m3u-status" style="font-size:12px; margin-top:6px;"></div>
@@ -746,7 +746,11 @@
     </div>
     <div class="field">
       <label>Vencimento</label>
-      <input type="date" id="oficial-vencimento">
+      <div style="display:flex; gap:8px;">
+        <input type="date" id="oficial-vencimento" style="flex:1;">
+        <button class="btn" type="button" id="btn-buscar-vencimento-oficial" style="display:none; white-space:nowrap;" onclick="buscarVencimentoOficial()">📡 Buscar do servidor</button>
+      </div>
+      <div id="oficial-vencimento-status" style="font-size:12px; margin-top:6px;"></div>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="fecharAtivarOficial()">Cancelar</button>
@@ -1012,6 +1016,13 @@
       <div class="quando">Push + e-mail automático — disparado quando o teste já venceu</div>
       <textarea id="tpl-msgTesteAcabou"></textarea>
       <div class="var-chips" data-target="tpl-msgTesteAcabou"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>✅ Bem-vindo oficial</h3>
+      <div class="quando">Push + e-mail + WhatsApp — disparado ao ativar um cliente de teste como oficial</div>
+      <textarea id="tpl-msgBemVindoOficial"></textarea>
+      <div class="var-chips" data-target="tpl-msgBemVindoOficial"></div>
     </div>
 
     <div class="template-block">
@@ -1408,6 +1419,7 @@
     comprovanteRenovacao: 'Olá {nome}! Seu plano foi renovado com sucesso ✅\nNovo vencimento: {data_vencimento}\nValor: R$ {valor_plano}\nObrigado pela confiança!',
     msgTesteAcabando: 'Olá {nome}! Seu teste está acabando em breve. Gostou? Fala com a gente pra virar cliente oficial e não perder o acesso!',
     msgTesteAcabou: 'Olá {nome}! Seu período de teste terminou. Gostou da experiência? Fala com a gente agora pra ativar seu plano oficial!',
+    msgBemVindoOficial: 'Olá {nome}! Seu plano foi ativado com sucesso ✅\nVencimento: {data_vencimento}\nValor: R$ {valor_plano}\nSeja bem-vindo(a)!',
     emailAssunto: 'Seu plano vence em breve',
     emailCorpo: 'Olá {nome},\n\nSeu plano ({servidor}) vence em {data_vencimento}. Valor: R$ {valor_plano}.\n\nQualquer dúvida, chama no WhatsApp.'
   };
@@ -1446,7 +1458,7 @@
   async function abrirMensagens() {
     const res = await fetch(`${FIREBASE_DB}/config/templates.json`);
     const salvos = await res.json() || {};
-    const chaves = ['msg7dias', 'msg3dias', 'msgVencimento', 'msg3diasVencido', 'msgManual', 'comprovanteRenovacao', 'msgTesteAcabando', 'msgTesteAcabou', 'emailAssunto', 'emailCorpo'];
+    const chaves = ['msg7dias', 'msg3dias', 'msgVencimento', 'msg3diasVencido', 'msgManual', 'comprovanteRenovacao', 'msgTesteAcabando', 'msgTesteAcabou', 'msgBemVindoOficial', 'emailAssunto', 'emailCorpo'];
     chaves.forEach(chave => {
       document.getElementById(`tpl-${chave}`).value = salvos[chave] || TEMPLATES_PADRAO[chave];
     });
@@ -1459,7 +1471,7 @@
   }
 
   async function salvarMensagens() {
-    const chaves = ['msg7dias', 'msg3dias', 'msgVencimento', 'msg3diasVencido', 'msgManual', 'comprovanteRenovacao', 'msgTesteAcabando', 'msgTesteAcabou', 'emailAssunto', 'emailCorpo'];
+    const chaves = ['msg7dias', 'msg3dias', 'msgVencimento', 'msg3diasVencido', 'msgManual', 'comprovanteRenovacao', 'msgTesteAcabando', 'msgTesteAcabou', 'msgBemVindoOficial', 'emailAssunto', 'emailCorpo'];
     const templates = {};
     chaves.forEach(chave => {
       templates[chave] = document.getElementById(`tpl-${chave}`).value;
@@ -2139,13 +2151,14 @@
       document.getElementById('f-usuario').value = data.usuario || '';
       document.getElementById('f-senha').value = data.senha || '';
       if (data.vencimento) {
+        document.getElementById('f-vencimento-preciso').value = data.vencimento;
         const campoVencimento = document.getElementById('f-vencimento');
         campoVencimento.value = new Date(data.vencimento).toISOString().slice(0, 10);
         campoVencimento.dispatchEvent(new Event('input'));
         campoVencimento.dispatchEvent(new Event('change'));
       }
 
-      statusEl.textContent = `✅ Dados encontrados! Status no painel: ${data.statusPainel || 'desconhecido'}`;
+      statusEl.textContent = `✅ Dados encontrados! Status no painel: ${data.statusPainel || 'desconhecido'}${data.vencimento ? ' · Vencimento exato: ' + new Date(data.vencimento).toLocaleString('pt-BR') : ''}`;
       statusEl.style.color = 'var(--ok)';
     } catch (err) {
       statusEl.textContent = '❌ Erro ao consultar. Tenta de novo.';
@@ -2153,7 +2166,7 @@
     }
   }
 
-  let horasTeste = 12;
+  let horasTeste = 2;
 
   function setHorasTeste(horas) {
     horasTeste = horas;
@@ -2167,7 +2180,7 @@
     document.getElementById('f-teste-horas-bloco').style.display = emTeste ? 'block' : 'none';
     document.getElementById('f-valor-bloco').style.display = emTeste ? 'none' : 'block';
     document.getElementById('f-vencimento-bloco').style.display = emTeste ? 'none' : 'block';
-    if (emTeste) setHorasTeste(12);
+    if (emTeste) setHorasTeste(2);
   }
 
   function abrirModal() {
@@ -2177,6 +2190,7 @@
     alternarModoTeste();
     document.getElementById('f-nome').value = '';
     document.getElementById('f-m3u').value = '';
+    document.getElementById('f-vencimento-preciso').value = '';
     document.getElementById('m3u-status').textContent = '';
     document.getElementById('f-usuario').value = '';
     document.getElementById('f-senha').value = '';
@@ -2204,6 +2218,7 @@
     alternarModoTeste();
     document.getElementById('f-nome').value = c.nome || '';
     document.getElementById('f-m3u').value = c.m3uLink || '';
+    document.getElementById('f-vencimento-preciso').value = '';
     document.getElementById('m3u-status').textContent = '';
     document.getElementById('f-usuario').value = c.usuario || '';
     document.getElementById('f-senha').value = c.senha || '';
@@ -2237,7 +2252,8 @@
 
     if (emTeste) {
       planoValor = 0;
-      vencimento = Date.now() + horasTeste * 60 * 60 * 1000;
+      const vencimentoPreciso = document.getElementById('f-vencimento-preciso').value;
+      vencimento = vencimentoPreciso ? Number(vencimentoPreciso) : Date.now() + horasTeste * 60 * 60 * 1000;
     } else {
       planoValor = parseFloat(document.getElementById('f-valor').value) || 0;
       const vencimentoInput = document.getElementById('f-vencimento').value;
@@ -2331,15 +2347,61 @@
 
   // ---- Ativar cliente de teste como oficial ----
   function abrirAtivarOficial(id) {
+    const cliente = clientes.find(c => c.id === id);
+    if (!cliente) return;
+
     document.getElementById('oficial-cliente-id').value = id;
     document.getElementById('oficial-valor').value = '';
     const amanha = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     document.getElementById('oficial-vencimento').value = amanha.toISOString().slice(0, 10);
+    document.getElementById('oficial-vencimento-status').textContent = '';
+
+    const btnBuscar = document.getElementById('btn-buscar-vencimento-oficial');
+    btnBuscar.style.display = cliente.m3uLink ? 'inline-block' : 'none';
+
     document.getElementById('overlay-ativar-oficial').classList.add('open');
   }
   function fecharAtivarOficial() {
     document.getElementById('overlay-ativar-oficial').classList.remove('open');
   }
+
+  async function buscarVencimentoOficial() {
+    const id = document.getElementById('oficial-cliente-id').value;
+    const cliente = clientes.find(c => c.id === id);
+    const statusEl = document.getElementById('oficial-vencimento-status');
+    if (!cliente || !cliente.m3uLink) return;
+
+    statusEl.textContent = 'Consultando o painel...';
+    statusEl.style.color = 'var(--text-muted)';
+
+    try {
+      const res = await fetch('/api/consultar-iptv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ link: cliente.m3uLink })
+      });
+      const data = await res.json();
+
+      if (data.erro) {
+        statusEl.textContent = '❌ ' + data.erro;
+        statusEl.style.color = 'var(--danger)';
+        return;
+      }
+
+      if (data.vencimento) {
+        document.getElementById('oficial-vencimento').value = new Date(data.vencimento).toISOString().slice(0, 10);
+        statusEl.textContent = `✅ Vencimento no painel: ${new Date(data.vencimento).toLocaleString('pt-BR')}`;
+        statusEl.style.color = 'var(--ok)';
+      } else {
+        statusEl.textContent = 'Painel respondeu, mas sem data de vencimento.';
+        statusEl.style.color = 'var(--danger)';
+      }
+    } catch (err) {
+      statusEl.textContent = '❌ Erro ao consultar o painel.';
+      statusEl.style.color = 'var(--danger)';
+    }
+  }
+
   async function confirmarAtivarOficial() {
     const id = document.getElementById('oficial-cliente-id').value;
     const valor = parseFloat(document.getElementById('oficial-valor').value) || 0;
@@ -2347,26 +2409,29 @@
 
     if (!valor || !vencimentoInput) { alert('Preenche o valor e o vencimento do plano.'); return; }
 
-    const cliente = clientes.find(c => c.id === id);
-    if (!cliente) return;
-
     const vencimento = new Date(vencimentoInput + 'T12:00:00').getTime();
 
-    await fetch(`${FIREBASE_DB}/clientes/${id}.json`, {
-      method: 'PATCH',
-      body: JSON.stringify({
-        emTeste: false,
-        planoValor: valor,
-        vencimento,
-        ultimaNotificacao: { tipo: null, data: 0 }
-      })
-    });
+    try {
+      const res = await fetch('/api/ativar-oficial', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clienteId: id, planoValor: valor, vencimento })
+      });
+      const data = await res.json();
 
-    await registrarFinanceiro({ id, nome: cliente.nome, servidor: cliente.servidor }, valor, 'cadastro');
+      if (data.erro) { alert('Erro: ' + data.erro); return; }
 
-    fecharAtivarOficial();
-    await carregarClientes();
-    alert(`✅ ${cliente.nome} agora é cliente oficial!`);
+      fecharAtivarOficial();
+      await carregarClientes();
+
+      if (data.cliente?.whatsapp && data.comprovante) {
+        window.open(`https://wa.me/${data.cliente.whatsapp}?text=${encodeURIComponent(data.comprovante)}`, '_blank');
+      }
+
+      alert(`✅ ${data.cliente?.nome || 'Cliente'} agora é oficial! Push, e-mail e WhatsApp já disparados.`);
+    } catch (err) {
+      alert('Erro ao ativar cliente como oficial.');
+    }
   }
 
   function abrirRenovacao(id) {
