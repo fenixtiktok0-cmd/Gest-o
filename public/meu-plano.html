@@ -107,6 +107,15 @@
   }
   configurarEscutaForeground();
 
+  function detectarAmbienteIOS() {
+    const ua = navigator.userAgent || '';
+    const ehIOS = /iPad|iPhone|iPod/.test(ua) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const ehStandalone = window.navigator.standalone === true;
+    const ehNavegadorEmbutido = /WhatsApp|FBAN|FBAV|Instagram|Line\//.test(ua);
+    return { ehIOS, ehStandalone, ehNavegadorEmbutido };
+  }
+
   function diasAte(timestamp) {
     const hoje = new Date(); hoje.setHours(0,0,0,0);
     const venc = new Date(timestamp); venc.setHours(0,0,0,0);
@@ -216,12 +225,50 @@
       <div class="linha"><span class="label">Situação</span><span class="status-pill ${statusClasse}">${statusTexto}</span></div>
       ${emailCapturaHtml}
       ${dadosAcessoHtml}
-      <button id="btn-notif" ${notifAtiva ? 'disabled' : ''}>${notifAtiva ? 'Notificações ativadas ✓' : textoBotaoNotif}</button>
+      ${montarBlocoAtivacao(notifAtiva, textoBotaoNotif)}
       <a id="btn-suporte" class="btn-suporte" target="_blank">${textoBotaoSuporte}</a>
     `;
 
-    document.getElementById('btn-notif').onclick = () => ativarNotificacoes(clienteId);
+    const botaoNotif = document.getElementById('btn-notif');
+    if (botaoNotif) botaoNotif.onclick = () => ativarNotificacoes(clienteId);
     carregarSuporte(c);
+  }
+
+  function montarBlocoAtivacao(notifAtiva, textoBotaoNotif) {
+    if (notifAtiva) {
+      return `<button id="btn-notif" disabled>Notificações ativadas ✓</button>`;
+    }
+
+    const { ehIOS, ehStandalone, ehNavegadorEmbutido } = detectarAmbienteIOS();
+
+    if (ehIOS && !ehStandalone) {
+      if (ehNavegadorEmbutido) {
+        return `
+          <div style="margin-top:20px; background:rgba(251,191,36,0.12); border:1px solid rgba(251,191,36,0.4); border-radius:10px; padding:14px;">
+            <div style="font-weight:600; font-size:14px; margin-bottom:8px; color:var(--warn);">📲 Pra ativar no iPhone, siga esses passos:</div>
+            <ol style="margin:0; padding-left:18px; font-size:13px; color:var(--text); line-height:1.6;">
+              <li>Toca nos "•••" ou no ícone de compartilhar aqui em cima</li>
+              <li>Escolhe <b>"Abrir no Safari"</b> (ou "Abrir no navegador")</li>
+              <li>Já no Safari, toca no ícone de compartilhar (quadrado com seta pra cima)</li>
+              <li>Escolhe <b>"Adicionar à Tela de Início"</b></li>
+              <li>Abre o app pela nova ícone que aparece na tela — só assim a notificação funciona no iPhone</li>
+            </ol>
+          </div>
+        `;
+      }
+      return `
+        <div style="margin-top:20px; background:rgba(251,191,36,0.12); border:1px solid rgba(251,191,36,0.4); border-radius:10px; padding:14px;">
+          <div style="font-weight:600; font-size:14px; margin-bottom:8px; color:var(--warn);">📲 Pra ativar no iPhone, siga esses passos:</div>
+          <ol style="margin:0; padding-left:18px; font-size:13px; color:var(--text); line-height:1.6;">
+            <li>Toca no ícone de compartilhar (quadrado com seta pra cima) na barra do Safari</li>
+            <li>Escolhe <b>"Adicionar à Tela de Início"</b></li>
+            <li>Abre o app pela nova ícone que aparece na tela — só assim a notificação funciona no iPhone</li>
+          </ol>
+        </div>
+      `;
+    }
+
+    return `<button id="btn-notif">${textoBotaoNotif}</button>`;
   }
 
   async function carregarSuporte(c) {
