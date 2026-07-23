@@ -695,6 +695,14 @@
   <div class="modal">
     <h2>Renovar cliente</h2>
     <input type="hidden" id="renovar-cliente-id">
+
+    <div id="renovar-sync-bloco" style="display:none; margin-bottom:18px; padding-bottom:18px; border-bottom:1px solid var(--border);">
+      <button class="btn" style="width:100%; background:var(--ok); border-color:var(--ok); color:#06231A; font-weight:600;" onclick="sincronizarERenovar()">
+        📡 Sincronizar com servidor (puxa a data real de lá)
+      </button>
+      <div style="text-align:center; font-size:12px; color:var(--text-muted); margin:10px 0;">ou renove manualmente abaixo</div>
+    </div>
+
     <div class="field">
       <label>Renovar por quantos dias?</label>
       <div style="display:flex; gap:6px; flex-wrap:wrap;">
@@ -1838,6 +1846,41 @@
     return { ddi: '55', numero: limpo };
   }
 
+  async function sincronizarERenovar() {
+    const id = document.getElementById('renovar-cliente-id').value;
+    if (!id) return;
+
+    try {
+      const res = await fetch('/api/sincronizar-iptv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clienteId: id })
+      });
+      const data = await res.json();
+
+      if (data.erro) {
+        alert('Erro: ' + data.erro);
+        return;
+      }
+
+      if (!data.renovado) {
+        alert(data.mensagem);
+        return;
+      }
+
+      fecharRenovacao();
+      await carregarClientes();
+
+      if (data.whatsapp && data.comprovante) {
+        window.open(`https://wa.me/${data.whatsapp}?text=${encodeURIComponent(data.comprovante)}`, '_blank');
+      }
+
+      alert(`✅ Renovação detectada no painel! Novo vencimento: ${new Date(data.novoVencimento).toLocaleDateString('pt-BR')}. Push, e-mail e WhatsApp já disparados.`);
+    } catch (err) {
+      alert('Erro ao sincronizar com o painel IPTV.');
+    }
+  }
+
   async function buscarDadosM3U() {
     const link = document.getElementById('f-m3u').value.trim();
     const statusEl = document.getElementById('m3u-status');
@@ -1864,7 +1907,10 @@
       document.getElementById('f-usuario').value = data.usuario || '';
       document.getElementById('f-senha').value = data.senha || '';
       if (data.vencimento) {
-        document.getElementById('f-vencimento').value = new Date(data.vencimento).toISOString().slice(0, 10);
+        const campoVencimento = document.getElementById('f-vencimento');
+        campoVencimento.value = new Date(data.vencimento).toISOString().slice(0, 10);
+        campoVencimento.dispatchEvent(new Event('input'));
+        campoVencimento.dispatchEvent(new Event('change'));
       }
 
       statusEl.textContent = `✅ Dados encontrados! Status no painel: ${data.statusPainel || 'desconhecido'}`;
@@ -2025,6 +2071,10 @@
     document.getElementById('renovar-data-manual').value = '';
     setDiasRenovacao(30);
     setBaseRenovacao('vencimento');
+
+    const cliente = clientes.find(c => c.id === id);
+    document.getElementById('renovar-sync-bloco').style.display = (cliente && cliente.m3uLink) ? 'block' : 'none';
+
     document.getElementById('overlay-renovar').classList.add('open');
   }
 
