@@ -1,5 +1,8 @@
 const { db, messaging } = require('../lib/firebaseAdmin');
 const { preencherTemplate } = require('../lib/templates');
+const { Resend } = require('resend');
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
@@ -46,7 +49,22 @@ module.exports = async (req, res) => {
       }
     }
 
-    return res.status(200).json({ ok: true, pushEnviado, cliente, comprovante: corpo });
+    let emailEnviado = false;
+    if (cliente.email) {
+      try {
+        const resultadoEmail = await resend.emails.send({
+          from: process.env.RESEND_FROM,
+          to: cliente.email,
+          subject: preencherTemplate(templates.emailAssunto || 'Seu plano foi renovado!', cliente),
+          text: corpo,
+        });
+        emailEnviado = !resultadoEmail.error;
+      } catch (err) {
+        console.error('Erro ao enviar e-mail de renovação:', err.message);
+      }
+    }
+
+    return res.status(200).json({ ok: true, pushEnviado, emailEnviado, cliente, comprovante: corpo });
   } catch (err) {
     console.error('Erro em /api/renovar:', err);
     return res.status(500).json({ erro: 'Erro interno' });
