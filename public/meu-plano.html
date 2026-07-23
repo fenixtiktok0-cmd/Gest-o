@@ -285,11 +285,60 @@
     document.getElementById('btn-suporte').href = `https://wa.me/${whatsappAdmin}?text=${msg}`;
   }
 
+  function mostrarAjudaPermissaoBloqueada() {
+    const bloqueadoPermanente = Notification.permission === 'denied';
+    const card = document.getElementById('card');
+
+    const ajudaHtml = `
+      <div id="ajuda-permissao" style="margin-top:16px; background:rgba(251,191,36,0.12); border:1px solid rgba(251,191,36,0.4); border-radius:10px; padding:16px;">
+        <div style="font-weight:600; font-size:15px; color:var(--warn); margin-bottom:10px;">
+          🔔 Não deu pra ativar as notificações
+        </div>
+        <p style="font-size:13px; margin:0 0 12px; line-height:1.5;">
+          ${bloqueadoPermanente
+            ? 'Isso acontece porque as notificações desse site já foram bloqueadas antes no seu celular (às vezes sem querer). Depois de bloqueado, o celular não pergunta de novo sozinho — você precisa liberar manualmente. É rapidinho, segue o passo a passo:'
+            : 'Você tocou em "Bloquear" ou "Não permitir" quando o celular perguntou. Sem problema, dá pra corrigir — segue o passo a passo:'}
+        </p>
+
+        <div style="font-size:13px; font-weight:600; margin-bottom:6px; color:var(--text);">📱 Se você está no Chrome (Android):</div>
+        <ol style="margin:0 0 14px; padding-left:20px; font-size:13px; line-height:1.7; color:var(--text);">
+          <li>Olha lá em cima, na barra onde está o endereço do site (perto de "${window.location.hostname}")</li>
+          <li>Toca no <b>ícone de cadeado 🔒</b> ou nos <b>três pontinhos ⋮</b> ao lado do endereço</li>
+          <li>Procura a opção <b>"Permissões do site"</b> ou <b>"Configurações do site"</b></li>
+          <li>Acha <b>"Notificações"</b> e muda de "Bloqueado" pra <b>"Permitir"</b></li>
+          <li>Fecha essa aba e abre o link de novo (ou aperta atualizar)</li>
+          <li>Clica em "Ativar notificações" outra vez</li>
+        </ol>
+
+        <div style="font-size:13px; font-weight:600; margin-bottom:6px; color:var(--text);">⚙️ Se isso não resolver, confere também:</div>
+        <ol style="margin:0 0 14px; padding-left:20px; font-size:13px; line-height:1.7; color:var(--text);">
+          <li>Vai nas <b>Configurações do celular</b> (não do site — do celular mesmo)</li>
+          <li>Procura <b>"Aplicativos"</b> ou <b>"Apps"</b> → acha o <b>Chrome</b> (ou o navegador que você usa)</li>
+          <li>Toca em <b>"Notificações"</b> e confirma que está <b>ativado</b></li>
+        </ol>
+
+        <button class="btn-suporte" style="background:linear-gradient(135deg, var(--warn), #F59E0B); box-shadow:0 4px 14px rgba(251,191,36,0.35);" onclick="tentarAtivarDeNovo()">
+          ✅ Já liberei, tentar de novo
+        </button>
+      </div>
+    `;
+
+    const existente = document.getElementById('ajuda-permissao');
+    if (existente) existente.remove();
+    card.insertAdjacentHTML('beforeend', ajudaHtml);
+  }
+
+  function tentarAtivarDeNovo() {
+    const existente = document.getElementById('ajuda-permissao');
+    if (existente) existente.remove();
+    ativarNotificacoes(clienteId);
+  }
+
   async function ativarNotificacoes(id) {
     try {
       const permissao = await Notification.requestPermission();
       if (permissao !== 'granted') {
-        alert('Você precisa permitir as notificações pra receber os avisos de vencimento.');
+        mostrarAjudaPermissaoBloqueada();
         return;
       }
 
