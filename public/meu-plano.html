@@ -150,7 +150,13 @@
 
     const dias = diasAte(c.vencimento);
     let statusClasse = 'ok', statusTexto = `Vence em ${dias} dias`;
-    if (dias < 0) { statusClasse = 'danger'; statusTexto = `Venceu há ${Math.abs(dias)} dias`; }
+
+    if (c.emTeste) {
+      const horasRestantes = (c.vencimento - Date.now()) / (1000 * 60 * 60);
+      if (horasRestantes <= 0) { statusClasse = 'danger'; statusTexto = 'Teste encerrado'; }
+      else if (horasRestantes <= 1) { statusClasse = 'danger'; statusTexto = `Teste acaba em ${Math.round(horasRestantes * 60)} min`; }
+      else { statusClasse = 'warn'; statusTexto = `Teste — restam ${Math.round(horasRestantes)}h`; }
+    } else if (dias < 0) { statusClasse = 'danger'; statusTexto = `Venceu há ${Math.abs(dias)} dias`; }
     else if (dias === 0) { statusClasse = 'danger'; statusTexto = 'Vence hoje'; }
     else if (dias <= 3) { statusClasse = 'warn'; statusTexto = `Vence em ${dias} dias`; }
 
@@ -218,10 +224,10 @@
     card.innerHTML = `
       ${logoHtml}
       <h1>Olá, ${c.nome}</h1>
-      <div class="sub">${marca.nome ? `Status do seu plano · ${marca.nome}` : 'Status do seu plano'}</div>
+      <div class="sub">${c.emTeste ? '🧪 Você está em período de teste' : (marca.nome ? `Status do seu plano · ${marca.nome}` : 'Status do seu plano')}</div>
       <div class="linha"><span class="label">Servidor</span><span class="mono">${c.servidor || '—'}</span></div>
-      <div class="linha"><span class="label">Valor</span><span class="mono">R$ ${Number(c.planoValor||0).toFixed(2)}</span></div>
-      <div class="linha"><span class="label">Vencimento</span><span class="mono">${new Date(c.vencimento).toLocaleDateString('pt-BR')}</span></div>
+      ${c.emTeste ? '' : `<div class="linha"><span class="label">Valor</span><span class="mono">R$ ${Number(c.planoValor||0).toFixed(2)}</span></div>`}
+      <div class="linha"><span class="label">${c.emTeste ? 'Teste termina em' : 'Vencimento'}</span><span class="mono">${c.emTeste ? new Date(c.vencimento).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : new Date(c.vencimento).toLocaleDateString('pt-BR')}</span></div>
       <div class="linha"><span class="label">Situação</span><span class="status-pill ${statusClasse}">${statusTexto}</span></div>
       ${emailCapturaHtml}
       ${dadosAcessoHtml}
