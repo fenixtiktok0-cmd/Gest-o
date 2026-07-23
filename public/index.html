@@ -812,8 +812,8 @@
       <input type="text" id="novo-app-codigo" placeholder="Ex: 123456">
     </div>
     <div class="field">
-      <label>Servidor</label>
-      <select id="novo-app-servidor"></select>
+      <label>Servidores compatíveis</label>
+      <div id="novo-app-servidores-lista" class="app-checklist"></div>
     </div>
     <button class="btn btn-primary" style="width:100%;" id="btn-salvar-app" onclick="adicionarAplicativo()">Adicionar</button>
     <div id="lista-aplicativos" style="margin-top:16px;"></div>
@@ -1455,7 +1455,7 @@
   function preencherChecklistAplicativos(servidorNome, selecionados = null) {
     const container = document.getElementById('f-aplicativos-lista');
     const appsDoServidor = servidorNome
-      ? aplicativos.filter(a => a.servidor === servidorNome)
+      ? aplicativos.filter(a => (a.servidores || []).includes(servidorNome))
       : [];
 
     if (!servidorNome) {
@@ -1567,7 +1567,6 @@
 
   // ---- Aplicativos ----
   function abrirAplicativos() {
-    preencherSelectServidoresApp();
     cancelarEdicaoApp();
     renderizarListaAplicativos();
     document.getElementById('overlay-aplicativos').classList.add('open');
@@ -1575,16 +1574,24 @@
   function fecharAplicativos() {
     document.getElementById('overlay-aplicativos').classList.remove('open');
   }
-  function preencherSelectServidoresApp() {
-    const select = document.getElementById('novo-app-servidor');
-    select.innerHTML = servidores.length
-      ? servidores.map(s => `<option value="${s.nome}">${s.nome}</option>`).join('')
-      : '<option value="">Cadastra um servidor primeiro</option>';
+  function preencherChecklistServidoresApp(marcados = []) {
+    const container = document.getElementById('novo-app-servidores-lista');
+    if (servidores.length === 0) {
+      container.innerHTML = '<div style="color:var(--text-muted); font-size:12px;">Cadastra um servidor primeiro.</div>';
+      return;
+    }
+    container.innerHTML = servidores.map(s => `
+      <label class="app-checklist-item">
+        <input type="checkbox" class="chk-app-servidor" value="${s.nome}" ${marcados.includes(s.nome) ? 'checked' : ''}>
+        <span>${s.nome}</span>
+      </label>
+    `).join('');
   }
   function cancelarEdicaoApp() {
     document.getElementById('editando-app-id').value = '';
     document.getElementById('novo-app-nome').value = '';
     document.getElementById('novo-app-codigo').value = '';
+    preencherChecklistServidoresApp([]);
     document.getElementById('btn-salvar-app').textContent = 'Adicionar';
   }
   function editarAplicativo(id) {
@@ -1593,7 +1600,7 @@
     document.getElementById('editando-app-id').value = id;
     document.getElementById('novo-app-nome').value = app.nome;
     document.getElementById('novo-app-codigo').value = app.codigo;
-    document.getElementById('novo-app-servidor').value = app.servidor || '';
+    preencherChecklistServidoresApp(app.servidores || []);
     document.getElementById('btn-salvar-app').textContent = 'Salvar alteração';
   }
   function renderizarListaAplicativos() {
@@ -1607,8 +1614,8 @@
         <span>
           ${a.nome} <span class="mono" style="color:var(--text-muted); font-size:12px;">(${a.codigo})</span>
           <br>
-          <span style="font-size:11px; ${a.servidor ? 'color:var(--ok);' : 'color:var(--danger);'}">
-            ${a.servidor ? '🖥️ ' + a.servidor : '⚠️ sem servidor vinculado'}
+          <span style="font-size:11px; ${(a.servidores && a.servidores.length) ? 'color:var(--ok);' : 'color:var(--danger);'}">
+            ${(a.servidores && a.servidores.length) ? '🖥️ ' + a.servidores.join(', ') : '⚠️ sem servidor vinculado'}
           </span>
         </span>
         <span style="display:flex; gap:10px;">
@@ -1622,18 +1629,18 @@
     const idEditando = document.getElementById('editando-app-id').value;
     const nome = document.getElementById('novo-app-nome').value.trim();
     const codigo = document.getElementById('novo-app-codigo').value.trim();
-    const servidor = document.getElementById('novo-app-servidor').value;
+    const servidoresMarcados = Array.from(document.querySelectorAll('.chk-app-servidor:checked')).map(el => el.value);
     if (!nome || !codigo) { alert('Preenche o nome e o código.'); return; }
 
     if (idEditando) {
       await fetch(`${FIREBASE_DB}/aplicativos/${idEditando}.json`, {
         method: 'PATCH',
-        body: JSON.stringify({ nome, codigo, servidor })
+        body: JSON.stringify({ nome, codigo, servidores: servidoresMarcados })
       });
     } else {
       await fetch(`${FIREBASE_DB}/aplicativos.json`, {
         method: 'POST',
-        body: JSON.stringify({ nome, codigo, servidor })
+        body: JSON.stringify({ nome, codigo, servidores: servidoresMarcados })
       });
     }
 
