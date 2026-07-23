@@ -589,6 +589,7 @@
     <button class="filter-chip" data-filtro="3dias" onclick="filtrar('3dias')">Vencendo 3d</button>
     <button class="filter-chip" data-filtro="hoje" onclick="filtrar('hoje')">Vencendo hoje</button>
     <button class="filter-chip" data-filtro="vencido" onclick="filtrar('vencido')">Vencidos</button>
+    <button class="filter-chip" data-filtro="teste" onclick="filtrar('teste')" style="border-color:#60A5FA55;">🧪 Em teste</button>
     <div style="display:flex; gap:4px; align-items:center; margin-left:8px;">
       <select id="filtro-dias-vencido" style="background:var(--surface); border:1px solid var(--border); border-radius:100px; color:var(--text); font-size:13px; padding:7px 10px;">
         <option value="30">+30 dias</option>
@@ -639,6 +640,25 @@
   <div class="modal">
     <h2 id="modal-titulo">Novo cliente</h2>
     <input type="hidden" id="cliente-id">
+
+    <div class="field" style="background:rgba(96,165,250,0.1); border:1px solid rgba(96,165,250,0.35); border-radius:10px; padding:12px;">
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-bottom:0;">
+        <input type="checkbox" id="f-teste" onchange="alternarModoTeste()" style="width:16px; height:16px; accent-color:#60A5FA;">
+        <span style="color:#60A5FA; font-weight:600;">🧪 Cliente de teste</span>
+      </label>
+      <div id="f-teste-horas-bloco" style="display:none; margin-top:10px;">
+        <label>Duração do teste</label>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          <button type="button" class="filter-chip horas-chip" data-horas="6" onclick="setHorasTeste(6)">6h</button>
+          <button type="button" class="filter-chip horas-chip active" data-horas="12" onclick="setHorasTeste(12)">12h</button>
+          <button type="button" class="filter-chip horas-chip" data-horas="24" onclick="setHorasTeste(24)">24h</button>
+          <button type="button" class="filter-chip horas-chip" data-horas="48" onclick="setHorasTeste(48)">48h</button>
+          <button type="button" class="filter-chip horas-chip" data-horas="72" onclick="setHorasTeste(72)">72h</button>
+        </div>
+        <div style="font-size:11px; color:var(--text-muted); margin-top:6px;">Teste não entra no Financeiro nem nos contadores de clientes ativos.</div>
+      </div>
+    </div>
+
     <div class="field">
       <label>Nome</label>
       <input type="text" id="f-nome" placeholder="Nome do cliente">
@@ -700,17 +720,37 @@
         <a href="javascript:void(0)" onclick="abrirServidores()" style="font-size:12px; color:var(--text-muted);">+ cadastrar novo servidor</a>
       </div>
     </div>
-    <div class="field">
+    <div class="field" id="f-valor-bloco">
       <label>Valor do plano (R$)</label>
       <input type="text" id="f-valor" placeholder="45.00">
     </div>
-    <div class="field">
+    <div class="field" id="f-vencimento-bloco">
       <label>Vencimento</label>
       <input type="date" id="f-vencimento">
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="fecharModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="salvarCliente()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-ativar-oficial">
+  <div class="modal">
+    <h2>Ativar como cliente oficial</h2>
+    <input type="hidden" id="oficial-cliente-id">
+    <p style="font-size:13px; color:var(--text-muted); margin-top:-8px;">Define o plano de verdade — a partir daqui ele entra no Financeiro e nos contadores normais.</p>
+    <div class="field">
+      <label>Valor do plano (R$)</label>
+      <input type="text" id="oficial-valor" placeholder="45.00">
+    </div>
+    <div class="field">
+      <label>Vencimento</label>
+      <input type="date" id="oficial-vencimento">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharAtivarOficial()">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmarAtivarOficial()">Ativar como oficial</button>
     </div>
   </div>
 </div>
@@ -958,6 +998,20 @@
       <div class="quando">Enviado pro cliente quando você renova o plano dele</div>
       <textarea id="tpl-comprovanteRenovacao"></textarea>
       <div class="var-chips" data-target="tpl-comprovanteRenovacao"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>🧪 Teste acabando</h3>
+      <div class="quando">Push + e-mail automático — disparado quando falta 1h pro teste encerrar</div>
+      <textarea id="tpl-msgTesteAcabando"></textarea>
+      <div class="var-chips" data-target="tpl-msgTesteAcabando"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>🧪 Teste encerrado</h3>
+      <div class="quando">Push + e-mail automático — disparado quando o teste já venceu</div>
+      <textarea id="tpl-msgTesteAcabou"></textarea>
+      <div class="var-chips" data-target="tpl-msgTesteAcabou"></div>
     </div>
 
     <div class="template-block">
@@ -1352,6 +1406,8 @@
     msg3diasVencido: 'Olá {nome}! Seu plano venceu há 3 dias ({data_vencimento}). Valor: R$ {valor_plano}. Vamos regularizar hoje?',
     msgManual: 'Olá {nome}! Passando aqui sobre o seu plano ({servidor}), vencimento em {data_vencimento}. Qualquer coisa me chama!',
     comprovanteRenovacao: 'Olá {nome}! Seu plano foi renovado com sucesso ✅\nNovo vencimento: {data_vencimento}\nValor: R$ {valor_plano}\nObrigado pela confiança!',
+    msgTesteAcabando: 'Olá {nome}! Seu teste está acabando em breve. Gostou? Fala com a gente pra virar cliente oficial e não perder o acesso!',
+    msgTesteAcabou: 'Olá {nome}! Seu período de teste terminou. Gostou da experiência? Fala com a gente agora pra ativar seu plano oficial!',
     emailAssunto: 'Seu plano vence em breve',
     emailCorpo: 'Olá {nome},\n\nSeu plano ({servidor}) vence em {data_vencimento}. Valor: R$ {valor_plano}.\n\nQualquer dúvida, chama no WhatsApp.'
   };
@@ -1390,7 +1446,7 @@
   async function abrirMensagens() {
     const res = await fetch(`${FIREBASE_DB}/config/templates.json`);
     const salvos = await res.json() || {};
-    const chaves = ['msg7dias', 'msg3dias', 'msgVencimento', 'msg3diasVencido', 'msgManual', 'comprovanteRenovacao', 'emailAssunto', 'emailCorpo'];
+    const chaves = ['msg7dias', 'msg3dias', 'msgVencimento', 'msg3diasVencido', 'msgManual', 'comprovanteRenovacao', 'msgTesteAcabando', 'msgTesteAcabou', 'emailAssunto', 'emailCorpo'];
     chaves.forEach(chave => {
       document.getElementById(`tpl-${chave}`).value = salvos[chave] || TEMPLATES_PADRAO[chave];
     });
@@ -1403,7 +1459,7 @@
   }
 
   async function salvarMensagens() {
-    const chaves = ['msg7dias', 'msg3dias', 'msgVencimento', 'msg3diasVencido', 'msgManual', 'comprovanteRenovacao', 'emailAssunto', 'emailCorpo'];
+    const chaves = ['msg7dias', 'msg3dias', 'msgVencimento', 'msg3diasVencido', 'msgManual', 'comprovanteRenovacao', 'msgTesteAcabando', 'msgTesteAcabou', 'emailAssunto', 'emailCorpo'];
     const templates = {};
     chaves.forEach(chave => {
       templates[chave] = document.getElementById(`tpl-${chave}`).value;
@@ -1501,12 +1557,13 @@
   }
 
   function atualizarStats() {
-    const ativos = clientes.filter(c => statusCalculado(c) === 'ativo');
-    const em3dias = clientes.filter(c => diasAte(c.vencimento) === 3).length;
-    const hoje = clientes.filter(c => diasAte(c.vencimento) === 0).length;
-    const vencidos = clientes.filter(c => diasAte(c.vencimento) < 0).length;
+    const clientesOficiais = clientes.filter(c => !c.emTeste);
+    const ativos = clientesOficiais.filter(c => statusCalculado(c) === 'ativo');
+    const em3dias = clientesOficiais.filter(c => diasAte(c.vencimento) === 3).length;
+    const hoje = clientesOficiais.filter(c => diasAte(c.vencimento) === 0).length;
+    const vencidos = clientesOficiais.filter(c => diasAte(c.vencimento) < 0).length;
 
-    document.getElementById('stat-total').textContent = clientes.length;
+    document.getElementById('stat-total').textContent = clientesOficiais.length;
     document.getElementById('stat-ativos').textContent = ativos.length;
     document.getElementById('stat-3dias').textContent = em3dias;
     document.getElementById('stat-hoje').textContent = hoje;
@@ -1892,10 +1949,15 @@
       (buscaDigitos.length > 0 && c.whatsapp?.includes(buscaDigitos))
     );
 
-    if (filtroAtual === 'ativo') lista = lista.filter(c => statusCalculado(c) === 'ativo');
-    if (filtroAtual === '3dias') lista = lista.filter(c => diasAte(c.vencimento) === 3);
-    if (filtroAtual === 'hoje') lista = lista.filter(c => diasAte(c.vencimento) === 0);
-    if (filtroAtual === 'vencido') lista = lista.filter(c => diasAte(c.vencimento) < 0);
+    if (filtroAtual === 'teste') {
+      lista = lista.filter(c => c.emTeste);
+    } else {
+      lista = lista.filter(c => !c.emTeste);
+      if (filtroAtual === 'ativo') lista = lista.filter(c => statusCalculado(c) === 'ativo');
+      if (filtroAtual === '3dias') lista = lista.filter(c => diasAte(c.vencimento) === 3);
+      if (filtroAtual === 'hoje') lista = lista.filter(c => diasAte(c.vencimento) === 0);
+      if (filtroAtual === 'vencido') lista = lista.filter(c => diasAte(c.vencimento) < 0);
+    }
 
     lista.sort((a,b) => a.vencimento - b.vencimento);
 
@@ -1913,15 +1975,23 @@
     tbody.innerHTML = lista.map(c => {
       const dias = diasAte(c.vencimento);
       const sinalClasse = classeSinal(dias);
-      const dataFormatada = new Date(c.vencimento).toLocaleDateString('pt-BR');
-      const diasTexto = dias < 0 ? `${Math.abs(dias)}d atrasado` : dias === 0 ? 'vence hoje' : `em ${dias}d`;
+      const dataFormatada = c.emTeste
+        ? new Date(c.vencimento).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })
+        : new Date(c.vencimento).toLocaleDateString('pt-BR');
+      let diasTexto;
+      if (c.emTeste) {
+        const horasRestantes = Math.round((c.vencimento - Date.now()) / (1000 * 60 * 60));
+        diasTexto = horasRestantes <= 0 ? 'teste encerrado' : `restam ${horasRestantes}h de teste`;
+      } else {
+        diasTexto = dias < 0 ? `${Math.abs(dias)}d atrasado` : dias === 0 ? 'vence hoje' : `em ${dias}d`;
+      }
 
       const mensagem = mensagemPadrao(c, dias);
       const linkWhats = `https://wa.me/${c.whatsapp}?text=${encodeURIComponent(mensagem)}`;
 
       const APP_URL = window.location.origin;
       const linkMeuPlano = `${APP_URL}/meu-plano.html?id=${c.id}`;
-      const mensagemAtivacao = `Olá ${c.nome}! Pra receber avisos automáticos sobre o vencimento do seu plano, acessa esse link e ativa as notificações: ${linkMeuPlano}`;
+      const mensagemAtivacao = `Olá ${c.nome}!\n\nAbre o link, preencha seu e-mail e ativa as notificações pra ver seu usuário, senha e aplicativos liberados na hora — e ainda receba um aviso automático quando seu plano estiver perto de vencer:\n\n${linkMeuPlano}`;
       const linkAtivacao = `https://wa.me/${c.whatsapp}?text=${encodeURIComponent(mensagemAtivacao)}`;
 
       return `
@@ -1945,6 +2015,7 @@
           <td data-label="Status" class="td-hide-mobile"><span class="badge ${statusCalculado(c)}">${statusCalculado(c)}</span></td>
           <td data-label="Ações" class="actions-cell">
             <div class="actions">
+              ${c.emTeste ? `<button class="icon-btn" style="color:#60A5FA; border-color:#60A5FA;" onclick="abrirAtivarOficial('${c.id}')" title="Ativar como cliente oficial">✅</button>` : ''}
               <button class="icon-btn whats" onclick="abrirRenovacao('${c.id}')" title="Renovar cliente">🔄</button>
               <button class="icon-btn" onclick="enviarAcesso('${c.id}')" title="Enviar dados de acesso">📲</button>
               <a class="icon-btn" href="${linkAtivacao}" target="_blank" title="Enviar link de ativação">🔗</a>
@@ -2082,9 +2153,28 @@
     }
   }
 
+  let horasTeste = 12;
+
+  function setHorasTeste(horas) {
+    horasTeste = horas;
+    document.querySelectorAll('.horas-chip').forEach(el => {
+      el.classList.toggle('active', Number(el.dataset.horas) === horas);
+    });
+  }
+
+  function alternarModoTeste() {
+    const emTeste = document.getElementById('f-teste').checked;
+    document.getElementById('f-teste-horas-bloco').style.display = emTeste ? 'block' : 'none';
+    document.getElementById('f-valor-bloco').style.display = emTeste ? 'none' : 'block';
+    document.getElementById('f-vencimento-bloco').style.display = emTeste ? 'none' : 'block';
+    if (emTeste) setHorasTeste(12);
+  }
+
   function abrirModal() {
     document.getElementById('modal-titulo').textContent = 'Novo cliente';
     document.getElementById('cliente-id').value = '';
+    document.getElementById('f-teste').checked = false;
+    alternarModoTeste();
     document.getElementById('f-nome').value = '';
     document.getElementById('f-m3u').value = '';
     document.getElementById('m3u-status').textContent = '';
@@ -2110,6 +2200,8 @@
     if (!c) return;
     document.getElementById('modal-titulo').textContent = 'Editar cliente';
     document.getElementById('cliente-id').value = c.id;
+    document.getElementById('f-teste').checked = !!c.emTeste;
+    alternarModoTeste();
     document.getElementById('f-nome').value = c.nome || '';
     document.getElementById('f-m3u').value = c.m3uLink || '';
     document.getElementById('m3u-status').textContent = '';
@@ -2139,24 +2231,33 @@
     const email = document.getElementById('f-email').value.trim();
     const servidor = document.getElementById('f-servidor').value.trim();
     const aplicativosIds = Array.from(document.querySelectorAll('.chk-app:checked')).map(el => el.value);
-    const planoValor = parseFloat(document.getElementById('f-valor').value) || 0;
-    const vencimentoInput = document.getElementById('f-vencimento').value;
+    const emTeste = document.getElementById('f-teste').checked;
 
-    if (!nome || !whatsapp || !vencimentoInput) {
-      alert('Preencha nome, WhatsApp e vencimento.');
-      return;
+    let planoValor, vencimento;
+
+    if (emTeste) {
+      planoValor = 0;
+      vencimento = Date.now() + horasTeste * 60 * 60 * 1000;
+    } else {
+      planoValor = parseFloat(document.getElementById('f-valor').value) || 0;
+      const vencimentoInput = document.getElementById('f-vencimento').value;
+      if (!vencimentoInput) { alert('Preencha o vencimento.'); return; }
+      vencimento = new Date(vencimentoInput + 'T12:00:00').getTime();
     }
 
-    const vencimento = new Date(vencimentoInput + 'T12:00:00').getTime();
+    if (!nome || !whatsapp) {
+      alert('Preencha nome e WhatsApp.');
+      return;
+    }
 
     if (id) {
       await fetch(`${FIREBASE_DB}/clientes/${id}.json`, {
         method: 'PATCH',
-        body: JSON.stringify({ nome, usuario, senha, m3uLink, whatsapp, email, servidor, aplicativosIds, planoValor, vencimento })
+        body: JSON.stringify({ nome, usuario, senha, m3uLink, whatsapp, email, servidor, aplicativosIds, planoValor, vencimento, emTeste })
       });
     } else {
       const novoCliente = {
-        nome, usuario, senha, m3uLink, whatsapp, email, servidor, aplicativosIds, planoValor, vencimento,
+        nome, usuario, senha, m3uLink, whatsapp, email, servidor, aplicativosIds, planoValor, vencimento, emTeste,
         status: 'ativo',
         fcmToken: null,
         notificacaoAtiva: false,
@@ -2168,7 +2269,9 @@
         body: JSON.stringify(novoCliente)
       });
       const criado = await res.json();
-      await registrarFinanceiro({ id: criado.name, nome, servidor }, planoValor, 'cadastro');
+      if (!emTeste) {
+        await registrarFinanceiro({ id: criado.name, nome, servidor }, planoValor, 'cadastro');
+      }
     }
 
     fecharModal();
@@ -2225,6 +2328,46 @@
   let baseRenovacao = 'vencimento';
   let diasRenovacao = 30;
   let clienteRenovandoId = null;
+
+  // ---- Ativar cliente de teste como oficial ----
+  function abrirAtivarOficial(id) {
+    document.getElementById('oficial-cliente-id').value = id;
+    document.getElementById('oficial-valor').value = '';
+    const amanha = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    document.getElementById('oficial-vencimento').value = amanha.toISOString().slice(0, 10);
+    document.getElementById('overlay-ativar-oficial').classList.add('open');
+  }
+  function fecharAtivarOficial() {
+    document.getElementById('overlay-ativar-oficial').classList.remove('open');
+  }
+  async function confirmarAtivarOficial() {
+    const id = document.getElementById('oficial-cliente-id').value;
+    const valor = parseFloat(document.getElementById('oficial-valor').value) || 0;
+    const vencimentoInput = document.getElementById('oficial-vencimento').value;
+
+    if (!valor || !vencimentoInput) { alert('Preenche o valor e o vencimento do plano.'); return; }
+
+    const cliente = clientes.find(c => c.id === id);
+    if (!cliente) return;
+
+    const vencimento = new Date(vencimentoInput + 'T12:00:00').getTime();
+
+    await fetch(`${FIREBASE_DB}/clientes/${id}.json`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        emTeste: false,
+        planoValor: valor,
+        vencimento,
+        ultimaNotificacao: { tipo: null, data: 0 }
+      })
+    });
+
+    await registrarFinanceiro({ id, nome: cliente.nome, servidor: cliente.servidor }, valor, 'cadastro');
+
+    fecharAtivarOficial();
+    await carregarClientes();
+    alert(`✅ ${cliente.nome} agora é cliente oficial!`);
+  }
 
   function abrirRenovacao(id) {
     clienteRenovandoId = id;
