@@ -488,6 +488,29 @@
   </div>
 </div>
 
+<div class="overlay" id="overlay-trocar-dominio">
+  <div class="modal">
+    <h2>Trocar domínio M3U em massa</h2>
+    <p style="font-size:12px; color:var(--text-muted); margin-top:-10px; margin-bottom:16px;">
+      Troca só a parte do domínio no link de cada cliente — usuário e senha de cada um continuam intactos.
+    </p>
+    <div class="field">
+      <label>Domínio atual (o que vai ser substituído)</label>
+      <input type="text" id="td-dominio-antigo" placeholder="invictos.sbs">
+    </div>
+    <div class="field">
+      <label>Domínio novo</label>
+      <input type="text" id="td-dominio-novo" placeholder="invictos2.sbs">
+    </div>
+    <button class="btn" style="width:100%;" onclick="analisarTrocaDominio()">Analisar</button>
+    <div id="td-resumo" style="margin-top:14px; font-size:13px; color:var(--text-muted);"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharTrocarDominio()">Fechar</button>
+      <button class="btn btn-primary" id="btn-aplicar-troca-dominio" style="display:none;" onclick="aplicarTrocaDominio()">Aplicar troca</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="overlay-importar">
   <div class="modal wide">
     <h2>Importar clientes (CSV)</h2>
@@ -512,6 +535,7 @@
   <div class="modal" style="max-width:340px;">
     <h2>Menu</h2>
     <div style="display:flex; flex-direction:column; gap:8px;">
+      <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirTrocarDominio();">🔗 Trocar domínio M3U em massa</button>
       <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirImportar();">📥 Importar clientes</button>
       <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirPersonalizacao();">🎨 Personalização</button>
       <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirAplicativos();">📲 Aplicativos</button>
@@ -1060,6 +1084,77 @@
 
     selecionados.clear();
     document.getElementById('chk-selecionar-todos').checked = false;
+    await carregarClientes();
+  }
+
+  // ---- Trocar domínio M3U em massa ----
+  let clientesParaTrocarDominio = [];
+
+  function abrirTrocarDominio() {
+    document.getElementById('td-dominio-antigo').value = '';
+    document.getElementById('td-dominio-novo').value = '';
+    document.getElementById('td-resumo').innerHTML = '';
+    document.getElementById('btn-aplicar-troca-dominio').style.display = 'none';
+    clientesParaTrocarDominio = [];
+    document.getElementById('overlay-trocar-dominio').classList.add('open');
+  }
+  function fecharTrocarDominio() {
+    document.getElementById('overlay-trocar-dominio').classList.remove('open');
+  }
+
+  function analisarTrocaDominio() {
+    const antigo = document.getElementById('td-dominio-antigo').value.trim();
+    const novo = document.getElementById('td-dominio-novo').value.trim();
+    const resumo = document.getElementById('td-resumo');
+
+    if (!antigo || !novo) {
+      resumo.textContent = 'Preenche os dois campos.';
+      return;
+    }
+
+    clientesParaTrocarDominio = clientes.filter(c => c.m3uLink && c.m3uLink.includes(antigo));
+
+    if (clientesParaTrocarDominio.length === 0) {
+      resumo.textContent = `Nenhum cliente encontrado com "${antigo}" no link M3U.`;
+      document.getElementById('btn-aplicar-troca-dominio').style.display = 'none';
+      return;
+    }
+
+    resumo.innerHTML = `
+      <div style="color:var(--ok); font-weight:600; margin-bottom:6px;">${clientesParaTrocarDominio.length} cliente(s) encontrado(s)</div>
+      <div style="max-height:150px; overflow-y:auto;">
+        ${clientesParaTrocarDominio.slice(0, 20).map(c => `<div style="padding:3px 0;">• ${c.nome}</div>`).join('')}
+        ${clientesParaTrocarDominio.length > 20 ? `<div style="padding:3px 0;">... e mais ${clientesParaTrocarDominio.length - 20}</div>` : ''}
+      </div>
+    `;
+    document.getElementById('btn-aplicar-troca-dominio').style.display = 'inline-block';
+  }
+
+  async function aplicarTrocaDominio() {
+    const antigo = document.getElementById('td-dominio-antigo').value.trim();
+    const novo = document.getElementById('td-dominio-novo').value.trim();
+
+    if (!confirm(`Atualizar o link M3U de ${clientesParaTrocarDominio.length} cliente(s)?`)) return;
+
+    const resumo = document.getElementById('td-resumo');
+    let feitos = 0;
+
+    const TAMANHO_LOTE = 20;
+    for (let i = 0; i < clientesParaTrocarDominio.length; i += TAMANHO_LOTE) {
+      const lote = clientesParaTrocarDominio.slice(i, i + TAMANHO_LOTE);
+      await Promise.all(lote.map(c => {
+        const novoLink = c.m3uLink.replaceAll(antigo, novo);
+        return fetch(`${FIREBASE_DB}/clientes/${c.id}.json`, {
+          method: 'PATCH',
+          body: JSON.stringify({ m3uLink: novoLink })
+        });
+      }));
+      feitos += lote.length;
+      resumo.innerHTML = `Atualizando... ${feitos} / ${clientesParaTrocarDominio.length}`;
+    }
+
+    resumo.innerHTML = `✅ ${feitos} cliente(s) atualizado(s) com sucesso!`;
+    document.getElementById('btn-aplicar-troca-dominio').style.display = 'none';
     await carregarClientes();
   }
 
