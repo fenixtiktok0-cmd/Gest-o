@@ -34,8 +34,8 @@ module.exports = async (req, res) => {
         const resultado = await resend.emails.send({
           from: process.env.RESEND_FROM,
           to: cliente.email,
-          subject: preencherTemplate(assunto || 'Oferta especial', cliente),
-          text: preencherTemplate(corpo, cliente),
+          subject: preencherTemplate(assunto || 'Oferta especial', cliente, id),
+          text: preencherTemplate(corpo, cliente, id),
         });
 
         if (resultado.error) {
