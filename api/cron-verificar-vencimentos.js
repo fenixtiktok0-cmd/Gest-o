@@ -75,7 +75,7 @@ module.exports = async (req, res) => {
         '3diasVencido': templates.msg3diasVencido,
       };
       const templateMsg = mapaTemplate[tipo];
-      const corpo = preencherTemplate(templateMsg || '', cliente);
+      const corpo = preencherTemplate(templateMsg || '', cliente, id);
 
       // Push
       if (cliente.fcmToken && cliente.notificacaoAtiva) {
@@ -102,8 +102,8 @@ module.exports = async (req, res) => {
           const resultado = await resend.emails.send({
             from: process.env.RESEND_FROM,
             to: cliente.email,
-            subject: preencherTemplate(templates.emailAssunto || 'Aviso de vencimento', cliente),
-            text: preencherTemplate(templates.emailCorpo || corpo, cliente),
+            subject: preencherTemplate(templates.emailAssunto || 'Aviso de vencimento', cliente, id),
+            text: preencherTemplate(templates.emailCorpo || corpo, cliente, id),
           });
           if (resultado.error) {
             log.erros.push(`email ${id}: ${resultado.error.message || JSON.stringify(resultado.error)}`);
