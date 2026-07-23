@@ -30,8 +30,8 @@ module.exports = async (req, res) => {
       }
 
       const corpo = mensagemCustom
-        ? preencherTemplate(mensagemCustom, cliente)
-        : preencherTemplate(templates.msgManual || '', cliente);
+        ? preencherTemplate(mensagemCustom, cliente, id)
+        : preencherTemplate(templates.msgManual || '', cliente, id);
       const linkClique = `${process.env.APP_URL}/meu-plano.html?id=${id}`;
 
       try {
