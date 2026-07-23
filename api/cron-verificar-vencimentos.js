@@ -50,6 +50,7 @@ module.exports = async (req, res) => {
     }
 
     for (const [id, cliente] of Object.entries(clientes)) {
+      if (cliente.emTeste) continue;
       if (cliente.status !== 'ativo') continue;
       log.processados++;
 
