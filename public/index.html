@@ -870,6 +870,7 @@
 <div class="overlay" id="overlay-servidores">
   <div class="modal">
     <h2>Servidores</h2>
+    <input type="hidden" id="editando-servidor-id">
     <div class="field">
       <label>Nome do servidor</label>
       <input type="text" id="novo-servidor-nome" placeholder="Nome do servidor">
@@ -878,7 +879,7 @@
       <label>Domínio do link M3U (opcional — auto-detecta o servidor ao colar o link)</label>
       <div style="display:flex; gap:8px;">
         <input type="text" id="novo-servidor-dominio" placeholder="Ex: invictos.sbs" style="flex:1;">
-        <button class="btn btn-primary" onclick="adicionarServidor()">Adicionar</button>
+        <button class="btn btn-primary" id="btn-salvar-servidor" onclick="adicionarServidor()">Adicionar</button>
       </div>
     </div>
     <div id="lista-servidores" style="margin-top:16px;"></div>
@@ -1630,6 +1631,7 @@
 
   // ---- Servidores ----
   function abrirServidores() {
+    cancelarEdicaoServidor();
     renderizarListaServidores();
     document.getElementById('overlay-servidores').classList.add('open');
   }
@@ -1650,6 +1652,7 @@
             ${s.dominioM3U ? `<span class="mono" style="color:var(--text-muted); font-size:11px;">(${s.dominioM3U})</span>` : ''}
           </span>
           <span style="display:flex; gap:10px;">
+            <button class="del-mini" style="color:var(--text-muted);" onclick="editarServidor('${s.id}')">editar</button>
             <button class="del-mini" style="color:var(--text-muted);" onclick="toggleGerenciarApps('${s.id}')">📲 apps</button>
             <button class="del-mini" onclick="excluirServidor('${s.id}')">remover</button>
           </span>
@@ -1657,6 +1660,23 @@
         <div id="gerenciar-apps-${s.id}" style="display:none; margin-top:10px; padding-top:10px; border-top:1px solid var(--border);"></div>
       </div>
     `).join('');
+  }
+
+  function editarServidor(id) {
+    const s = servidores.find(x => x.id === id);
+    if (!s) return;
+    document.getElementById('editando-servidor-id').value = id;
+    document.getElementById('novo-servidor-nome').value = s.nome;
+    document.getElementById('novo-servidor-dominio').value = s.dominioM3U || '';
+    document.getElementById('btn-salvar-servidor').textContent = 'Salvar alteração';
+    document.getElementById('novo-servidor-nome').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function cancelarEdicaoServidor() {
+    document.getElementById('editando-servidor-id').value = '';
+    document.getElementById('novo-servidor-nome').value = '';
+    document.getElementById('novo-servidor-dominio').value = '';
+    document.getElementById('btn-salvar-servidor').textContent = 'Adicionar';
   }
 
   function toggleGerenciarApps(servidorId) {
@@ -1729,15 +1749,24 @@
   }
 
   async function adicionarServidor() {
+    const idEditando = document.getElementById('editando-servidor-id').value;
     const nome = document.getElementById('novo-servidor-nome').value.trim();
     const dominioM3U = document.getElementById('novo-servidor-dominio').value.trim();
     if (!nome) return;
-    await fetch(`${FIREBASE_DB}/servidores.json`, {
-      method: 'POST',
-      body: JSON.stringify({ nome, dominioM3U })
-    });
-    document.getElementById('novo-servidor-nome').value = '';
-    document.getElementById('novo-servidor-dominio').value = '';
+
+    if (idEditando) {
+      await fetch(`${FIREBASE_DB}/servidores/${idEditando}.json`, {
+        method: 'PATCH',
+        body: JSON.stringify({ nome, dominioM3U })
+      });
+    } else {
+      await fetch(`${FIREBASE_DB}/servidores.json`, {
+        method: 'POST',
+        body: JSON.stringify({ nome, dominioM3U })
+      });
+    }
+
+    cancelarEdicaoServidor();
     await carregarServidores();
     renderizarListaServidores();
   }
