@@ -30,7 +30,7 @@ module.exports = async (req, res) => {
     const config = configSnap.val() || {};
     const templates = config.templates || {};
 
-    const corpo = preencherTemplate(templates.comprovanteRenovacao || '', cliente);
+    const corpo = preencherTemplate(templates.comprovanteRenovacao || '', cliente, clienteId);
 
     let pushEnviado = false;
     if (cliente.fcmToken && cliente.notificacaoAtiva) {
@@ -55,7 +55,7 @@ module.exports = async (req, res) => {
         const resultadoEmail = await resend.emails.send({
           from: process.env.RESEND_FROM,
           to: cliente.email,
-          subject: preencherTemplate(templates.emailAssunto || 'Seu plano foi renovado!', cliente),
+          subject: preencherTemplate(templates.emailAssunto || 'Seu plano foi renovado!', cliente, clienteId),
           text: corpo,
         });
         emailEnviado = !resultadoEmail.error;
