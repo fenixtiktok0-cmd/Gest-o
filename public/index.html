@@ -620,6 +620,14 @@
       <input type="text" id="f-nome" placeholder="Nome do cliente">
     </div>
     <div class="field">
+      <label>Link M3U (opcional — preenche usuário/senha/vencimento sozinho)</label>
+      <div style="display:flex; gap:8px;">
+        <input type="text" id="f-m3u" placeholder="http://painel.com/get.php?username=...&password=..." style="flex:1;">
+        <button class="btn" type="button" onclick="buscarDadosM3U()" style="white-space:nowrap;">🔍 Buscar</button>
+      </div>
+      <div id="m3u-status" style="font-size:12px; margin-top:6px;"></div>
+    </div>
+    <div class="field">
       <label>Usuário (login no servidor)</label>
       <input type="text" id="f-usuario" placeholder="usuario123">
     </div>
@@ -1744,7 +1752,7 @@
 
       const APP_URL = window.location.origin;
       const linkMeuPlano = `${APP_URL}/meu-plano.html?id=${c.id}`;
-      const mensagemAtivacao = `Olá ${c.nome}! Pra receber avisos automáticos sobre vencimentos do seu plano e validar seu acesso, Clique nesse link e ativa as notificações: ${linkMeuPlano}`;
+      const mensagemAtivacao = `Olá ${c.nome}! Pra receber avisos automáticos sobre o vencimento do seu plano, acessa esse link e ativa as notificações: ${linkMeuPlano}`;
       const linkAtivacao = `https://wa.me/${c.whatsapp}?text=${encodeURIComponent(mensagemAtivacao)}`;
 
       return `
@@ -1830,10 +1838,49 @@
     return { ddi: '55', numero: limpo };
   }
 
+  async function buscarDadosM3U() {
+    const link = document.getElementById('f-m3u').value.trim();
+    const statusEl = document.getElementById('m3u-status');
+
+    if (!link) { statusEl.textContent = 'Cola o link M3U primeiro.'; statusEl.style.color = 'var(--danger)'; return; }
+
+    statusEl.textContent = 'Consultando o painel...';
+    statusEl.style.color = 'var(--text-muted)';
+
+    try {
+      const res = await fetch('/api/consultar-iptv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ link })
+      });
+      const data = await res.json();
+
+      if (data.erro) {
+        statusEl.textContent = '❌ ' + data.erro;
+        statusEl.style.color = 'var(--danger)';
+        return;
+      }
+
+      document.getElementById('f-usuario').value = data.usuario || '';
+      document.getElementById('f-senha').value = data.senha || '';
+      if (data.vencimento) {
+        document.getElementById('f-vencimento').value = new Date(data.vencimento).toISOString().slice(0, 10);
+      }
+
+      statusEl.textContent = `✅ Dados encontrados! Status no painel: ${data.statusPainel || 'desconhecido'}`;
+      statusEl.style.color = 'var(--ok)';
+    } catch (err) {
+      statusEl.textContent = '❌ Erro ao consultar. Tenta de novo.';
+      statusEl.style.color = 'var(--danger)';
+    }
+  }
+
   function abrirModal() {
     document.getElementById('modal-titulo').textContent = 'Novo cliente';
     document.getElementById('cliente-id').value = '';
     document.getElementById('f-nome').value = '';
+    document.getElementById('f-m3u').value = '';
+    document.getElementById('m3u-status').textContent = '';
     document.getElementById('f-usuario').value = '';
     document.getElementById('f-senha').value = '';
     document.getElementById('f-ddi').value = '55';
@@ -1857,6 +1904,8 @@
     document.getElementById('modal-titulo').textContent = 'Editar cliente';
     document.getElementById('cliente-id').value = c.id;
     document.getElementById('f-nome').value = c.nome || '';
+    document.getElementById('f-m3u').value = c.m3uLink || '';
+    document.getElementById('m3u-status').textContent = '';
     document.getElementById('f-usuario').value = c.usuario || '';
     document.getElementById('f-senha').value = c.senha || '';
     const { ddi, numero } = separarDDI(c.whatsapp || '');
@@ -1874,6 +1923,7 @@
   async function salvarCliente() {
     const id = document.getElementById('cliente-id').value;
     const nome = document.getElementById('f-nome').value.trim();
+    const m3uLink = document.getElementById('f-m3u').value.trim();
     const usuario = document.getElementById('f-usuario').value.trim();
     const senha = document.getElementById('f-senha').value.trim();
     const ddi = document.getElementById('f-ddi').value.replace(/\D/g, '') || '55';
@@ -1895,11 +1945,11 @@
     if (id) {
       await fetch(`${FIREBASE_DB}/clientes/${id}.json`, {
         method: 'PATCH',
-        body: JSON.stringify({ nome, usuario, senha, whatsapp, email, servidor, aplicativosIds, planoValor, vencimento })
+        body: JSON.stringify({ nome, usuario, senha, m3uLink, whatsapp, email, servidor, aplicativosIds, planoValor, vencimento })
       });
     } else {
       const novoCliente = {
-        nome, usuario, senha, whatsapp, email, servidor, aplicativosIds, planoValor, vencimento,
+        nome, usuario, senha, m3uLink, whatsapp, email, servidor, aplicativosIds, planoValor, vencimento,
         status: 'ativo',
         fcmToken: null,
         notificacaoAtiva: false,
