@@ -1744,7 +1744,7 @@
 
       const APP_URL = window.location.origin;
       const linkMeuPlano = `${APP_URL}/meu-plano.html?id=${c.id}`;
-      const mensagemAtivacao = `Olá ${c.nome}! Pra receber avisos automáticos sobre o vencimento do seu plano, acessa esse link e ativa as notificações: ${linkMeuPlano}`;
+      const mensagemAtivacao = `Olá ${c.nome}! Pra receber avisos automáticos sobre vencimentos do seu plano e validar seu acesso, Clique nesse link e ativa as notificações: ${linkMeuPlano}`;
       const linkAtivacao = `https://wa.me/${c.whatsapp}?text=${encodeURIComponent(mensagemAtivacao)}`;
 
       return `
