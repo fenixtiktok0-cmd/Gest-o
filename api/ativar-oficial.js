@@ -39,7 +39,7 @@ module.exports = async (req, res) => {
     const config = configSnap.val() || {};
     const templates = config.templates || {};
 
-    const corpo = preencherTemplate(templates.msgBemVindoOficial || '', cliente);
+    const corpo = preencherTemplate(templates.msgBemVindoOficial || '', cliente, clienteId);
 
     let pushEnviado = false;
     if (cliente.fcmToken && cliente.notificacaoAtiva) {
