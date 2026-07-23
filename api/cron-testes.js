@@ -34,7 +34,7 @@ module.exports = async (req, res) => {
       if (cliente.ultimaNotificacao?.tipo === tipo) continue;
 
       const templateMsg = tipo === 'testeAcabando' ? templates.msgTesteAcabando : templates.msgTesteAcabou;
-      const corpo = preencherTemplate(templateMsg || '', cliente);
+      const corpo = preencherTemplate(templateMsg || '', cliente, id);
 
       if (cliente.fcmToken && cliente.notificacaoAtiva) {
         try {
