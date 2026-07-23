@@ -103,7 +103,10 @@
     border: 1px solid var(--border);
     border-radius: 12px;
     padding: 18px 20px;
+    transition: border-color .15s ease, transform .1s ease;
   }
+  .stat-card:hover { border-color: #38424F; transform: translateY(-1px); }
+  .stat-card.card-active { border-color: var(--ok); box-shadow: 0 0 0 1px var(--ok); }
 
   .stat-card .label {
     font-size: 12px;
@@ -554,23 +557,23 @@
 
 <main>
   <div class="stats">
-    <div class="stat-card">
+    <div class="stat-card" id="card-todos" onclick="filtrar('todos')" style="cursor:pointer;">
       <div class="label">Total de clientes</div>
       <div class="value mono" id="stat-total">0</div>
     </div>
-    <div class="stat-card ok">
+    <div class="stat-card ok" id="card-ativo" onclick="filtrar('ativo')" style="cursor:pointer;">
       <div class="label">Ativos</div>
       <div class="value mono" id="stat-ativos">0</div>
     </div>
-    <div class="stat-card warn">
+    <div class="stat-card warn" id="card-3dias" onclick="filtrar('3dias')" style="cursor:pointer;">
       <div class="label">Vencendo em 3 dias</div>
       <div class="value mono" id="stat-3dias">0</div>
     </div>
-    <div class="stat-card danger">
+    <div class="stat-card danger" id="card-hoje" onclick="filtrar('hoje')" style="cursor:pointer;">
       <div class="label">Vencendo hoje</div>
       <div class="value mono" id="stat-hoje">0</div>
     </div>
-    <div class="stat-card danger">
+    <div class="stat-card danger" id="card-vencido" onclick="filtrar('vencido')" style="cursor:pointer;">
       <div class="label">Vencidos</div>
       <div class="value mono" id="stat-vencidos">0</div>
     </div>
@@ -584,11 +587,8 @@
       <button class="filter-chip active" id="btn-view-grade" onclick="setModoVisualizacao('grade')">🔲 Grade</button>
       <button class="filter-chip" id="btn-view-lista" onclick="setModoVisualizacao('lista')">☰ Lista</button>
     </div>
-    <button class="filter-chip active" data-filtro="todos" onclick="filtrar('todos')">Todos</button>
-    <button class="filter-chip" data-filtro="ativo" onclick="filtrar('ativo')">Ativos</button>
-    <button class="filter-chip" data-filtro="3dias" onclick="filtrar('3dias')">Vencendo 3d</button>
-    <button class="filter-chip" data-filtro="hoje" onclick="filtrar('hoje')">Vencendo hoje</button>
-    <button class="filter-chip" data-filtro="vencido" onclick="filtrar('vencido')">Vencidos</button>
+    <button class="filter-chip" id="btn-calendario" onclick="toggleCalendarioFiltro()">📅 Data específica</button>
+    <input type="date" id="filtro-data-especifica" style="display:none; background:var(--surface); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:13px; padding:7px 10px;" onchange="filtrarPorDataEspecifica()">
     <button class="filter-chip" data-filtro="teste" onclick="filtrar('teste')" style="border-color:#60A5FA55;">🧪 Em teste</button>
     <div style="display:flex; gap:4px; align-items:center; margin-left:8px;">
       <select id="filtro-dias-vencido" style="background:var(--surface); border:1px solid var(--border); border-radius:100px; color:var(--text); font-size:13px; padding:7px 10px;">
@@ -871,9 +871,13 @@
   <div class="modal">
     <h2>Servidores</h2>
     <div class="field">
-      <label>Novo servidor</label>
+      <label>Nome do servidor</label>
+      <input type="text" id="novo-servidor-nome" placeholder="Nome do servidor">
+    </div>
+    <div class="field">
+      <label>Domínio do link M3U (opcional — auto-detecta o servidor ao colar o link)</label>
       <div style="display:flex; gap:8px;">
-        <input type="text" id="novo-servidor-nome" placeholder="Nome do servidor">
+        <input type="text" id="novo-servidor-dominio" placeholder="Ex: invictos.sbs" style="flex:1;">
         <button class="btn btn-primary" onclick="adicionarServidor()">Adicionar</button>
       </div>
     </div>
@@ -1588,10 +1592,39 @@
     timeoutBusca = setTimeout(renderizar, 250);
   }
 
+  let dataEspecificaFiltro = null;
+
   function filtrar(tipo) {
     filtroAtual = tipo;
-    document.querySelectorAll('.filter-chip').forEach(el => el.classList.remove('active'));
-    document.querySelector(`[data-filtro="${tipo}"]`).classList.add('active');
+    dataEspecificaFiltro = null;
+    document.getElementById('filtro-data-especifica').value = '';
+    document.querySelectorAll('.stat-card').forEach(el => el.classList.remove('card-active'));
+    const card = document.getElementById('card-' + tipo);
+    if (card) card.classList.add('card-active');
+    document.querySelectorAll('.filter-chip[data-filtro]').forEach(el => el.classList.remove('active'));
+    const chip = document.querySelector(`[data-filtro="${tipo}"]`);
+    if (chip) chip.classList.add('active');
+    renderizar();
+  }
+
+  function toggleCalendarioFiltro() {
+    const input = document.getElementById('filtro-data-especifica');
+    const estaVisivel = input.style.display !== 'none';
+    if (estaVisivel) {
+      input.style.display = 'none';
+      filtrar('todos');
+    } else {
+      input.style.display = 'inline-block';
+    }
+  }
+
+  function filtrarPorDataEspecifica() {
+    const valor = document.getElementById('filtro-data-especifica').value;
+    if (!valor) return;
+    dataEspecificaFiltro = valor;
+    filtroAtual = 'data-especifica';
+    document.querySelectorAll('.stat-card').forEach(el => el.classList.remove('card-active'));
+    document.querySelectorAll('.filter-chip[data-filtro]').forEach(el => el.classList.remove('active'));
     renderizar();
   }
 
@@ -1610,20 +1643,101 @@
       return;
     }
     container.innerHTML = servidores.map(s => `
-      <div class="lista-item">
-        <span>${s.nome}</span>
-        <button class="del-mini" onclick="excluirServidor('${s.id}')">remover</button>
+      <div class="lista-item" style="flex-direction:column; align-items:stretch;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span>
+            ${s.nome}
+            ${s.dominioM3U ? `<span class="mono" style="color:var(--text-muted); font-size:11px;">(${s.dominioM3U})</span>` : ''}
+          </span>
+          <span style="display:flex; gap:10px;">
+            <button class="del-mini" style="color:var(--text-muted);" onclick="toggleGerenciarApps('${s.id}')">📲 apps</button>
+            <button class="del-mini" onclick="excluirServidor('${s.id}')">remover</button>
+          </span>
+        </div>
+        <div id="gerenciar-apps-${s.id}" style="display:none; margin-top:10px; padding-top:10px; border-top:1px solid var(--border);"></div>
       </div>
     `).join('');
   }
+
+  function toggleGerenciarApps(servidorId) {
+    const container = document.getElementById(`gerenciar-apps-${servidorId}`);
+    const servidor = servidores.find(s => s.id === servidorId);
+    if (!servidor) return;
+
+    const abrindo = container.style.display === 'none';
+    // Fecha qualquer outro painel de apps aberto
+    document.querySelectorAll('[id^="gerenciar-apps-"]').forEach(el => el.style.display = 'none');
+
+    if (abrindo) {
+      container.style.display = 'block';
+      renderizarAppsDoServidorInline(servidor);
+    }
+  }
+
+  function renderizarAppsDoServidorInline(servidor) {
+    const container = document.getElementById(`gerenciar-apps-${servidor.id}`);
+    const checklistHtml = aplicativos.length === 0
+      ? '<div style="color:var(--text-muted); font-size:12px;">Nenhum app cadastrado ainda.</div>'
+      : `<div class="app-checklist" style="max-height:160px;">
+          ${aplicativos.map(a => `
+            <label class="app-checklist-item">
+              <input type="checkbox" onchange="toggleAppNoServidor('${a.id}', '${servidor.nome}', this.checked, '${servidor.id}')" ${((a.servidores || []).includes(servidor.nome)) ? 'checked' : ''}>
+              <span>${a.nome}</span>
+              <span class="mono app-codigo">${a.codigo}</span>
+            </label>
+          `).join('')}
+        </div>`;
+
+    container.innerHTML = `
+      <div style="font-size:12px; color:var(--text-muted); margin-bottom:8px;">Apps compatíveis com ${servidor.nome}:</div>
+      ${checklistHtml}
+      <div style="display:flex; gap:6px; margin-top:10px;">
+        <input type="text" id="rapido-app-nome-${servidor.id}" placeholder="Nome do app novo" style="flex:1; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:8px 10px; color:var(--text); font-size:13px;">
+        <input type="text" id="rapido-app-codigo-${servidor.id}" placeholder="Código" style="flex:1; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:8px 10px; color:var(--text); font-size:13px;">
+        <button class="btn" style="white-space:nowrap;" onclick="adicionarAppRapido('${servidor.id}', '${servidor.nome}')">+ Add</button>
+      </div>
+    `;
+  }
+
+  async function toggleAppNoServidor(appId, servidorNome, marcado, servidorId) {
+    const app = aplicativos.find(a => a.id === appId);
+    if (!app) return;
+    let novaLista = app.servidores || [];
+    novaLista = marcado ? [...new Set([...novaLista, servidorNome])] : novaLista.filter(s => s !== servidorNome);
+
+    await fetch(`${FIREBASE_DB}/aplicativos/${appId}.json`, {
+      method: 'PATCH',
+      body: JSON.stringify({ servidores: novaLista })
+    });
+    await carregarAplicativos();
+    const servidor = servidores.find(s => s.id === servidorId);
+    if (servidor) renderizarAppsDoServidorInline(servidor);
+  }
+
+  async function adicionarAppRapido(servidorId, servidorNome) {
+    const nome = document.getElementById(`rapido-app-nome-${servidorId}`).value.trim();
+    const codigo = document.getElementById(`rapido-app-codigo-${servidorId}`).value.trim();
+    if (!nome || !codigo) { alert('Preenche o nome e o código do app.'); return; }
+
+    await fetch(`${FIREBASE_DB}/aplicativos.json`, {
+      method: 'POST',
+      body: JSON.stringify({ nome, codigo, servidores: [servidorNome] })
+    });
+    await carregarAplicativos();
+    const servidor = servidores.find(s => s.id === servidorId);
+    if (servidor) renderizarAppsDoServidorInline(servidor);
+  }
+
   async function adicionarServidor() {
     const nome = document.getElementById('novo-servidor-nome').value.trim();
+    const dominioM3U = document.getElementById('novo-servidor-dominio').value.trim();
     if (!nome) return;
     await fetch(`${FIREBASE_DB}/servidores.json`, {
       method: 'POST',
-      body: JSON.stringify({ nome })
+      body: JSON.stringify({ nome, dominioM3U })
     });
     document.getElementById('novo-servidor-nome').value = '';
+    document.getElementById('novo-servidor-dominio').value = '';
     await carregarServidores();
     renderizarListaServidores();
   }
@@ -1969,6 +2083,13 @@
       if (filtroAtual === '3dias') lista = lista.filter(c => diasAte(c.vencimento) === 3);
       if (filtroAtual === 'hoje') lista = lista.filter(c => diasAte(c.vencimento) === 0);
       if (filtroAtual === 'vencido') lista = lista.filter(c => diasAte(c.vencimento) < 0);
+      if (filtroAtual === 'data-especifica' && dataEspecificaFiltro) {
+        lista = lista.filter(c => {
+          const d = new Date(c.vencimento);
+          const dStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+          return dStr === dataEspecificaFiltro;
+        });
+      }
     }
 
     lista.sort((a,b) => a.vencimento - b.vencimento);
@@ -2158,7 +2279,19 @@
         campoVencimento.dispatchEvent(new Event('change'));
       }
 
-      statusEl.textContent = `✅ Dados encontrados! Status no painel: ${data.statusPainel || 'desconhecido'}${data.vencimento ? ' · Vencimento exato: ' + new Date(data.vencimento).toLocaleString('pt-BR') : ''}`;
+      let servidorDetectado = '';
+      if (data.baseUrl) {
+        const dominioLink = data.baseUrl.replace(/^https?:\/\//, '').split(':')[0];
+        const servidorEncontrado = servidores.find(s => s.dominioM3U && dominioLink.includes(s.dominioM3U));
+        if (servidorEncontrado) {
+          servidorDetectado = servidorEncontrado.nome;
+          const selectServidor = document.getElementById('f-servidor');
+          selectServidor.value = servidorDetectado;
+          preencherChecklistAplicativos(servidorDetectado, null);
+        }
+      }
+
+      statusEl.textContent = `✅ Dados encontrados! Status no painel: ${data.statusPainel || 'desconhecido'}${data.vencimento ? ' · Vencimento exato: ' + new Date(data.vencimento).toLocaleString('pt-BR') : ''}${servidorDetectado ? ' · Servidor detectado: ' + servidorDetectado : ''}`;
       statusEl.style.color = 'var(--ok)';
     } catch (err) {
       statusEl.textContent = '❌ Erro ao consultar. Tenta de novo.';
