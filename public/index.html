@@ -1229,6 +1229,20 @@
     }
 
     resumo.innerHTML = `✅ ${feitos} cliente(s) atualizado(s) com sucesso!`;
+
+    // Atualiza também o domínio cadastrado em qualquer servidor que usava o domínio antigo
+    const servidoresParaAtualizar = servidores.filter(s => s.dominioM3U && s.dominioM3U.includes(antigo));
+    if (servidoresParaAtualizar.length > 0) {
+      await Promise.all(servidoresParaAtualizar.map(s =>
+        fetch(`${FIREBASE_DB}/servidores/${s.id}.json`, {
+          method: 'PATCH',
+          body: JSON.stringify({ dominioM3U: s.dominioM3U.replaceAll(antigo, novo) })
+        })
+      ));
+      resumo.innerHTML += `<br>✅ Domínio atualizado também em ${servidoresParaAtualizar.length} servidor(es): ${servidoresParaAtualizar.map(s => s.nome).join(', ')}`;
+      await carregarServidores();
+    }
+
     document.getElementById('btn-aplicar-troca-dominio').style.display = 'none';
     await carregarClientes();
   }
