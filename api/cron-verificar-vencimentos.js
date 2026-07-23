@@ -1,6 +1,6 @@
 const { db, messaging } = require('../lib/firebaseAdmin');
 const { preencherTemplate } = require('../lib/templates');
-const { consultarContaXtream } = require('../lib/xtream');
+const { sincronizarComPainelIPTV } = require('../lib/iptvSync');
 const { Resend } = require('resend');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -12,57 +12,6 @@ function diasAte(timestampVencimento) {
   const venc = new Date(timestampVencimento);
   venc.setHours(0, 0, 0, 0);
   return Math.round((venc - hoje) / UM_DIA);
-}
-
-// Confere se o cliente foi renovado direto no painel IPTV de origem.
-// Se a data lá estiver mais nova que a nossa, atualiza sozinho e
-// dispara o mesmo aviso de renovação que o botão manual dispara.
-async function sincronizarComPainelIPTV(id, cliente, templates) {
-  if (!cliente.m3uLink) return null;
-
-  const resultado = await consultarContaXtream(cliente.m3uLink);
-  if (resultado.erro || !resultado.vencimento) return null;
-  if (resultado.vencimento <= cliente.vencimento) return null;
-
-  const clienteAtualizado = {
-    ...cliente,
-    vencimento: resultado.vencimento,
-    status: 'ativo',
-    ultimaNotificacao: { tipo: null, data: 0 },
-  };
-
-  await db.ref(`clientes/${id}`).update({
-    vencimento: resultado.vencimento,
-    status: 'ativo',
-    ultimaNotificacao: { tipo: null, data: 0 },
-  });
-
-  await db.ref('financeiro').push({
-    clienteId: id,
-    clienteNome: cliente.nome,
-    servidor: cliente.servidor || '—',
-    valor: Number(cliente.planoValor) || 0,
-    tipo: 'renovacao',
-    data: Date.now(),
-  });
-
-  if (cliente.fcmToken && cliente.notificacaoAtiva) {
-    try {
-      const corpo = preencherTemplate(templates.comprovanteRenovacao || '', clienteAtualizado);
-      await messaging.send({
-        token: cliente.fcmToken,
-        data: {
-          title: 'Plano renovado! ✅',
-          body: corpo,
-          link: `${process.env.APP_URL}/meu-plano.html?id=${id}`,
-        },
-      });
-    } catch (err) {
-      console.error(`Erro ao notificar renovação automática (${id}):`, err.message);
-    }
-  }
-
-  return clienteAtualizado;
 }
 
 module.exports = async (req, res) => {
@@ -90,9 +39,9 @@ module.exports = async (req, res) => {
     const idsComM3U = Object.entries(clientes).filter(([, c]) => c.m3uLink).map(([id]) => id);
     for (const id of idsComM3U) {
       try {
-        const atualizado = await sincronizarComPainelIPTV(id, clientes[id], templates);
-        if (atualizado) {
-          clientes[id] = atualizado;
+        const resultado = await sincronizarComPainelIPTV(id, clientes[id], templates);
+        if (resultado) {
+          clientes[id] = resultado.cliente;
           log.renovacoesAutomaticas++;
         }
       } catch (err) {
