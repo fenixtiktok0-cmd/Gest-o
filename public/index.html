@@ -1093,6 +1093,70 @@
       <div class="var-chips" data-target="tpl-emailCorpo"></div>
     </div>
 
+    <h3 style="margin-top:26px; padding-top:18px; border-top:1px solid var(--border); color:var(--ok);">🎵 Mensagens — Música</h3>
+    <p style="font-size:12px; color:var(--text-muted); margin-top:-6px;">Usadas só pros clientes marcados como "Cliente de música"</p>
+
+    <div class="template-block">
+      <h3>7 dias antes (Música)</h3>
+      <div class="quando">Push + e-mail automático</div>
+      <textarea id="tpl-msg7diasMusica"></textarea>
+      <div class="var-chips" data-target="tpl-msg7diasMusica"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>3 dias antes (Música)</h3>
+      <div class="quando">Push + e-mail automático</div>
+      <textarea id="tpl-msg3diasMusica"></textarea>
+      <div class="var-chips" data-target="tpl-msg3diasMusica"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>No dia do vencimento (Música)</h3>
+      <div class="quando">Push + e-mail automático</div>
+      <textarea id="tpl-msgVencimentoMusica"></textarea>
+      <div class="var-chips" data-target="tpl-msgVencimentoMusica"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>💰 Vencido 1-2 dias — cobrança (Música)</h3>
+      <div class="quando">Usada no WhatsApp manual (💬)</div>
+      <textarea id="tpl-msgVencidoMusica"></textarea>
+      <div class="var-chips" data-target="tpl-msgVencidoMusica"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>💰 3+ dias vencido — cobrança (Música)</h3>
+      <div class="quando">Push + e-mail automático, e WhatsApp manual (💬)</div>
+      <textarea id="tpl-msg3diasVencidoMusica"></textarea>
+      <div class="var-chips" data-target="tpl-msg3diasVencidoMusica"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>Push manual — botão 🔔 (Música)</h3>
+      <div class="quando">Usada quando você clica no sino pra mandar um aviso avulso</div>
+      <textarea id="tpl-msgManualMusica"></textarea>
+      <div class="var-chips" data-target="tpl-msgManualMusica"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>Comprovante de renovação — botão 🔄 (Música)</h3>
+      <div class="quando">Enviado quando você renova o plano dele</div>
+      <textarea id="tpl-comprovanteRenovacaoMusica"></textarea>
+      <div class="var-chips" data-target="tpl-comprovanteRenovacaoMusica"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>Assunto do e-mail (Música)</h3>
+      <textarea id="tpl-emailAssuntoMusica" style="min-height:36px"></textarea>
+      <div class="var-chips" data-target="tpl-emailAssuntoMusica"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>Corpo do e-mail (Música)</h3>
+      <textarea id="tpl-emailCorpoMusica" style="min-height:90px"></textarea>
+      <div class="var-chips" data-target="tpl-emailCorpoMusica"></div>
+    </div>
+
     <div class="modal-actions">
       <button class="btn" onclick="fecharMensagens()">Cancelar</button>
       <button class="btn btn-primary" onclick="salvarMensagens()">Salvar</button>
@@ -1490,7 +1554,16 @@
     msgTesteAcabou: 'Olá {nome}! Seu período de teste terminou. Gostou da experiência? Fala com a gente agora pra ativar seu plano oficial!',
     msgBemVindoOficial: 'Olá {nome}! Seu plano foi ativado com sucesso ✅\nVencimento: {data_vencimento}\nValor: R$ {valor_plano}\nSeja bem-vindo(a)!',
     emailAssunto: 'Seu plano vence em breve',
-    emailCorpo: 'Olá {nome},\n\nSeu plano ({servidor}) vence em {data_vencimento}. Valor: R$ {valor_plano}.\n\nQualquer dúvida, chama no WhatsApp.'
+    emailCorpo: 'Olá {nome},\n\nSeu plano ({servidor}) vence em {data_vencimento}. Valor: R$ {valor_plano}.\n\nQualquer dúvida, chama no WhatsApp.',
+    msg7diasMusica: 'Olá {nome}! Passando pra lembrar que seu plano de música vence em {dias_restantes} dias ({data_vencimento}). Valor: R$ {valor_plano}.',
+    msg3diasMusica: 'Olá {nome}! Seu plano de música vence em {dias_restantes} dias ({data_vencimento}). Valor: R$ {valor_plano}. Quer renovar agora?',
+    msgVencimentoMusica: 'Olá {nome}! Seu plano de música vence hoje ({data_vencimento}). Valor: R$ {valor_plano}. Renova pra não perder o acesso?',
+    msgVencidoMusica: 'Olá {nome}! Seu plano de música venceu em {data_vencimento} e está com pagamento pendente. Valor: R$ {valor_plano}. Vamos regularizar hoje pra não perder o acesso?',
+    msg3diasVencidoMusica: 'Olá {nome}! Seu plano de música está vencido desde {data_vencimento} e o pagamento está pendente. Valor: R$ {valor_plano}. Vamos regularizar hoje?',
+    msgManualMusica: 'Olá {nome}! Passando aqui sobre o seu plano de música, vencimento em {data_vencimento}. Qualquer coisa me chama!',
+    comprovanteRenovacaoMusica: 'Olá {nome}! Seu plano de música foi renovado com sucesso ✅\nNovo vencimento: {data_vencimento}\nValor: R$ {valor_plano}\nObrigado pela confiança!',
+    emailAssuntoMusica: 'Seu plano de música vence em breve',
+    emailCorpoMusica: 'Olá {nome},\n\nSeu plano de música vence em {data_vencimento}. Valor: R$ {valor_plano}.\n\nQualquer dúvida, chama no WhatsApp.'
   };
 
   const VARIAVEIS = ['{nome}', '{data_vencimento}', '{valor_plano}', '{servidor}', '{dias_restantes}', '{status}', '{link}'];
@@ -1529,7 +1602,7 @@
   async function abrirMensagens() {
     const res = await fetch(`${FIREBASE_DB}/config/templates.json`);
     const salvos = await res.json() || {};
-    const chaves = ['msg7dias', 'msg3dias', 'msgVencimento', 'msgVencido', 'msg3diasVencido', 'msgManual', 'comprovanteRenovacao', 'msgTesteAcabando', 'msgTesteAcabou', 'msgBemVindoOficial', 'emailAssunto', 'emailCorpo'];
+    const chaves = ['msg7dias', 'msg3dias', 'msgVencimento', 'msgVencido', 'msg3diasVencido', 'msgManual', 'comprovanteRenovacao', 'msgTesteAcabando', 'msgTesteAcabou', 'msgBemVindoOficial', 'emailAssunto', 'emailCorpo', 'msg7diasMusica', 'msg3diasMusica', 'msgVencimentoMusica', 'msgVencidoMusica', 'msg3diasVencidoMusica', 'msgManualMusica', 'comprovanteRenovacaoMusica', 'emailAssuntoMusica', 'emailCorpoMusica'];
     chaves.forEach(chave => {
       document.getElementById(`tpl-${chave}`).value = salvos[chave] || TEMPLATES_PADRAO[chave];
     });
@@ -1542,7 +1615,7 @@
   }
 
   async function salvarMensagens() {
-    const chaves = ['msg7dias', 'msg3dias', 'msgVencimento', 'msgVencido', 'msg3diasVencido', 'msgManual', 'comprovanteRenovacao', 'msgTesteAcabando', 'msgTesteAcabou', 'msgBemVindoOficial', 'emailAssunto', 'emailCorpo'];
+    const chaves = ['msg7dias', 'msg3dias', 'msgVencimento', 'msgVencido', 'msg3diasVencido', 'msgManual', 'comprovanteRenovacao', 'msgTesteAcabando', 'msgTesteAcabou', 'msgBemVindoOficial', 'emailAssunto', 'emailCorpo', 'msg7diasMusica', 'msg3diasMusica', 'msgVencimentoMusica', 'msgVencidoMusica', 'msg3diasVencidoMusica', 'msgManualMusica', 'comprovanteRenovacaoMusica', 'emailAssuntoMusica', 'emailCorpoMusica'];
     const templates = {};
     chaves.forEach(chave => {
       templates[chave] = document.getElementById(`tpl-${chave}`).value;
@@ -2275,8 +2348,10 @@
     else if (dias >= 7) chave = 'msg7dias';
     else chave = 'msg3dias';
 
+    if (c.musica) chave += 'Musica';
+
     const template = templatesConfig[chave] || TEMPLATES_PADRAO[chave] ||
-      `Olá {nome}! Seu plano (${c.servidor}) está com vencimento em {data_vencimento}.`;
+      `Olá {nome}! Seu plano está com vencimento em {data_vencimento}.`;
     return preencherTemplateJS(template, c);
   }
 
