@@ -588,6 +588,10 @@
       <div class="label">Vencidos</div>
       <div class="value mono" id="stat-vencidos">0</div>
     </div>
+    <div class="stat-card" id="card-musica" onclick="filtrar('musica')" style="cursor:pointer; border-color:rgba(52,211,153,0.35);">
+      <div class="label">🎵 Música</div>
+      <div class="value mono" id="stat-musica" style="color:var(--ok);">0</div>
+    </div>
   </div>
 
   <button class="btn btn-primary" style="width:100%; margin-bottom:18px; padding:13px;" onclick="abrirModal()">+ Novo cliente</button>
@@ -669,11 +673,19 @@
       </div>
     </div>
 
+    <div class="field" style="background:rgba(52,211,153,0.1); border:1px solid rgba(52,211,153,0.35); border-radius:10px; padding:12px;">
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-bottom:0;">
+        <input type="checkbox" id="f-musica" onchange="alternarModoMusica()" style="width:16px; height:16px; accent-color:var(--ok);">
+        <span style="color:var(--ok); font-weight:600;">🎵 Cliente de música</span>
+      </label>
+      <div style="font-size:11px; color:var(--text-muted); margin-top:6px;">Fica separado dos contadores e do Financeiro de IPTV — tem aba própria.</div>
+    </div>
+
     <div class="field">
       <label>Nome</label>
       <input type="text" id="f-nome" placeholder="Nome do cliente">
     </div>
-    <div class="field">
+    <div class="field" id="f-m3u-bloco">
       <label>Link M3U (opcional — preenche usuário/senha/vencimento sozinho)</label>
       <div style="display:flex; gap:8px;">
         <input type="text" id="f-m3u" placeholder="http://painel.com/get.php?username=...&password=..." style="flex:1;">
@@ -690,7 +702,7 @@
       <label>Senha (do servidor)</label>
       <input type="text" id="f-senha" placeholder="senha123">
     </div>
-    <div class="field">
+    <div class="field" id="f-apps-bloco">
       <label>Aplicativos que o cliente usa</label>
       <div id="f-aplicativos-lista" style="display:flex; flex-direction:column; gap:6px;">
         <div style="color:var(--text-muted); font-size:12px;">Nenhum aplicativo cadastrado ainda.</div>
@@ -724,7 +736,7 @@
       <label>E-mail</label>
       <input type="text" id="f-email" placeholder="cliente@email.com">
     </div>
-    <div class="field">
+    <div class="field" id="f-servidor-bloco">
       <label>Servidor</label>
       <select id="f-servidor" onchange="preencherChecklistAplicativos(this.value, null)"></select>
       <div style="margin-top:6px;">
@@ -932,6 +944,14 @@
         <label>Servidor</label>
         <select id="fin-filtro-servidor"><option value="todos">Todos os servidores</option></select>
       </div>
+      <div class="field" style="flex:1; min-width:140px; margin-bottom:0;">
+        <label>Produto</label>
+        <select id="fin-filtro-produto">
+          <option value="iptv" selected>📺 IPTV</option>
+          <option value="musica">🎵 Música</option>
+          <option value="todos">Todos os produtos</option>
+        </select>
+      </div>
     </div>
     <div class="stats" style="grid-template-columns: 1fr 1fr 1fr; margin-bottom:18px;">
       <div class="stat-card ok">
@@ -963,6 +983,17 @@
     <div class="field">
       <label>WhatsApp do suporte (com DDI, só números)</label>
       <input type="text" id="cfg-whatsapp" placeholder="5521999999999">
+    </div>
+    <div class="field" style="background:rgba(52,211,153,0.1); border:1px solid rgba(52,211,153,0.35); border-radius:10px; padding:12px;">
+      <label style="color:var(--ok); font-weight:600;">🎵 Links do produto Música</label>
+      <div style="margin-top:8px;">
+        <label>Link do APK (Android)</label>
+        <input type="text" id="cfg-apk-link" placeholder="https://exemplo.com/app.apk">
+      </div>
+      <div style="margin-top:10px;">
+        <label>Link de acesso pelo navegador (computador/iPhone)</label>
+        <input type="text" id="cfg-web-link" placeholder="https://exemplo.com/player">
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="fecharConfig()">Cancelar</button>
@@ -1609,17 +1640,19 @@
   }
 
   function atualizarStats() {
-    const clientesOficiais = clientes.filter(c => !c.emTeste);
+    const clientesOficiais = clientes.filter(c => !c.emTeste && !c.musica);
     const ativos = clientesOficiais.filter(c => statusCalculado(c) === 'ativo');
     const em3dias = clientesOficiais.filter(c => diasAte(c.vencimento) === 3).length;
     const hoje = clientesOficiais.filter(c => diasAte(c.vencimento) === 0).length;
     const vencidos = clientesOficiais.filter(c => diasAte(c.vencimento) < 0).length;
+    const musica = clientes.filter(c => c.musica && !c.emTeste).length;
 
     document.getElementById('stat-total').textContent = clientesOficiais.length;
     document.getElementById('stat-ativos').textContent = ativos.length;
     document.getElementById('stat-3dias').textContent = em3dias;
     document.getElementById('stat-hoje').textContent = hoje;
     document.getElementById('stat-vencidos').textContent = vencidos;
+    document.getElementById('stat-musica').textContent = musica;
   }
 
   let timeoutBusca = null;
@@ -1933,6 +1966,7 @@
         clienteId: cliente.id,
         clienteNome: cliente.nome,
         servidor: cliente.servidor || '—',
+        produto: cliente.musica ? 'musica' : 'iptv',
         valor: Number(valor) || 0,
         tipo,
         data: Date.now()
@@ -1980,10 +2014,12 @@
   function renderizarFinanceiro() {
     const mesFiltro = document.getElementById('fin-filtro-mes').value;
     const servidorFiltro = document.getElementById('fin-filtro-servidor').value;
+    const produtoFiltro = document.getElementById('fin-filtro-produto').value;
 
     let registros = financeiroRegistros;
     if (mesFiltro !== 'todos') registros = registros.filter(r => chaveMes(r.data) === mesFiltro);
     if (servidorFiltro !== 'todos') registros = registros.filter(r => r.servidor === servidorFiltro);
+    if (produtoFiltro !== 'todos') registros = registros.filter(r => (r.produto || 'iptv') === produtoFiltro);
 
     const totalCadastros = registros.filter(r => r.tipo === 'cadastro').reduce((s, r) => s + r.valor, 0);
     const totalRenovacoes = registros.filter(r => r.tipo === 'renovacao').reduce((s, r) => s + r.valor, 0);
@@ -2141,8 +2177,10 @@
 
     if (filtroAtual === 'teste') {
       lista = lista.filter(c => c.emTeste);
+    } else if (filtroAtual === 'musica') {
+      lista = lista.filter(c => c.musica && !c.emTeste);
     } else {
-      lista = lista.filter(c => !c.emTeste);
+      lista = lista.filter(c => !c.emTeste && !c.musica);
       if (filtroAtual === 'ativo') lista = lista.filter(c => statusCalculado(c) === 'ativo');
       if (filtroAtual === '3dias') lista = lista.filter(c => diasAte(c.vencimento) === 3);
       if (filtroAtual === 'hoje') lista = lista.filter(c => diasAte(c.vencimento) === 0);
@@ -2246,20 +2284,34 @@
     const c = clientes.find(x => x.id === id);
     if (!c) return;
 
-    const appsDoCliente = (c.aplicativosIds || [])
-      .map(appId => aplicativos.find(a => a.id === appId))
-      .filter(Boolean);
+    let mensagem;
 
-    let mensagem = `Olá ${c.nome}! Segue seus dados de acesso.\n`;
+    if (c.musica) {
+      mensagem = `Olá ${c.nome}! Segue seus dados de acesso:\n`;
+      if (configMusica.apkLink) {
+        mensagem += `\n📲 Android: baixe o app aqui:\n${configMusica.apkLink}\n`;
+      }
+      if (configMusica.webLink) {
+        mensagem += `\n💻 Computador ou iPhone: acesse pelo link abaixo com seu usuário e senha:\n${configMusica.webLink}\n`;
+      }
+      mensagem += `\n👤 Usuário: ${c.usuario || '—'}\n🔒 Senha: ${c.senha || '—'}`;
+      mensagem += `\n\n🍎 Se for usar no iPhone: depois de abrir o link, toca no botão de compartilhar e escolhe "Adicionar à Tela de Início" — assim o app funciona certinho.`;
+    } else {
+      const appsDoCliente = (c.aplicativosIds || [])
+        .map(appId => aplicativos.find(a => a.id === appId))
+        .filter(Boolean);
 
-    if (appsDoCliente.length > 0) {
-      mensagem += `você pode usar os apps abaixo que são compatíveis com seu login:\n`;
-      appsDoCliente.forEach(app => {
-        mensagem += `\n📺 App: ${app.nome}\n🔑 Código: ${app.codigo}\n`;
-      });
+      mensagem = `Olá ${c.nome}! Segue seus dados de acesso.\n`;
+
+      if (appsDoCliente.length > 0) {
+        mensagem += `você pode usar os apps abaixo que são compatíveis com seu login:\n`;
+        appsDoCliente.forEach(app => {
+          mensagem += `\n📺 App: ${app.nome}\n🔑 Código: ${app.codigo}\n`;
+        });
+      }
+
+      mensagem += `\n👤 Usuário: ${c.usuario || '—'}\n🔒 Senha: ${c.senha || '—'}`;
     }
-
-    mensagem += `\n👤 Usuário: ${c.usuario || '—'}\n🔒 Senha: ${c.senha || '—'}`;
 
     window.open(`https://wa.me/${c.whatsapp}?text=${encodeURIComponent(mensagem)}`, '_blank');
   }
@@ -2380,11 +2432,20 @@
     if (emTeste) setHorasTeste(2);
   }
 
+  function alternarModoMusica() {
+    const musica = document.getElementById('f-musica').checked;
+    document.getElementById('f-m3u-bloco').style.display = musica ? 'none' : 'block';
+    document.getElementById('f-servidor-bloco').style.display = musica ? 'none' : 'block';
+    document.getElementById('f-apps-bloco').style.display = musica ? 'none' : 'block';
+  }
+
   function abrirModal() {
     document.getElementById('modal-titulo').textContent = 'Novo cliente';
     document.getElementById('cliente-id').value = '';
     document.getElementById('f-teste').checked = false;
     alternarModoTeste();
+    document.getElementById('f-musica').checked = false;
+    alternarModoMusica();
     document.getElementById('f-nome').value = '';
     document.getElementById('f-m3u').value = '';
     document.getElementById('f-vencimento-preciso').value = '';
@@ -2413,6 +2474,8 @@
     document.getElementById('cliente-id').value = c.id;
     document.getElementById('f-teste').checked = !!c.emTeste;
     alternarModoTeste();
+    document.getElementById('f-musica').checked = !!c.musica;
+    alternarModoMusica();
     document.getElementById('f-nome').value = c.nome || '';
     document.getElementById('f-m3u').value = c.m3uLink || '';
     document.getElementById('f-vencimento-preciso').value = '';
@@ -2441,8 +2504,10 @@
     const numeroWhats = document.getElementById('f-whatsapp-numero').value.replace(/\D/g, '');
     const whatsapp = numeroWhats ? ddi + numeroWhats : '';
     const email = document.getElementById('f-email').value.trim();
-    const servidor = document.getElementById('f-servidor').value.trim();
-    const aplicativosIds = Array.from(document.querySelectorAll('.chk-app:checked')).map(el => el.value);
+    const musica = document.getElementById('f-musica').checked;
+    const servidor = musica ? '' : document.getElementById('f-servidor').value.trim();
+    const aplicativosIds = musica ? [] : Array.from(document.querySelectorAll('.chk-app:checked')).map(el => el.value);
+    const m3uLinkFinal = musica ? '' : m3uLink;
     const emTeste = document.getElementById('f-teste').checked;
 
     let planoValor, vencimento;
@@ -2466,11 +2531,11 @@
     if (id) {
       await fetch(`${FIREBASE_DB}/clientes/${id}.json`, {
         method: 'PATCH',
-        body: JSON.stringify({ nome, usuario, senha, m3uLink, whatsapp, email, servidor, aplicativosIds, planoValor, vencimento, emTeste })
+        body: JSON.stringify({ nome, usuario, senha, m3uLink: m3uLinkFinal, whatsapp, email, servidor, aplicativosIds, planoValor, vencimento, emTeste, musica })
       });
     } else {
       const novoCliente = {
-        nome, usuario, senha, m3uLink, whatsapp, email, servidor, aplicativosIds, planoValor, vencimento, emTeste,
+        nome, usuario, senha, m3uLink: m3uLinkFinal, whatsapp, email, servidor, aplicativosIds, planoValor, vencimento, emTeste, musica,
         status: 'ativo',
         fcmToken: null,
         notificacaoAtiva: false,
@@ -2483,7 +2548,7 @@
       });
       const criado = await res.json();
       if (!emTeste) {
-        await registrarFinanceiro({ id: criado.name, nome, servidor }, planoValor, 'cadastro');
+        await registrarFinanceiro({ id: criado.name, nome, servidor, musica }, planoValor, 'cadastro');
       }
     }
 
@@ -2516,10 +2581,14 @@
     }
   }
 
+  let configMusica = { apkLink: '', webLink: '' };
+
   async function abrirConfig() {
-    const res = await fetch(`${FIREBASE_DB}/config/whatsappAdmin.json`);
-    const whatsappAdmin = await res.json();
-    document.getElementById('cfg-whatsapp').value = whatsappAdmin || '5521993473619';
+    const res = await fetch(`${FIREBASE_DB}/config.json`);
+    const config = await res.json() || {};
+    document.getElementById('cfg-whatsapp').value = config.whatsappAdmin || '5521993473619';
+    document.getElementById('cfg-apk-link').value = config.apkLink || '';
+    document.getElementById('cfg-web-link').value = config.webLink || '';
     document.getElementById('overlay-config').classList.add('open');
   }
 
@@ -2530,12 +2599,21 @@
   async function salvarConfig() {
     const whatsapp = document.getElementById('cfg-whatsapp').value.replace(/\D/g, '');
     if (!whatsapp) { alert('Preenche o número.'); return; }
+    const apkLink = document.getElementById('cfg-apk-link').value.trim();
+    const webLink = document.getElementById('cfg-web-link').value.trim();
     await fetch(`${FIREBASE_DB}/config.json`, {
       method: 'PATCH',
-      body: JSON.stringify({ whatsappAdmin: whatsapp })
+      body: JSON.stringify({ whatsappAdmin: whatsapp, apkLink, webLink })
     });
+    configMusica = { apkLink, webLink };
     fecharConfig();
     alert('Configurações salvas!');
+  }
+
+  async function carregarConfigMusica() {
+    const res = await fetch(`${FIREBASE_DB}/config.json`);
+    const config = await res.json() || {};
+    configMusica = { apkLink: config.apkLink || '', webLink: config.webLink || '' };
   }
 
   let baseRenovacao = 'vencimento';
@@ -2711,7 +2789,7 @@
       }
 
       fecharRenovacao();
-      await registrarFinanceiro({ id: cliente.id, nome: cliente.nome, servidor: cliente.servidor }, cliente.planoValor, 'renovacao');
+      await registrarFinanceiro({ id: cliente.id, nome: cliente.nome, servidor: cliente.servidor, musica: cliente.musica }, cliente.planoValor, 'renovacao');
       await carregarClientes();
 
       // Abre o WhatsApp DO CLIENTE (não o do suporte) com o comprovante pronto
@@ -2731,7 +2809,9 @@
   document.getElementById('remkt-servidor').addEventListener('change', atualizarContagemRemarketing);
   document.getElementById('fin-filtro-mes').addEventListener('change', renderizarFinanceiro);
   document.getElementById('fin-filtro-servidor').addEventListener('change', renderizarFinanceiro);
+  document.getElementById('fin-filtro-produto').addEventListener('change', renderizarFinanceiro);
 
+  carregarConfigMusica();
   carregarClientes();
 </script>
 
