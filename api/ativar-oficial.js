@@ -30,6 +30,7 @@ module.exports = async (req, res) => {
       clienteId,
       clienteNome: cliente.nome,
       servidor: cliente.servidor || '—',
+      produto: cliente.musica ? 'musica' : 'iptv',
       valor: Number(planoValor),
       tipo: 'cadastro',
       data: Date.now(),
