@@ -1,4 +1,4 @@
-const { consultarContaXtream } = require('../lib/xtream');
+const { consultarContaXtream, consultarContaMusica } = require('../lib/xtream');
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
@@ -7,12 +7,18 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const { link } = req.body || {};
-    if (!link) {
-      return res.status(400).json({ erro: 'link é obrigatório' });
+    const { link, tipoConsulta, usuario, senha } = req.body || {};
+
+    let resultado;
+    if (tipoConsulta === 'musica') {
+      resultado = await consultarContaMusica(usuario, senha);
+    } else {
+      if (!link) {
+        return res.status(400).json({ erro: 'link é obrigatório' });
+      }
+      resultado = await consultarContaXtream(link);
     }
 
-    const resultado = await consultarContaXtream(link);
     if (resultado.erro) {
       return res.status(422).json(resultado);
     }
