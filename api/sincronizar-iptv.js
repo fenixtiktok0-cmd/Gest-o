@@ -18,8 +18,9 @@ module.exports = async (req, res) => {
     if (!cliente) {
       return res.status(404).json({ erro: 'Cliente não encontrado' });
     }
-    if (!cliente.m3uLink) {
-      return res.status(400).json({ erro: 'Esse cliente não tem link M3U cadastrado.' });
+    const podeSincronizar = cliente.m3uLink || (cliente.musica && cliente.usuario && cliente.senha);
+    if (!podeSincronizar) {
+      return res.status(400).json({ erro: 'Esse cliente não tem link M3U (ou usuário/senha de música) cadastrado.' });
     }
 
     const templatesSnap = await db.ref('config/templates').once('value');
