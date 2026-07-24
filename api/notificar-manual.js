@@ -29,9 +29,10 @@ module.exports = async (req, res) => {
         continue;
       }
 
+      const chaveManual = cliente.musica ? 'msgManualMusica' : 'msgManual';
       const corpo = mensagemCustom
         ? preencherTemplate(mensagemCustom, cliente, id)
-        : preencherTemplate(templates.msgManual || '', cliente, id);
+        : preencherTemplate(templates[chaveManual] || '', cliente, id);
       const linkClique = `${process.env.APP_URL}/meu-plano.html?id=${id}`;
 
       try {
