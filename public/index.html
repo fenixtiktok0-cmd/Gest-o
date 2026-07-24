@@ -267,6 +267,17 @@
     overflow-y: auto;
   }
   .modal h2 { font-size: 18px; margin: 0 0 18px; }
+  .modal-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-bottom: 18px;
+  }
+  .modal-header h2 { margin: 0; }
+  .modal-close-x {
+    background: none; border: none; color: var(--text-muted);
+    font-size: 20px; line-height: 1; cursor: pointer;
+    padding: 2px 6px; border-radius: 6px; flex-shrink: 0;
+  }
+  .modal-close-x:hover { color: var(--text); background: var(--surface-2); }
 
   .field { margin-bottom: 14px; }
   .field label {
@@ -460,7 +471,7 @@
 
 <div class="overlay" id="overlay-personalizacao">
   <div class="modal">
-    <h2>Personalização da página do cliente</h2>
+    <div class="modal-header"><h2>Personalização da página do cliente</h2><button class="modal-close-x" onclick="fecharPersonalizacao()">✕</button></div>
     <p style="font-size:12px; color:var(--text-muted); margin-top:-10px; margin-bottom:16px;">
       Isso muda como o cliente vê a página /meu-plano.html
     </p>
@@ -493,7 +504,7 @@
 
 <div class="overlay" id="overlay-trocar-dominio">
   <div class="modal">
-    <h2>Trocar domínio M3U em massa</h2>
+    <div class="modal-header"><h2>Trocar domínio M3U em massa</h2><button class="modal-close-x" onclick="fecharTrocarDominio()">✕</button></div>
     <p style="font-size:12px; color:var(--text-muted); margin-top:-10px; margin-bottom:16px;">
       Troca só a parte do domínio no link de cada cliente — usuário e senha de cada um continuam intactos.
     </p>
@@ -516,7 +527,7 @@
 
 <div class="overlay" id="overlay-importar">
   <div class="modal wide">
-    <h2>Importar clientes (CSV)</h2>
+    <div class="modal-header"><h2>Importar clientes (CSV)</h2><button class="modal-close-x" onclick="fecharImportar()">✕</button></div>
     <p style="font-size:12px; color:var(--text-muted); margin-top:-10px; margin-bottom:16px;">
       Colunas esperadas: WhatsApp, Nome, Login, Senha, Provedor, Plano, Fatura, Vencimento
     </p>
@@ -536,7 +547,7 @@
 
 <div class="overlay" id="overlay-menu">
   <div class="modal" style="max-width:340px;">
-    <h2>Menu</h2>
+    <div class="modal-header"><h2>Menu</h2><button class="modal-close-x" onclick="fecharMenu()">✕</button></div>
     <div style="display:flex; flex-direction:column; gap:8px;">
       <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirTrocarDominio();">🔗 Trocar domínio M3U em massa</button>
       <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirImportar();">📥 Importar clientes</button>
@@ -638,7 +649,7 @@
 <!-- Modal novo/editar cliente -->
 <div class="overlay" id="overlay">
   <div class="modal">
-    <h2 id="modal-titulo">Novo cliente</h2>
+    <div class="modal-header"><h2 id="modal-titulo">Novo cliente</h2><button class="modal-close-x" onclick="fecharModal()">✕</button></div>
     <input type="hidden" id="cliente-id">
 
     <div class="field" style="background:rgba(96,165,250,0.1); border:1px solid rgba(96,165,250,0.35); border-radius:10px; padding:12px;">
@@ -737,7 +748,7 @@
 
 <div class="overlay" id="overlay-ativar-oficial">
   <div class="modal">
-    <h2>Ativar como cliente oficial</h2>
+    <div class="modal-header"><h2>Ativar como cliente oficial</h2><button class="modal-close-x" onclick="fecharAtivarOficial()">✕</button></div>
     <input type="hidden" id="oficial-cliente-id">
     <p style="font-size:13px; color:var(--text-muted); margin-top:-8px;">Define o plano de verdade — a partir daqui ele entra no Financeiro e nos contadores normais.</p>
     <div class="field">
@@ -761,7 +772,7 @@
 
 <div class="overlay" id="overlay-renovar">
   <div class="modal">
-    <h2>Renovar cliente</h2>
+    <div class="modal-header"><h2>Renovar cliente</h2><button class="modal-close-x" onclick="fecharRenovacao()">✕</button></div>
     <input type="hidden" id="renovar-cliente-id">
 
     <div id="renovar-sync-bloco" style="display:none; margin-bottom:18px; padding-bottom:18px; border-bottom:1px solid var(--border);">
@@ -806,7 +817,7 @@
 
 <div class="overlay" id="overlay-remarketing">
   <div class="modal wide">
-    <h2>Remarketing</h2>
+    <div class="modal-header"><h2>Remarketing</h2><button class="modal-close-x" onclick="fecharRemarketing()">✕</button></div>
     <div class="field">
       <label>Filtrar por status</label>
       <select id="remkt-status">
@@ -845,7 +856,7 @@
 
 <div class="overlay" id="overlay-aplicativos">
   <div class="modal">
-    <h2>Aplicativos</h2>
+    <div class="modal-header"><h2>Aplicativos</h2><button class="modal-close-x" onclick="fecharAplicativos()">✕</button></div>
     <input type="hidden" id="editando-app-id">
     <div class="field">
       <label>Nome do app</label>
@@ -869,7 +880,7 @@
 
 <div class="overlay" id="overlay-servidores">
   <div class="modal">
-    <h2>Servidores</h2>
+    <div class="modal-header"><h2>Servidores</h2><button class="modal-close-x" onclick="fecharServidores()">✕</button></div>
     <input type="hidden" id="editando-servidor-id">
     <div class="field">
       <label>Nome do servidor</label>
@@ -891,7 +902,7 @@
 
 <div class="overlay" id="overlay-notificacoes">
   <div class="modal">
-    <h2>Notificações dos clientes</h2>
+    <div class="modal-header"><h2>Notificações dos clientes</h2><button class="modal-close-x" onclick="fecharNotificacoes()">✕</button></div>
     <div class="stats" style="grid-template-columns: 1fr 1fr; margin-bottom:18px;">
       <div class="stat-card ok">
         <div class="label">Ativaram</div>
@@ -911,7 +922,7 @@
 
 <div class="overlay" id="overlay-financeiro">
   <div class="modal wide">
-    <h2>Financeiro</h2>
+    <div class="modal-header"><h2>Financeiro</h2><button class="modal-close-x" onclick="fecharFinanceiro()">✕</button></div>
     <div style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
       <div class="field" style="flex:1; min-width:140px; margin-bottom:0;">
         <label>Mês</label>
@@ -948,7 +959,7 @@
 
 <div class="overlay" id="overlay-config">
   <div class="modal">
-    <h2>Configurações</h2>
+    <div class="modal-header"><h2>Configurações</h2><button class="modal-close-x" onclick="fecharConfig()">✕</button></div>
     <div class="field">
       <label>WhatsApp do suporte (com DDI, só números)</label>
       <input type="text" id="cfg-whatsapp" placeholder="5521999999999">
@@ -962,7 +973,7 @@
 
 <div class="overlay" id="overlay-mensagens">
   <div class="modal wide">
-    <h2>Mensagens automáticas</h2>
+    <div class="modal-header"><h2>Mensagens automáticas</h2><button class="modal-close-x" onclick="fecharMensagens()">✕</button></div>
     <p style="font-size:13px; color:var(--text-muted); margin-top:-10px; margin-bottom:20px;">
       Clique numa variável pra inserir no texto onde o cursor estiver.
     </p>
@@ -989,8 +1000,15 @@
     </div>
 
     <div class="template-block">
-      <h3>3 dias após vencido</h3>
-      <div class="quando">Push + e-mail automático</div>
+      <h3>💰 Vencido (1-2 dias) — cobrança</h3>
+      <div class="quando">Usada no WhatsApp manual (💬) pra clientes recém-atrasados</div>
+      <textarea id="tpl-msgVencido"></textarea>
+      <div class="var-chips" data-target="tpl-msgVencido"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>💰 3+ dias vencido — cobrança</h3>
+      <div class="quando">Push + e-mail automático, e usada no WhatsApp manual (💬)</div>
       <textarea id="tpl-msg3diasVencido"></textarea>
       <div class="var-chips" data-target="tpl-msg3diasVencido"></div>
     </div>
@@ -1433,6 +1451,7 @@
     msg7dias: 'Olá {nome}! Passando pra lembrar que seu plano vence em {dias_restantes} dias ({data_vencimento}). Valor: R$ {valor_plano}.',
     msg3dias: 'Olá {nome}! Seu plano vence em {dias_restantes} dias ({data_vencimento}). Valor: R$ {valor_plano}. Quer renovar agora?',
     msgVencimento: 'Olá {nome}! Seu plano vence hoje ({data_vencimento}). Valor: R$ {valor_plano}. Renova pra não perder o acesso?',
+    msgVencido: 'Olá {nome}! Seu plano venceu em {data_vencimento} e está com pagamento pendente. Valor: R$ {valor_plano}. Vamos regularizar hoje pra não perder o acesso?',
     msg3diasVencido: 'Olá {nome}! Seu plano venceu há 3 dias ({data_vencimento}). Valor: R$ {valor_plano}. Vamos regularizar hoje?',
     msgManual: 'Olá {nome}! Passando aqui sobre o seu plano ({servidor}), vencimento em {data_vencimento}. Qualquer coisa me chama!',
     comprovanteRenovacao: 'Olá {nome}! Seu plano foi renovado com sucesso ✅\nNovo vencimento: {data_vencimento}\nValor: R$ {valor_plano}\nObrigado pela confiança!',
@@ -1479,7 +1498,7 @@
   async function abrirMensagens() {
     const res = await fetch(`${FIREBASE_DB}/config/templates.json`);
     const salvos = await res.json() || {};
-    const chaves = ['msg7dias', 'msg3dias', 'msgVencimento', 'msg3diasVencido', 'msgManual', 'comprovanteRenovacao', 'msgTesteAcabando', 'msgTesteAcabou', 'msgBemVindoOficial', 'emailAssunto', 'emailCorpo'];
+    const chaves = ['msg7dias', 'msg3dias', 'msgVencimento', 'msgVencido', 'msg3diasVencido', 'msgManual', 'comprovanteRenovacao', 'msgTesteAcabando', 'msgTesteAcabou', 'msgBemVindoOficial', 'emailAssunto', 'emailCorpo'];
     chaves.forEach(chave => {
       document.getElementById(`tpl-${chave}`).value = salvos[chave] || TEMPLATES_PADRAO[chave];
     });
@@ -1492,7 +1511,7 @@
   }
 
   async function salvarMensagens() {
-    const chaves = ['msg7dias', 'msg3dias', 'msgVencimento', 'msg3diasVencido', 'msgManual', 'comprovanteRenovacao', 'msgTesteAcabando', 'msgTesteAcabou', 'msgBemVindoOficial', 'emailAssunto', 'emailCorpo'];
+    const chaves = ['msg7dias', 'msg3dias', 'msgVencimento', 'msgVencido', 'msg3diasVencido', 'msgManual', 'comprovanteRenovacao', 'msgTesteAcabando', 'msgTesteAcabou', 'msgBemVindoOficial', 'emailAssunto', 'emailCorpo'];
     const templates = {};
     chaves.forEach(chave => {
       templates[chave] = document.getElementById(`tpl-${chave}`).value;
