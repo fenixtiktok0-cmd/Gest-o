@@ -127,7 +127,12 @@
     const res = await fetch(`${FIREBASE_DB}/config.json`);
     const config = await res.json() || {};
     marca = config.marca || {};
-    configGeral = { apkLink: config.apkLink || '', webLink: config.webLink || '' };
+    configGeral = {
+      apkLink: config.apkLink || '',
+      webLink: config.webLink || '',
+      musicaBotaoTexto: config.musicaBotaoTexto || '📥 Baixe o Xtream Music',
+      musicaInstrucao: config.musicaInstrucao || 'Clica no botão abaixo, baixa e instala o aplicativo, depois entra com seu usuário e senha pra começar a usar.'
+    };
     if (marca.corPrimaria) {
       document.documentElement.style.setProperty('--ok', marca.corPrimaria);
     }
@@ -199,8 +204,8 @@
         `;
       } else {
         acessoHtml = `
-          ${configGeral.apkLink ? `<a href="${configGeral.apkLink}" target="_blank" class="btn-suporte" style="background:linear-gradient(135deg, #34D399, #128C7E);">📥 Baixar APK (Android)</a>` : ''}
-          ${configGeral.webLink ? `<a href="${configGeral.webLink}" target="_blank" style="display:block; text-align:center; margin-top:8px; font-size:12px; color:var(--text-muted);">ou acesse pelo navegador (computador)</a>` : ''}
+          <p style="font-size:13px; color:var(--text); line-height:1.5; margin:0 0 12px;">${configGeral.musicaInstrucao}</p>
+          ${configGeral.apkLink ? `<a href="${configGeral.apkLink}" target="_blank" class="btn-suporte" style="background:linear-gradient(135deg, #34D399, #128C7E);">${configGeral.musicaBotaoTexto}</a>` : ''}
         `;
       }
 
