@@ -68,11 +68,12 @@ module.exports = async (req, res) => {
         new Date(cliente.ultimaNotificacao?.data || 0).toDateString() === hojeStr;
       if (jaEnviadoHoje) continue;
 
+      const sufixo = cliente.musica ? 'Musica' : '';
       const mapaTemplate = {
-        '7dias': templates.msg7dias,
-        '3dias': templates.msg3dias,
-        vencimento: templates.msgVencimento,
-        '3diasVencido': templates.msg3diasVencido,
+        '7dias': templates[`msg7dias${sufixo}`],
+        '3dias': templates[`msg3dias${sufixo}`],
+        vencimento: templates[`msgVencimento${sufixo}`],
+        '3diasVencido': templates[`msg3diasVencido${sufixo}`],
       };
       const templateMsg = mapaTemplate[tipo];
       const corpo = preencherTemplate(templateMsg || '', cliente, id);
@@ -102,8 +103,8 @@ module.exports = async (req, res) => {
           const resultado = await resend.emails.send({
             from: process.env.RESEND_FROM,
             to: cliente.email,
-            subject: preencherTemplate(templates.emailAssunto || 'Aviso de vencimento', cliente, id),
-            text: preencherTemplate(templates.emailCorpo || corpo, cliente, id),
+            subject: preencherTemplate(templates[`emailAssunto${sufixo}`] || 'Aviso de vencimento', cliente, id),
+            text: preencherTemplate(templates[`emailCorpo${sufixo}`] || corpo, cliente, id),
           });
           if (resultado.error) {
             log.erros.push(`email ${id}: ${resultado.error.message || JSON.stringify(resultado.error)}`);
