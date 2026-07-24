@@ -36,8 +36,10 @@ module.exports = async (req, res) => {
     const log = { processados: 0, emails: 0, renovacoesAutomaticas: 0, erros: [] };
 
     // Sincroniza com o painel IPTV primeiro (só quem tem link M3U salvo)
-    const idsComM3U = Object.entries(clientes).filter(([, c]) => c.m3uLink).map(([id]) => id);
-    for (const id of idsComM3U) {
+    const idsParaSincronizar = Object.entries(clientes)
+      .filter(([, c]) => c.m3uLink || (c.musica && c.usuario && c.senha))
+      .map(([id]) => id);
+    for (const id of idsParaSincronizar) {
       try {
         const resultado = await sincronizarComPainelIPTV(id, clientes[id], templates);
         if (resultado) {
