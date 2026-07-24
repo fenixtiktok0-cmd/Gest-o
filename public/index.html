@@ -998,6 +998,10 @@
         <label>Link de acesso pelo navegador (computador/iPhone)</label>
         <input type="text" id="cfg-web-link" placeholder="https://exemplo.com/player">
       </div>
+      <div style="margin-top:10px;">
+        <label>Domínio da API do painel de música (pra buscar vencimento automático)</label>
+        <input type="text" id="cfg-musica-api" placeholder="https://api.xtream-music.com">
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="fecharConfig()">Cancelar</button>
@@ -2537,7 +2541,7 @@
       const res = await fetch('/api/consultar-iptv', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tipoConsulta: 'musica', usuario, senha })
+        body: JSON.stringify({ tipoConsulta: 'musica', usuario, senha, apiBase: configMusica.musicaApiBase })
       });
       const data = await res.json();
 
@@ -2713,6 +2717,7 @@
     document.getElementById('cfg-whatsapp').value = config.whatsappAdmin || '5521993473619';
     document.getElementById('cfg-apk-link').value = config.apkLink || '';
     document.getElementById('cfg-web-link').value = config.webLink || '';
+    document.getElementById('cfg-musica-api').value = config.musicaApiBase || 'https://api.xtream-music.com';
     document.getElementById('overlay-config').classList.add('open');
   }
 
@@ -2725,11 +2730,12 @@
     if (!whatsapp) { alert('Preenche o número.'); return; }
     const apkLink = document.getElementById('cfg-apk-link').value.trim();
     const webLink = document.getElementById('cfg-web-link').value.trim();
+    const musicaApiBase = document.getElementById('cfg-musica-api').value.trim().replace(/\/$/, '');
     await fetch(`${FIREBASE_DB}/config.json`, {
       method: 'PATCH',
-      body: JSON.stringify({ whatsappAdmin: whatsapp, apkLink, webLink })
+      body: JSON.stringify({ whatsappAdmin: whatsapp, apkLink, webLink, musicaApiBase })
     });
-    configMusica = { apkLink, webLink };
+    configMusica = { apkLink, webLink, musicaApiBase };
     fecharConfig();
     alert('Configurações salvas!');
   }
@@ -2737,7 +2743,11 @@
   async function carregarConfigMusica() {
     const res = await fetch(`${FIREBASE_DB}/config.json`);
     const config = await res.json() || {};
-    configMusica = { apkLink: config.apkLink || '', webLink: config.webLink || '' };
+    configMusica = {
+      apkLink: config.apkLink || '',
+      webLink: config.webLink || '',
+      musicaApiBase: config.musicaApiBase || 'https://api.xtream-music.com'
+    };
   }
 
   let baseRenovacao = 'vencimento';
