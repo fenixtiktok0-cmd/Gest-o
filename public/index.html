@@ -702,6 +702,10 @@
       <label>Senha (do servidor)</label>
       <input type="text" id="f-senha" placeholder="senha123">
     </div>
+    <div class="field" id="f-buscar-musica-bloco" style="display:none;">
+      <button class="btn" type="button" style="width:100%;" onclick="buscarDadosMusica()">🔍 Buscar vencimento (Música)</button>
+      <div id="musica-status" style="font-size:12px; margin-top:6px;"></div>
+    </div>
     <div class="field" id="f-apps-bloco">
       <label>Aplicativos que o cliente usa</label>
       <div id="f-aplicativos-lista" style="display:flex; flex-direction:column; gap:6px;">
@@ -2512,6 +2516,51 @@
     document.getElementById('f-m3u-bloco').style.display = musica ? 'none' : 'block';
     document.getElementById('f-servidor-bloco').style.display = musica ? 'none' : 'block';
     document.getElementById('f-apps-bloco').style.display = musica ? 'none' : 'block';
+    document.getElementById('f-buscar-musica-bloco').style.display = musica ? 'block' : 'none';
+  }
+
+  async function buscarDadosMusica() {
+    const usuario = document.getElementById('f-usuario').value.trim();
+    const senha = document.getElementById('f-senha').value.trim();
+    const statusEl = document.getElementById('musica-status');
+
+    if (!usuario || !senha) {
+      statusEl.textContent = 'Preenche usuário e senha primeiro.';
+      statusEl.style.color = 'var(--danger)';
+      return;
+    }
+
+    statusEl.textContent = 'Consultando o painel de música...';
+    statusEl.style.color = 'var(--text-muted)';
+
+    try {
+      const res = await fetch('/api/consultar-iptv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipoConsulta: 'musica', usuario, senha })
+      });
+      const data = await res.json();
+
+      if (data.erro) {
+        statusEl.textContent = '❌ ' + data.erro;
+        statusEl.style.color = 'var(--danger)';
+        return;
+      }
+
+      if (data.vencimento) {
+        document.getElementById('f-vencimento-preciso').value = data.vencimento;
+        const campoVencimento = document.getElementById('f-vencimento');
+        campoVencimento.value = new Date(data.vencimento).toISOString().slice(0, 10);
+        campoVencimento.dispatchEvent(new Event('input'));
+        campoVencimento.dispatchEvent(new Event('change'));
+      }
+
+      statusEl.textContent = `✅ Status no painel: ${data.statusPainel || 'desconhecido'}${data.vencimento ? ' · Vencimento: ' + new Date(data.vencimento).toLocaleString('pt-BR') : ''}`;
+      statusEl.style.color = 'var(--ok)';
+    } catch (err) {
+      statusEl.textContent = '❌ Erro ao consultar o painel.';
+      statusEl.style.color = 'var(--danger)';
+    }
   }
 
   function abrirModal() {
@@ -2792,7 +2841,8 @@
     setBaseRenovacao('vencimento');
 
     const cliente = clientes.find(c => c.id === id);
-    document.getElementById('renovar-sync-bloco').style.display = (cliente && cliente.m3uLink) ? 'block' : 'none';
+    const podeSincronizar = cliente && (cliente.m3uLink || (cliente.musica && cliente.usuario && cliente.senha));
+    document.getElementById('renovar-sync-bloco').style.display = podeSincronizar ? 'block' : 'none';
 
     document.getElementById('overlay-renovar').classList.add('open');
   }
