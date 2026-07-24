@@ -7,11 +7,11 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const { link, tipoConsulta, usuario, senha } = req.body || {};
+    const { link, tipoConsulta, usuario, senha, apiBase } = req.body || {};
 
     let resultado;
     if (tipoConsulta === 'musica') {
-      resultado = await consultarContaMusica(usuario, senha);
+      resultado = await consultarContaMusica(usuario, senha, apiBase);
     } else {
       if (!link) {
         return res.status(400).json({ erro: 'link é obrigatório' });
