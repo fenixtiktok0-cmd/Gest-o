@@ -996,6 +996,14 @@
         <input type="text" id="cfg-web-link" placeholder="https://exemplo.com/player">
       </div>
       <div style="margin-top:10px;">
+        <label>Texto do botão de baixar o app</label>
+        <input type="text" id="cfg-musica-botao" placeholder="📥 Baixe o Xtream Music">
+      </div>
+      <div style="margin-top:10px;">
+        <label>Mensagem de instrução (aparece acima do botão)</label>
+        <textarea id="cfg-musica-instrucao" style="width:100%; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:10px 12px; color:var(--text); font-family:'Inter',sans-serif; font-size:14px; min-height:60px;" placeholder="Clica no botão abaixo, baixa e instala o aplicativo, depois entra com seu usuário e senha pra começar a usar."></textarea>
+      </div>
+      <div style="margin-top:10px;">
         <label>Domínio da API do painel de música (pra buscar vencimento automático)</label>
         <input type="text" id="cfg-musica-api" placeholder="https://api.xtream-music.com">
       </div>
@@ -2669,6 +2677,8 @@
     document.getElementById('cfg-whatsapp').value = config.whatsappAdmin || '5521993473619';
     document.getElementById('cfg-apk-link').value = config.apkLink || '';
     document.getElementById('cfg-web-link').value = config.webLink || '';
+    document.getElementById('cfg-musica-botao').value = config.musicaBotaoTexto || '📥 Baixe o Xtream Music';
+    document.getElementById('cfg-musica-instrucao').value = config.musicaInstrucao || 'Clica no botão abaixo, baixa e instala o aplicativo, depois entra com seu usuário e senha pra começar a usar.';
     document.getElementById('cfg-musica-api').value = config.musicaApiBase || 'https://api.xtream-music.com';
     document.getElementById('overlay-config').classList.add('open');
   }
@@ -2682,12 +2692,14 @@
     if (!whatsapp) { alert('Preenche o número.'); return; }
     const apkLink = document.getElementById('cfg-apk-link').value.trim();
     const webLink = document.getElementById('cfg-web-link').value.trim();
+    const musicaBotaoTexto = document.getElementById('cfg-musica-botao').value.trim();
+    const musicaInstrucao = document.getElementById('cfg-musica-instrucao').value.trim();
     const musicaApiBase = document.getElementById('cfg-musica-api').value.trim().replace(/\/$/, '');
     await fetch(`${FIREBASE_DB}/config.json`, {
       method: 'PATCH',
-      body: JSON.stringify({ whatsappAdmin: whatsapp, apkLink, webLink, musicaApiBase })
+      body: JSON.stringify({ whatsappAdmin: whatsapp, apkLink, webLink, musicaBotaoTexto, musicaInstrucao, musicaApiBase })
     });
-    configMusica = { apkLink, webLink, musicaApiBase };
+    configMusica = { apkLink, webLink, musicaBotaoTexto, musicaInstrucao, musicaApiBase };
     fecharConfig();
     alert('Configurações salvas!');
   }
