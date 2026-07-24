@@ -82,6 +82,7 @@
   const params = new URLSearchParams(window.location.search);
   const clienteId = params.get('id');
   let marca = {};
+  let configGeral = {};
   let escutaForegroundAtiva = false;
 
   // Escuta mensagens em primeiro plano. Chamada tanto no carregamento
@@ -123,8 +124,10 @@
   }
 
   async function carregarMarca() {
-    const res = await fetch(`${FIREBASE_DB}/config/marca.json`);
-    marca = await res.json() || {};
+    const res = await fetch(`${FIREBASE_DB}/config.json`);
+    const config = await res.json() || {};
+    marca = config.marca || {};
+    configGeral = { apkLink: config.apkLink || '', webLink: config.webLink || '' };
     if (marca.corPrimaria) {
       document.documentElement.style.setProperty('--ok', marca.corPrimaria);
     }
@@ -170,7 +173,45 @@
     let dadosAcessoHtml = '';
     const temDadosAcesso = c.usuario || c.senha || (c.aplicativosIds && c.aplicativosIds.length > 0);
 
-    if (notifAtiva && temDadosAcesso) {
+    if (notifAtiva && c.musica) {
+      const { ehIOS } = detectarAmbienteIOS();
+
+      const credenciaisHtml = (c.usuario || c.senha) ? `
+        <div style="background:rgba(251,191,36,0.12); border:1px solid rgba(251,191,36,0.4); border-radius:10px; padding:10px 12px; margin-top:12px;">
+          ${c.usuario ? `<div style="display:flex; justify-content:space-between; font-size:13px; padding:4px 0;"><span style="color:var(--text-muted);">Usuário</span><span class="mono" style="color:var(--warn); font-weight:600;">${c.usuario}</span></div>` : ''}
+          ${c.senha ? `<div style="display:flex; justify-content:space-between; font-size:13px; padding:4px 0;"><span style="color:var(--text-muted);">Senha</span><span class="mono" style="color:var(--warn); font-weight:600;">${c.senha}</span></div>` : ''}
+        </div>
+      ` : '';
+
+      let acessoHtml;
+      if (ehIOS) {
+        acessoHtml = `
+          <div style="background:rgba(251,191,36,0.12); border:1px solid rgba(251,191,36,0.4); border-radius:10px; padding:14px;">
+            <div style="font-weight:600; font-size:14px; margin-bottom:8px; color:var(--warn);">🍎 Pra usar no iPhone:</div>
+            <ol style="margin:0; padding-left:18px; font-size:13px; color:var(--text); line-height:1.6;">
+              <li>Toca no link abaixo pra abrir o player no Safari</li>
+              <li>Toca no ícone de compartilhar (quadrado com seta pra cima)</li>
+              <li>Escolhe <b>"Adicionar à Tela de Início"</b></li>
+              <li>Abre pelo ícone novo e entra com seu usuário e senha</li>
+            </ol>
+            ${configGeral.webLink ? `<a href="${configGeral.webLink}" target="_blank" class="btn-suporte" style="margin-top:12px; background:linear-gradient(135deg, var(--warn), #F59E0B);">🌐 Abrir player</a>` : ''}
+          </div>
+        `;
+      } else {
+        acessoHtml = `
+          ${configGeral.apkLink ? `<a href="${configGeral.apkLink}" target="_blank" class="btn-suporte" style="background:linear-gradient(135deg, #34D399, #128C7E);">📥 Baixar APK (Android)</a>` : ''}
+          ${configGeral.webLink ? `<a href="${configGeral.webLink}" target="_blank" style="display:block; text-align:center; margin-top:8px; font-size:12px; color:var(--text-muted);">ou acesse pelo navegador (computador)</a>` : ''}
+        `;
+      }
+
+      dadosAcessoHtml = `
+        <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border);">
+          <div class="sub" style="margin-bottom:10px; color:var(--ok);">✅ Notificações ativadas — seu acesso:</div>
+          ${acessoHtml}
+          ${credenciaisHtml}
+        </div>
+      `;
+    } else if (notifAtiva && temDadosAcesso) {
       const appsRes = await fetch(`${FIREBASE_DB}/aplicativos.json`);
       const appsData = await appsRes.json() || {};
       const apps = Object.entries(appsData).map(([id, a]) => ({ id, ...a }));
