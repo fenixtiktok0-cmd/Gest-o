@@ -2654,11 +2654,12 @@
       });
       const data = await res.json();
       const resultado = data.resultados?.[0];
-      if (resultado?.enviado) {
-        alert('Push enviado!');
-      } else {
-        alert('Não enviado: ' + (resultado?.motivo || 'erro desconhecido'));
-      }
+      if (!resultado) { alert('Erro ao enviar.'); return; }
+
+      const partes = [];
+      partes.push(resultado.pushEnviado ? '✅ Push enviado' : `❌ Push não enviado (${resultado.motivo || 'motivo desconhecido'})`);
+      partes.push(resultado.emailEnviado ? '✅ E-mail enviado' : `❌ E-mail não enviado (${resultado.emailMotivo || 'motivo desconhecido'})`);
+      alert(partes.join('\n'));
     } catch (err) {
       alert('Erro ao enviar push.');
     }
