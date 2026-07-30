@@ -1356,7 +1356,6 @@
 
     resumo.innerHTML = `✅ ${feitos} cliente(s) atualizado(s) com sucesso!`;
 
-    // Atualiza também o domínio cadastrado em qualquer servidor que usava o domínio antigo
     const servidoresParaAtualizar = servidores.filter(s => s.dominioM3U && s.dominioM3U.includes(antigo));
     if (servidoresParaAtualizar.length > 0) {
       await Promise.all(servidoresParaAtualizar.map(s =>
@@ -1389,7 +1388,6 @@
     document.getElementById('overlay-importar').classList.remove('open');
   }
 
-  // Parser CSV simples com suporte a campos entre aspas (podem conter vírgula)
   function parseCSV(texto) {
     const linhas = [];
     let linhaAtual = [];
@@ -1528,7 +1526,6 @@
     await carregarClientes();
   }
 
-  // ---- Menu (mobile) ----
   function abrirMenu() {
     document.getElementById('overlay-menu').classList.add('open');
   }
@@ -1536,7 +1533,6 @@
     document.getElementById('overlay-menu').classList.remove('open');
   }
 
-  // ---- Modo de visualização (Grade / Lista) ----
   function setModoVisualizacao(modo) {
     document.body.classList.remove('view-grade', 'view-list');
     document.body.classList.add('view-' + modo);
@@ -1546,7 +1542,6 @@
   }
   setModoVisualizacao(localStorage.getItem('modoVisualizacao') || 'grade');
 
-  // ---- Config Firebase (REST API) ----
   const FIREBASE_DB = "https://gestao-clientes-a1664-default-rtdb.europe-west1.firebasedatabase.app";
 
   let clientes = [];
@@ -1554,6 +1549,17 @@
   let aplicativos = [];
   let filtroAtual = 'todos';
   let templatesConfig = {};
+
+  // Formata um timestamp pro formato de <input type="date"> usando o
+  // horário LOCAL (não UTC) — evita o vencimento "vazar" pro dia seguinte
+  // quando o horário exato está perto da meia-noite (ex: 23:59:59).
+  function paraInputData(timestamp) {
+    const d = new Date(timestamp);
+    const ano = d.getFullYear();
+    const mes = String(d.getMonth() + 1).padStart(2, '0');
+    const dia = String(d.getDate()).padStart(2, '0');
+    return `${ano}-${mes}-${dia}`;
+  }
 
   const TEMPLATES_PADRAO = {
     msg7dias: 'Olá {nome}! Passando pra lembrar que seu plano vence em {dias_restantes} dias ({data_vencimento}). Valor: R$ {valor_plano}.',
@@ -1692,7 +1698,6 @@
       return;
     }
 
-    // Se não veio uma lista específica, marca todos os apps desse servidor automaticamente
     const idsMarcados = selecionados !== null ? selecionados : appsDoServidor.map(a => a.id);
 
     container.className = 'app-checklist';
@@ -1783,7 +1788,6 @@
     renderizar();
   }
 
-  // ---- Servidores ----
   function abrirServidores() {
     cancelarEdicaoServidor();
     renderizarListaServidores();
@@ -1839,7 +1843,6 @@
     if (!servidor) return;
 
     const abrindo = container.style.display === 'none';
-    // Fecha qualquer outro painel de apps aberto
     document.querySelectorAll('[id^="gerenciar-apps-"]').forEach(el => el.style.display = 'none');
 
     if (abrindo) {
@@ -1931,7 +1934,6 @@
     renderizarListaServidores();
   }
 
-  // ---- Aplicativos ----
   function abrirAplicativos() {
     cancelarEdicaoApp();
     renderizarListaAplicativos();
@@ -2021,7 +2023,6 @@
     renderizarListaAplicativos();
   }
 
-  // ---- Notificações ----
   function abrirNotificacoes() {
     const ativos = clientes.filter(c => c.notificacaoAtiva);
     const inativos = clientes.filter(c => !c.notificacaoAtiva);
@@ -2044,7 +2045,6 @@
     document.getElementById('overlay-notificacoes').classList.remove('open');
   }
 
-  // ---- Financeiro ----
   async function registrarFinanceiro(cliente, valor, tipo) {
     await fetch(`${FIREBASE_DB}/financeiro.json`, {
       method: 'POST',
@@ -2078,7 +2078,6 @@
     financeiroRegistros = Object.entries(data).map(([id, r]) => ({ id, ...r }))
       .sort((a, b) => b.data - a.data);
 
-    // Popula filtro de meses com os meses que realmente têm lançamento
     const meses = [...new Set(financeiroRegistros.map(r => chaveMes(r.data)))]
       .sort((a, b) => {
         const [ma, aa] = a.split('/'); const [mb, ab] = b.split('/');
@@ -2088,7 +2087,6 @@
     selectMes.innerHTML = '<option value="todos">Todos os meses</option>' +
       meses.map(m => `<option value="${m}">${nomeMes(m)}</option>`).join('');
 
-    // Popula filtro de servidor
     const selectServidor = document.getElementById('fin-filtro-servidor');
     selectServidor.innerHTML = '<option value="todos">Todos os servidores</option>' +
       servidores.map(s => `<option value="${s.nome}">${s.nome}</option>`).join('');
@@ -2115,7 +2113,6 @@
     document.getElementById('fin-cadastros').textContent = `R$ ${totalCadastros.toFixed(2)}`;
     document.getElementById('fin-renovacoes').textContent = `R$ ${totalRenovacoes.toFixed(2)}`;
 
-    // Resumo por servidor
     const porServidor = {};
     registros.forEach(r => {
       const s = r.servidor || '—';
@@ -2132,7 +2129,6 @@
         </div>
       `).join('');
 
-    // Lançamentos individuais
     const container = document.getElementById('lista-financeiro');
     container.innerHTML = registros.length === 0
       ? '<div style="color:var(--text-muted); font-size:13px;">Nenhum registro financeiro ainda.</div>'
@@ -2151,7 +2147,6 @@
     document.getElementById('overlay-financeiro').classList.remove('open');
   }
 
-  // ---- Remarketing ----
   function clientesFiltradosRemarketing() {
     const status = document.getElementById('remkt-status').value;
     const servidor = document.getElementById('remkt-servidor').value;
@@ -2478,7 +2473,7 @@
       if (data.vencimento) {
         document.getElementById('f-vencimento-preciso').value = data.vencimento;
         const campoVencimento = document.getElementById('f-vencimento');
-        campoVencimento.value = new Date(data.vencimento).toISOString().slice(0, 10);
+        campoVencimento.value = paraInputData(data.vencimento);
         campoVencimento.dispatchEvent(new Event('input'));
         campoVencimento.dispatchEvent(new Event('change'));
       }
@@ -2578,7 +2573,7 @@
     document.getElementById('f-servidor').value = c.servidor || '';
     preencherChecklistAplicativos(c.servidor || '', c.aplicativosIds || []);
     document.getElementById('f-valor').value = c.planoValor || '';
-    document.getElementById('f-vencimento').value = new Date(c.vencimento).toISOString().slice(0,10);
+    document.getElementById('f-vencimento').value = paraInputData(c.vencimento);
     document.getElementById('overlay').classList.add('open');
   }
 
@@ -2718,7 +2713,6 @@
   let diasRenovacao = 30;
   let clienteRenovandoId = null;
 
-  // ---- Ativar cliente de teste como oficial ----
   function abrirAtivarOficial(id) {
     const cliente = clientes.find(c => c.id === id);
     if (!cliente) return;
@@ -2726,7 +2720,7 @@
     document.getElementById('oficial-cliente-id').value = id;
     document.getElementById('oficial-valor').value = '';
     const amanha = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-    document.getElementById('oficial-vencimento').value = amanha.toISOString().slice(0, 10);
+    document.getElementById('oficial-vencimento').value = paraInputData(amanha.getTime());
     document.getElementById('oficial-vencimento-status').textContent = '';
 
     const btnBuscar = document.getElementById('btn-buscar-vencimento-oficial');
@@ -2762,7 +2756,7 @@
       }
 
       if (data.vencimento) {
-        document.getElementById('oficial-vencimento').value = new Date(data.vencimento).toISOString().slice(0, 10);
+        document.getElementById('oficial-vencimento').value = paraInputData(data.vencimento);
         statusEl.textContent = `✅ Vencimento no painel: ${new Date(data.vencimento).toLocaleString('pt-BR')}`;
         statusEl.style.color = 'var(--ok)';
       } else {
@@ -2891,7 +2885,6 @@
       await registrarFinanceiro({ id: cliente.id, nome: cliente.nome, servidor: cliente.servidor, musica: cliente.musica }, cliente.planoValor, 'renovacao');
       await carregarClientes();
 
-      // Abre o WhatsApp DO CLIENTE (não o do suporte) com o comprovante pronto
       const whatsappCliente = data.cliente.whatsapp;
       const comprovante = data.comprovante || preencherTemplateJS(TEMPLATES_PADRAO.comprovanteRenovacao, data.cliente);
       window.open(`https://wa.me/${whatsappCliente}?text=${encodeURIComponent(comprovante)}`, '_blank');
