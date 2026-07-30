@@ -1,5 +1,6 @@
 const { db, messaging } = require('../lib/firebaseAdmin');
 const { preencherTemplate } = require('../lib/templates');
+const { enviarPushSeguro } = require('../lib/pushHelper');
 const { Resend } = require('resend');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -15,19 +16,21 @@ module.exports = async (req, res) => {
       db.ref('clientes').once('value'),
       db.ref('config/templates').once('value'),
     ]);
-
     const clientes = clientesSnap.val() || {};
     const templates = configSnap.val() || {};
+
     const log = { processados: 0, emails: 0, avisosAcabando: 0, avisosAcabou: 0, erros: [] };
 
     for (const [id, cliente] of Object.entries(clientes)) {
       if (!cliente.emTeste) continue;
+
       log.processados++;
 
       const horasRestantes = (cliente.vencimento - Date.now()) / (1000 * 60 * 60);
       let tipo = null;
       if (horasRestantes <= 0) tipo = 'testeAcabou';
       else if (horasRestantes <= 1) tipo = 'testeAcabando';
+
       if (!tipo) continue;
 
       // Cada tipo só é enviado uma vez por cliente de teste
@@ -37,19 +40,22 @@ module.exports = async (req, res) => {
       const corpo = preencherTemplate(templateMsg || '', cliente, id);
 
       if (cliente.fcmToken && cliente.notificacaoAtiva) {
-        try {
-          await messaging.send({
-            token: cliente.fcmToken,
-            data: {
-              title: tipo === 'testeAcabando' ? 'Seu teste está acabando!' : 'Seu teste terminou',
-              body: corpo,
-              link: `${process.env.APP_URL}/meu-plano.html?id=${id}`,
-            },
-          });
+        const resultadoPush = await enviarPushSeguro({
+          messaging,
+          db,
+          caminhoRegistro: `clientes/${id}`,
+          token: cliente.fcmToken,
+          payload: {
+            title: tipo === 'testeAcabando' ? 'Seu teste está acabando!' : 'Seu teste terminou',
+            body: corpo,
+            link: `${process.env.APP_URL}/meu-plano.html?id=${id}`,
+          },
+        });
+        if (resultadoPush.enviado) {
           if (tipo === 'testeAcabando') log.avisosAcabando++;
           else log.avisosAcabou++;
-        } catch (err) {
-          log.erros.push(`push ${id}: ${err.message}`);
+        } else {
+          log.erros.push(`push ${id}: ${resultadoPush.motivo}`);
         }
       }
 
