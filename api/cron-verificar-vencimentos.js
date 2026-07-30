@@ -1,6 +1,7 @@
 const { db, messaging } = require('../lib/firebaseAdmin');
 const { preencherTemplate } = require('../lib/templates');
 const { sincronizarComPainelIPTV } = require('../lib/iptvSync');
+const { enviarPushSeguro } = require('../lib/pushHelper');
 const { Resend } = require('resend');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -26,19 +27,19 @@ module.exports = async (req, res) => {
       db.ref('clientes').once('value'),
       db.ref('config').once('value'),
     ]);
-
     let clientes = clientesSnap.val() || {};
     const config = configSnap.val() || {};
     const templates = config.templates || {};
     const whatsappAdmin = config.whatsappAdmin;
-    const hojeStr = new Date().toDateString();
 
+    const hojeStr = new Date().toDateString();
     const log = { processados: 0, emails: 0, renovacoesAutomaticas: 0, erros: [] };
 
     // Sincroniza com o painel IPTV primeiro (só quem tem link M3U salvo)
     const idsParaSincronizar = Object.entries(clientes)
       .filter(([, c]) => c.m3uLink)
       .map(([id]) => id);
+
     for (const id of idsParaSincronizar) {
       try {
         const resultado = await sincronizarComPainelIPTV(id, clientes[id], templates);
@@ -54,6 +55,7 @@ module.exports = async (req, res) => {
     for (const [id, cliente] of Object.entries(clientes)) {
       if (cliente.emTeste) continue;
       if (cliente.status !== 'ativo') continue;
+
       log.processados++;
 
       const dias = diasAte(cliente.vencimento);
@@ -62,6 +64,7 @@ module.exports = async (req, res) => {
       else if (dias === 3) tipo = '3dias';
       else if (dias === 0) tipo = 'vencimento';
       else if (dias === -3) tipo = '3diasVencido';
+
       if (!tipo) continue;
 
       // Evita duplicar envio no mesmo dia para o mesmo tipo
@@ -80,22 +83,24 @@ module.exports = async (req, res) => {
       const templateMsg = mapaTemplate[tipo];
       const corpo = preencherTemplate(templateMsg || '', cliente, id);
 
-      // Push
+      // Push (com detecção automática de token inválido/expirado)
       if (cliente.fcmToken && cliente.notificacaoAtiva) {
-        try {
-          const linkClique = `${process.env.APP_URL}/meu-plano.html?id=${id}`;
-
-          await messaging.send({
-            token: cliente.fcmToken,
-            data: {
-              title: 'Aviso sobre seu plano',
-              body: corpo,
-              link: linkClique,
-            },
-          });
+        const linkClique = `${process.env.APP_URL}/meu-plano.html?id=${id}`;
+        const resultadoPush = await enviarPushSeguro({
+          messaging,
+          db,
+          caminhoRegistro: `clientes/${id}`,
+          token: cliente.fcmToken,
+          payload: {
+            title: 'Aviso sobre seu plano',
+            body: corpo,
+            link: linkClique,
+          },
+        });
+        if (resultadoPush.enviado) {
           log[`push_${tipo}`] = (log[`push_${tipo}`] || 0) + 1;
-        } catch (err) {
-          log.erros.push(`push ${id}: ${err.message}`);
+        } else {
+          log.erros.push(`push ${id}: ${resultadoPush.motivo}`);
         }
       }
 
