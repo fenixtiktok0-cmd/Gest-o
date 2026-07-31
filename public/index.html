@@ -616,6 +616,7 @@
     <button class="filter-chip" id="btn-calendario" onclick="toggleCalendarioFiltro()">📅 Data específica</button>
     <input type="date" id="filtro-data-especifica" style="display:none; background:var(--surface); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:13px; padding:7px 10px;" onchange="filtrarPorDataEspecifica()">
     <button class="filter-chip" data-filtro="teste" onclick="filtrar('teste')" style="border-color:#60A5FA55;">🧪 Em teste</button>
+    <button class="filter-chip" data-filtro="leads" onclick="filtrar('leads')" style="border-color:#FBBF2455; color:var(--warn);">🎯 Leads (<span id="contagem-leads">0</span>)</button>
     <div style="display:flex; gap:4px; align-items:center; margin-left:8px;">
       <select id="filtro-dias-vencido" style="background:var(--surface); border:1px solid var(--border); border-radius:100px; color:var(--text); font-size:13px; padding:7px 10px;">
         <option value="30">+30 dias</option>
@@ -766,6 +767,58 @@
     <div class="modal-actions">
       <button class="btn" onclick="fecharModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="salvarCliente()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-processar-lead">
+  <div class="modal">
+    <div class="modal-header"><h2>🎯 Processar teste</h2><button class="modal-close-x" onclick="fecharProcessarLead()">✕</button></div>
+    <input type="hidden" id="lead-cliente-id">
+    <div style="background:var(--surface-2); border-radius:10px; padding:12px; margin-bottom:16px; font-size:13px;">
+      <div><b id="lead-nome-preview">—</b></div>
+      <div style="color:var(--text-muted); margin-top:2px;" id="lead-contato-preview">—</div>
+    </div>
+
+    <div class="field">
+      <label>Link M3U (opcional — preenche usuário/senha/vencimento sozinho)</label>
+      <div style="display:flex; gap:8px;">
+        <input type="text" id="lead-m3u" placeholder="http://painel.com/get.php?username=...&password=..." style="flex:1;">
+        <button class="btn" type="button" onclick="buscarDadosM3ULead()" style="white-space:nowrap;">🔍 Buscar</button>
+      </div>
+      <div id="lead-m3u-status" style="font-size:12px; margin-top:6px;"></div>
+    </div>
+    <div class="field">
+      <label>Usuário</label>
+      <input type="text" id="lead-usuario" placeholder="usuario123">
+    </div>
+    <div class="field">
+      <label>Senha</label>
+      <input type="text" id="lead-senha" placeholder="senha123">
+    </div>
+    <div class="field">
+      <label>Servidor</label>
+      <select id="lead-servidor" onchange="preencherChecklistAplicativosLead(this.value, null)"></select>
+    </div>
+    <div class="field">
+      <label>Aplicativos</label>
+      <div id="lead-aplicativos-lista" style="display:flex; flex-direction:column; gap:6px;">
+        <div style="color:var(--text-muted); font-size:12px;">Escolhe o servidor primeiro.</div>
+      </div>
+    </div>
+    <div class="field">
+      <label>Duração do teste</label>
+      <div style="display:flex; gap:6px; flex-wrap:wrap;">
+        <button type="button" class="filter-chip lead-horas-chip" data-horas="1" onclick="setHorasTesteLead(1)">1h</button>
+        <button type="button" class="filter-chip lead-horas-chip active" data-horas="2" onclick="setHorasTesteLead(2)">2h</button>
+        <button type="button" class="filter-chip lead-horas-chip" data-horas="3" onclick="setHorasTesteLead(3)">3h</button>
+        <button type="button" class="filter-chip lead-horas-chip" data-horas="4" onclick="setHorasTesteLead(4)">4h</button>
+        <button type="button" class="filter-chip lead-horas-chip" data-horas="24" onclick="setHorasTesteLead(24)">24h</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharProcessarLead()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarEEnviarTeste()">💾📲 Salvar e enviar teste</button>
     </div>
   </div>
 </div>
@@ -1792,12 +1845,13 @@
   }
 
   function atualizarStats() {
-    const clientesOficiais = clientes.filter(c => !c.emTeste && !c.musica);
+    const clientesOficiais = clientes.filter(c => !c.emTeste && !c.musica && !c.origemCaptura);
     const ativos = clientesOficiais.filter(c => statusCalculado(c) === 'ativo');
     const em3dias = clientesOficiais.filter(c => diasAte(c.vencimento) === 3).length;
     const hoje = clientesOficiais.filter(c => diasAte(c.vencimento) === 0).length;
     const vencidos = clientesOficiais.filter(c => diasAte(c.vencimento) < 0).length;
     const musica = clientes.filter(c => c.musica && !c.emTeste).length;
+    const leadsAbertos = clientes.filter(c => c.origemCaptura && c.statusLead === 'lead').length;
 
     document.getElementById('stat-total').textContent = clientesOficiais.length;
     document.getElementById('stat-ativos').textContent = ativos.length;
@@ -1805,6 +1859,7 @@
     document.getElementById('stat-hoje').textContent = hoje;
     document.getElementById('stat-vencidos').textContent = vencidos;
     document.getElementById('stat-musica').textContent = musica;
+    document.getElementById('contagem-leads').textContent = leadsAbertos;
   }
 
   let timeoutBusca = null;
@@ -2321,8 +2376,10 @@
       lista = lista.filter(c => c.emTeste);
     } else if (filtroAtual === 'musica') {
       lista = lista.filter(c => c.musica && !c.emTeste);
+    } else if (filtroAtual === 'leads') {
+      lista = lista.filter(c => c.origemCaptura);
     } else {
-      lista = lista.filter(c => !c.emTeste && !c.musica);
+      lista = lista.filter(c => !c.emTeste && !c.musica && !c.origemCaptura);
       if (filtroAtual === 'ativo') lista = lista.filter(c => statusCalculado(c) === 'ativo');
       if (filtroAtual === '3dias') lista = lista.filter(c => diasAte(c.vencimento) === 3);
       if (filtroAtual === 'hoje') lista = lista.filter(c => diasAte(c.vencimento) === 0);
@@ -2392,14 +2449,19 @@
           <td data-label="Status" class="td-hide-mobile"><span class="badge ${statusCalculado(c)}">${statusCalculado(c)}</span></td>
           <td data-label="Ações" class="actions-cell">
             <div class="actions">
-              ${c.emTeste ? `<button class="icon-btn" style="color:#60A5FA; border-color:#60A5FA;" onclick="abrirAtivarOficial('${c.id}')" title="Ativar como cliente oficial">✅</button>` : ''}
-              <button class="icon-btn whats" onclick="abrirRenovacao('${c.id}')" title="Renovar cliente">🔄</button>
-              <button class="icon-btn" onclick="enviarAcesso('${c.id}')" title="Enviar dados de acesso">📲</button>
-              <a class="icon-btn" href="${linkAtivacao}" target="_blank" title="Enviar link de ativação">🔗</a>
-              <a class="icon-btn whats" href="${linkWhats}" target="_blank" title="Enviar WhatsApp"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.148-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"></path><path d="M12.001 2C6.478 2 2 6.477 2 12c0 1.921.532 3.716 1.457 5.246L2 22l4.897-1.285A9.953 9.953 0 0 0 12.001 22C17.523 22 22 17.523 22 12S17.523 2 12.001 2zm0 18.09c-1.68 0-3.24-.494-4.552-1.343l-.327-.204-3.007.789.803-2.933-.213-.302A7.994 7.994 0 0 1 4.01 12c0-4.411 3.58-7.99 7.991-7.99 4.41 0 7.99 3.579 7.99 7.99 0 4.41-3.58 8.09-7.99 8.09z"></path></svg></a>
-              <button class="icon-btn push" onclick="enviarPushManual('${c.id}')" title="Enviar push">🔔</button>
-              <button class="icon-btn" onclick="editarCliente('${c.id}')" title="Editar">✏️</button>
-              <button class="icon-btn del" onclick="excluirCliente('${c.id}')" title="Excluir">🗑️</button>
+              ${c.origemCaptura ? `
+                <button class="icon-btn" style="color:var(--warn); border-color:var(--warn); width:auto; padding:0 10px; font-size:12px; font-weight:600;" onclick="abrirProcessarLead('${c.id}')">▶️ Processar teste</button>
+                <button class="icon-btn del" onclick="excluirCliente('${c.id}')" title="Excluir lead">🗑️</button>
+              ` : `
+                ${c.emTeste ? `<button class="icon-btn" style="color:#60A5FA; border-color:#60A5FA;" onclick="abrirAtivarOficial('${c.id}')" title="Ativar como cliente oficial">✅</button>` : ''}
+                <button class="icon-btn whats" onclick="abrirRenovacao('${c.id}')" title="Renovar cliente">🔄</button>
+                <button class="icon-btn" onclick="enviarAcesso('${c.id}')" title="Enviar dados de acesso">📲</button>
+                <a class="icon-btn" href="${linkAtivacao}" target="_blank" title="Enviar link de ativação">🔗</a>
+                <a class="icon-btn whats" href="${linkWhats}" target="_blank" title="Enviar WhatsApp"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.148-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"></path><path d="M12.001 2C6.478 2 2 6.477 2 12c0 1.921.532 3.716 1.457 5.246L2 22l4.897-1.285A9.953 9.953 0 0 0 12.001 22C17.523 22 22 17.523 22 12S17.523 2 12.001 2zm0 18.09c-1.68 0-3.24-.494-4.552-1.343l-.327-.204-3.007.789.803-2.933-.213-.302A7.994 7.994 0 0 1 4.01 12c0-4.411 3.58-7.99 7.991-7.99 4.41 0 7.99 3.579 7.99 7.99 0 4.41-3.58 8.09-7.99 8.09z"></path></svg></a>
+                <button class="icon-btn push" onclick="enviarPushManual('${c.id}')" title="Enviar push">🔔</button>
+                <button class="icon-btn" onclick="editarCliente('${c.id}')" title="Editar">✏️</button>
+                <button class="icon-btn del" onclick="excluirCliente('${c.id}')" title="Excluir">🗑️</button>
+              `}
             </div>
           </td>
         </tr>
@@ -2503,6 +2565,147 @@
       alert(`✅ Renovação detectada no painel! Novo vencimento: ${new Date(data.novoVencimento).toLocaleDateString('pt-BR')}. Push, e-mail e WhatsApp já disparados.`);
     } catch (err) {
       alert('Erro ao sincronizar com o painel IPTV.');
+    }
+  }
+
+  // ---- Processar lead (enviar teste) ----
+  let horasTesteLead = 2;
+
+  function setHorasTesteLead(horas) {
+    horasTesteLead = horas;
+    document.querySelectorAll('.lead-horas-chip').forEach(el => {
+      el.classList.toggle('active', Number(el.dataset.horas) === horas);
+    });
+  }
+
+  function abrirProcessarLead(id) {
+    const c = clientes.find(x => x.id === id);
+    if (!c) return;
+
+    document.getElementById('lead-cliente-id').value = id;
+    document.getElementById('lead-nome-preview').textContent = c.nome;
+    document.getElementById('lead-contato-preview').textContent = `${c.whatsapp || '—'} · ${c.email || 'sem e-mail'}`;
+    document.getElementById('lead-m3u').value = '';
+    document.getElementById('lead-m3u-status').textContent = '';
+    document.getElementById('lead-usuario').value = '';
+    document.getElementById('lead-senha').value = '';
+    vencimentoPrecisoLead = null;
+    setHorasTesteLead(2);
+
+    const select = document.getElementById('lead-servidor');
+    select.innerHTML = servidores.length
+      ? servidores.map(s => `<option value="${s.nome}">${s.nome}</option>`).join('')
+      : '<option value="">Nenhum servidor cadastrado</option>';
+    preencherChecklistAplicativosLead('');
+
+    document.getElementById('overlay-processar-lead').classList.add('open');
+  }
+  function fecharProcessarLead() {
+    document.getElementById('overlay-processar-lead').classList.remove('open');
+  }
+
+  function preencherChecklistAplicativosLead(servidorNome, selecionados = null) {
+    const container = document.getElementById('lead-aplicativos-lista');
+    const appsDoServidor = servidorNome
+      ? aplicativos.filter(a => (a.servidores || []).includes(servidorNome))
+      : [];
+
+    if (!servidorNome) {
+      container.innerHTML = '<div style="color:var(--text-muted); font-size:12px;">Escolhe o servidor primeiro.</div>';
+      return;
+    }
+    if (appsDoServidor.length === 0) {
+      container.innerHTML = '<div style="color:var(--text-muted); font-size:12px;">Nenhum app vinculado a esse servidor.</div>';
+      return;
+    }
+    const idsMarcados = selecionados !== null ? selecionados : appsDoServidor.map(a => a.id);
+    container.className = 'app-checklist';
+    container.innerHTML = appsDoServidor.map(a => `
+      <label class="app-checklist-item">
+        <input type="checkbox" class="chk-app-lead" value="${a.id}" ${idsMarcados.includes(a.id) ? 'checked' : ''}>
+        <span>${a.nome}</span>
+        <span class="mono app-codigo">${a.codigo}</span>
+      </label>
+    `).join('');
+  }
+
+  let vencimentoPrecisoLead = null;
+
+  async function buscarDadosM3ULead() {
+    const link = document.getElementById('lead-m3u').value.trim();
+    const statusEl = document.getElementById('lead-m3u-status');
+    if (!link) { statusEl.textContent = 'Cola o link M3U primeiro.'; statusEl.style.color = 'var(--danger)'; return; }
+
+    statusEl.textContent = 'Consultando o painel...';
+    statusEl.style.color = 'var(--text-muted)';
+
+    try {
+      const res = await fetch('/api/consultar-iptv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ link })
+      });
+      const data = await res.json();
+      if (data.erro) { statusEl.textContent = '❌ ' + data.erro; statusEl.style.color = 'var(--danger)'; return; }
+
+      document.getElementById('lead-usuario').value = data.usuario || '';
+      document.getElementById('lead-senha').value = data.senha || '';
+      vencimentoPrecisoLead = data.vencimento || null;
+
+      let servidorDetectado = '';
+      if (data.baseUrl) {
+        const dominioLink = data.baseUrl.replace(/^https?:\/\//, '').split(':')[0];
+        const servidorEncontrado = servidores.find(s => s.dominioM3U && dominioLink.includes(s.dominioM3U));
+        if (servidorEncontrado) {
+          servidorDetectado = servidorEncontrado.nome;
+          document.getElementById('lead-servidor').value = servidorDetectado;
+          preencherChecklistAplicativosLead(servidorDetectado, null);
+        }
+      }
+      statusEl.textContent = `✅ Dados encontrados!${servidorDetectado ? ' Servidor detectado: ' + servidorDetectado : ''}`;
+      statusEl.style.color = 'var(--ok)';
+    } catch (err) {
+      statusEl.textContent = '❌ Erro ao consultar. Tenta de novo.';
+      statusEl.style.color = 'var(--danger)';
+    }
+  }
+
+  async function salvarEEnviarTeste() {
+    const id = document.getElementById('lead-cliente-id').value;
+    const cliente = clientes.find(c => c.id === id);
+    if (!cliente) return;
+
+    const m3uLink = document.getElementById('lead-m3u').value.trim();
+    const usuario = document.getElementById('lead-usuario').value.trim();
+    const senha = document.getElementById('lead-senha').value.trim();
+    const servidor = document.getElementById('lead-servidor').value.trim();
+    const aplicativosIds = Array.from(document.querySelectorAll('.chk-app-lead:checked')).map(el => el.value);
+    const vencimento = vencimentoPrecisoLead || (Date.now() + horasTesteLead * 60 * 60 * 1000);
+
+    const btn = event?.target;
+    if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
+
+    try {
+      const res = await fetch('/api/enviar-teste-lead', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clienteId: id, m3uLink, usuario, senha, servidor, aplicativosIds, vencimento })
+      });
+      const data = await res.json();
+      if (data.erro) { alert('Erro: ' + data.erro); if (btn) { btn.disabled = false; btn.textContent = '💾📲 Salvar e enviar teste'; } return; }
+
+      fecharProcessarLead();
+      await carregarClientes();
+
+      // Abre o WhatsApp com o link de ativação, igual já fazemos com clientes normais
+      const linkAtivacao = `${window.location.origin}/meu-plano.html?id=${id}`;
+      const mensagem = `Olá ${cliente.nome}! 🎉\n\nSeu teste foi liberado! Pra ver os dados de acesso, entra nesse link e clica no botão "Ativar notificações":\n\n${linkAtivacao}\n\nDepois disso os dados aparecem na hora. Qualquer dúvida, me chama!`;
+      window.open(`https://wa.me/${cliente.whatsapp}?text=${encodeURIComponent(mensagem)}`, '_blank');
+
+      alert('✅ Teste enviado! Push e e-mail (se tinha) já foram disparados, e o WhatsApp abriu com o link.');
+    } catch (err) {
+      alert('Erro ao processar o teste.');
+      if (btn) { btn.disabled = false; btn.textContent = '💾📲 Salvar e enviar teste'; }
     }
   }
 
