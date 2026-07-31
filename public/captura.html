@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Teste Grátis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
+<style>
+  :root {
+    --bg: #0B0F14; --surface: #131A22; --surface-2: #1B232D; --border: #232C37;
+    --text: #E6EDF3; --text-muted: #7C8798;
+    --ok: #34D399; --warn: #FBBF24; --danger: #F87171;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; padding: 20px;
+  }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 28px 24px; max-width: 400px; width: 100%;
+  }
+  h1 { font-family: 'Space Grotesk', sans-serif; font-size: 22px; margin: 0 0 6px; }
+  .sub { color: var(--text-muted); font-size: 13.5px; margin-bottom: 22px; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+  .field input {
+    width: 100%; background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 11px 12px; color: var(--text);
+    font-family: 'Inter', sans-serif; font-size: 14px; box-sizing: border-box;
+  }
+  button {
+    width: 100%; margin-top: 8px; padding: 13px; border-radius: 10px;
+    border: none; background: var(--ok); color: #06231A;
+    font-weight: 600; font-size: 14px; cursor: pointer;
+  }
+  button:disabled { opacity: 0.6; cursor: default; }
+  .destaque {
+    background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.35);
+    border-radius: 12px; padding: 16px; margin-bottom: 18px; font-size: 13.5px;
+  }
+  .destaque b { color: var(--ok); }
+  .erro { color: var(--danger); font-size: 13px; margin-top: 10px; display: none; }
+  .sucesso { text-align: center; }
+  .sucesso .icone { font-size: 40px; margin-bottom: 10px; }
+</style>
+</head>
+<body>
+
+<div class="card" id="card">
+  <h1>🎬 Teste grátis agora</h1>
+  <div class="sub">Preenche seus dados e libera seu teste em minutos</div>
+
+  <div id="etapa-form">
+    <div class="field">
+      <label>Seu nome</label>
+      <input type="text" id="input-nome" placeholder="Nome completo">
+    </div>
+    <div class="field">
+      <label>WhatsApp (com DDD)</label>
+      <input type="text" id="input-whatsapp" placeholder="21999999999">
+    </div>
+    <div class="field">
+      <label>E-mail (opcional)</label>
+      <input type="email" id="input-email" placeholder="seuemail@exemplo.com">
+    </div>
+    <button id="btn-continuar" onclick="irParaNotificacao()">Continuar</button>
+    <div class="erro" id="erro-form"></div>
+  </div>
+
+  <div id="etapa-notif" style="display:none;">
+    <div class="destaque">
+      🔔 <b>Ative agora pra receber seu teste na hora.</b> Assim que liberarmos seu acesso, você recebe direto aqui — sem precisar ficar checando o WhatsApp toda hora esperando resposta.
+    </div>
+    <button id="btn-ativar" onclick="ativarEEnviar()">🔔 Ativar e liberar meu teste</button>
+    <div class="erro" id="erro-notif"></div>
+  </div>
+
+  <div id="etapa-sucesso" class="sucesso" style="display:none;">
+    <div class="icone">✅</div>
+    <h1 style="font-size:19px;">Prontinho!</h1>
+    <div class="sub" style="margin-bottom:0;">Seu pedido foi enviado. Assim que seu teste for liberado, você recebe um aviso automático aqui — geralmente é rápido!</div>
+  </div>
+</div>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyBaVUpfN03wm2mm_C3sUZhMUZtThb32FSQ",
+    authDomain: "gestao-clientes-a1664.firebaseapp.com",
+    databaseURL: "https://gestao-clientes-a1664-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "gestao-clientes-a1664",
+    storageBucket: "gestao-clientes-a1664.firebasestorage.app",
+    messagingSenderId: "417549104013",
+    appId: "1:417549104013:web:0a753604b6eaf2f65243c4"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const VAPID_KEY = "BB7h2P--2AyZfHmes1ibhzHlWY1DVPFvyWp6r4CIyQrPbDLOS_xx0zteP8SIbH34m2Txx0KLnLu8ZOF6RbSzY8U";
+
+  let dadosLead = {};
+
+  function irParaNotificacao() {
+    const nome = document.getElementById('input-nome').value.trim();
+    const whatsapp = document.getElementById('input-whatsapp').value.replace(/\D/g, '');
+    const email = document.getElementById('input-email').value.trim();
+    const erroEl = document.getElementById('erro-form');
+
+    if (!nome || !whatsapp) {
+      erroEl.textContent = 'Preenche seu nome e WhatsApp.';
+      erroEl.style.display = 'block';
+      return;
+    }
+    erroEl.style.display = 'none';
+
+    dadosLead = { nome, whatsapp, email };
+    document.getElementById('etapa-form').style.display = 'none';
+    document.getElementById('etapa-notif').style.display = 'block';
+  }
+
+  async function ativarEEnviar() {
+    const btn = document.getElementById('btn-ativar');
+    const erroEl = document.getElementById('erro-notif');
+    btn.disabled = true;
+    btn.textContent = 'Ativando...';
+    erroEl.style.display = 'none';
+
+    let fcmToken = null;
+
+    try {
+      if ('Notification' in window) {
+        const permissao = await Notification.requestPermission();
+        if (permissao === 'granted') {
+          const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+          const messaging = firebase.messaging();
+          fcmToken = await messaging.getToken({ vapidKey: VAPID_KEY, serviceWorkerRegistration: registration });
+        }
+      }
+    } catch (err) {
+      // Segue o fluxo mesmo se a notificação falhar — o WhatsApp continua funcionando
+    }
+
+    try {
+      await fetch('/api/registrar-lead', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...dadosLead, fcmToken })
+      });
+      document.getElementById('etapa-notif').style.display = 'none';
+      document.getElementById('etapa-sucesso').style.display = 'block';
+    } catch (err) {
+      erroEl.textContent = 'Não deu pra enviar agora. Tenta de novo.';
+      erroEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = '🔔 Ativar e liberar meu teste';
+    }
+  }
+</script>
+
+</body>
+</html>
