@@ -11,7 +11,7 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const { clienteId, m3uLink, usuario, senha, servidor, aplicativosIds, vencimento } = req.body || {};
+    const { clienteId, m3uLink, usuario, senha, servidor, aplicativosIds, vencimento, planoValor } = req.body || {};
     if (!clienteId || !vencimento) {
       return res.status(400).json({ erro: 'clienteId e vencimento são obrigatórios' });
     }
@@ -27,6 +27,7 @@ module.exports = async (req, res) => {
       servidor: servidor || '',
       aplicativosIds: aplicativosIds || [],
       vencimento,
+      planoValor: planoValor || 0,
       emTeste: true,
       statusLead: 'teste_enviado',
     });
