@@ -248,6 +248,17 @@
 
   async function ativarNotificacoes() {
     const btn = document.getElementById('btn-notif');
+
+    if (!('Notification' in window)) {
+      alert('Esse navegador não tem suporte a notificações. Tenta usar o Chrome atualizado.');
+      return;
+    }
+
+    if (Notification.permission === 'denied') {
+      alert('As notificações desse site já estão bloqueadas no seu navegador (provavelmente de uma tentativa anterior). Pra corrigir:\n\n1. Toca no ícone de cadeado/informações ao lado do endereço do site (na barra de cima)\n2. Procura "Notificações" ou "Permissões"\n3. Muda pra "Permitir"\n4. Recarrega essa página e tenta ativar de novo');
+      return;
+    }
+
     btn.disabled = true;
     btn.textContent = 'Ativando...';
 
