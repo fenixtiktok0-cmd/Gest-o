@@ -816,6 +816,11 @@
         <button type="button" class="filter-chip lead-horas-chip" data-horas="24" onclick="setHorasTesteLead(24)">24h</button>
       </div>
     </div>
+    <div class="field" style="background:rgba(52,211,153,0.1); border:1px solid rgba(52,211,153,0.35); border-radius:10px; padding:12px;">
+      <label style="color:var(--ok); font-weight:600;">💰 Valor especial pra esse cliente (R$)</label>
+      <input type="text" id="lead-valor" placeholder="Ex: 35.00">
+      <div style="font-size:11px; color:var(--text-muted); margin-top:6px;">Esse valor aparece pra ele na tela do teste, com botão de pagar e ativar na hora.</div>
+    </div>
     <div class="modal-actions">
       <button class="btn" onclick="fecharProcessarLead()">Cancelar</button>
       <button class="btn btn-primary" onclick="salvarEEnviarTeste()">💾📲 Salvar e enviar teste</button>
@@ -2589,6 +2594,7 @@
     document.getElementById('lead-m3u-status').textContent = '';
     document.getElementById('lead-usuario').value = '';
     document.getElementById('lead-senha').value = '';
+    document.getElementById('lead-valor').value = '';
     vencimentoPrecisoLead = null;
     setHorasTesteLead(2);
 
@@ -2680,6 +2686,7 @@
     const senha = document.getElementById('lead-senha').value.trim();
     const servidor = document.getElementById('lead-servidor').value.trim();
     const aplicativosIds = Array.from(document.querySelectorAll('.chk-app-lead:checked')).map(el => el.value);
+    const planoValor = parseFloat(document.getElementById('lead-valor').value) || 0;
     const vencimento = vencimentoPrecisoLead || (Date.now() + horasTesteLead * 60 * 60 * 1000);
 
     const btn = event?.target;
@@ -2689,7 +2696,7 @@
       const res = await fetch('/api/enviar-teste-lead', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clienteId: id, m3uLink, usuario, senha, servidor, aplicativosIds, vencimento })
+        body: JSON.stringify({ clienteId: id, m3uLink, usuario, senha, servidor, aplicativosIds, vencimento, planoValor })
       });
       const data = await res.json();
       if (data.erro) { alert('Erro: ' + data.erro); if (btn) { btn.disabled = false; btn.textContent = '💾📲 Salvar e enviar teste'; } return; }
