@@ -6,8 +6,6 @@
 <title>Teste Grátis — Filmes, Séries e Esportes</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
 <style>
   :root {
     --bg: #05070A; --surface: #131A22; --surface-2: #1B232D; --border: #232C37;
@@ -75,12 +73,6 @@
   }
   button:disabled { opacity: 0.6; cursor: default; }
 
-  .destaque {
-    background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.35);
-    border-radius: 12px; padding: 16px; margin-bottom: 18px; font-size: 13.5px; line-height: 1.5;
-  }
-  .destaque b { color: var(--ok); }
-
   .lista-beneficios { list-style: none; margin: 16px 0 0; padding: 0; }
   .lista-beneficios li { display: flex; gap: 8px; font-size: 13px; color: var(--text-muted); padding: 5px 0; }
   .lista-beneficios .check { color: var(--ok); font-weight: 700; }
@@ -125,7 +117,7 @@
         <label>E-mail (opcional)</label>
         <input type="email" id="input-email" placeholder="seuemail@exemplo.com">
       </div>
-      <button id="btn-continuar" onclick="irParaNotificacao()">Continuar →</button>
+      <button id="btn-solicitar" onclick="solicitarTeste()">📲 SOLICITAR TESTE</button>
       <div class="erro" id="erro-form"></div>
 
       <ul class="lista-beneficios">
@@ -135,19 +127,10 @@
       </ul>
     </div>
 
-    <div id="etapa-notif" style="display:none;">
-      <h2>🔔 Última etapa</h2>
-      <div class="destaque">
-        <b>Ative agora pra receber seu teste na hora.</b> Assim que liberarmos seu acesso, você recebe direto aqui — sem precisar ficar checando o WhatsApp toda hora esperando resposta.
-      </div>
-      <button id="btn-ativar" onclick="ativarEEnviar()">🔔 Ativar e liberar meu teste</button>
-      <div class="erro" id="erro-notif"></div>
-    </div>
-
     <div id="etapa-sucesso" class="sucesso" style="display:none;">
       <div class="icone">✅</div>
-      <h2>Prontinho!</h2>
-      <div class="sub" style="margin-bottom:0;">Seu pedido foi enviado. Assim que seu teste for liberado, você recebe um aviso automático aqui — geralmente é rápido!</div>
+      <h2>Quase lá!</h2>
+      <div class="sub" style="margin-bottom:0;">Abrimos o WhatsApp com sua mensagem pronta — é só apertar enviar. Assim que liberarmos seu teste, você recebe o acesso direto lá.</div>
     </div>
   </div>
 </main>
@@ -155,25 +138,12 @@
 <footer>🔒 Seus dados estão seguros e não são compartilhados.</footer>
 
 <script>
-  const firebaseConfig = {
-    apiKey: "AIzaSyBaVUpfN03wm2mm_C3sUZhMUZtThb32FSQ",
-    authDomain: "gestao-clientes-a1664.firebaseapp.com",
-    databaseURL: "https://gestao-clientes-a1664-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "gestao-clientes-a1664",
-    storageBucket: "gestao-clientes-a1664.firebasestorage.app",
-    messagingSenderId: "417549104013",
-    appId: "1:417549104013:web:0a753604b6eaf2f65243c4"
-  };
-  firebase.initializeApp(firebaseConfig);
-  const VAPID_KEY = "BB7h2P--2AyZfHmes1ibhzHlWY1DVPFvyWp6r4CIyQrPbDLOS_xx0zteP8SIbH34m2Txx0KLnLu8ZOF6RbSzY8U";
-
-  let dadosLead = {};
-
-  function irParaNotificacao() {
+  async function solicitarTeste() {
     const nome = document.getElementById('input-nome').value.trim();
     const whatsapp = document.getElementById('input-whatsapp').value.replace(/\D/g, '');
     const email = document.getElementById('input-email').value.trim();
     const erroEl = document.getElementById('erro-form');
+    const btn = document.getElementById('btn-solicitar');
 
     if (!nome || !whatsapp) {
       erroEl.textContent = 'Preenche seu nome e WhatsApp.';
@@ -181,47 +151,37 @@
       return;
     }
     erroEl.style.display = 'none';
-
-    dadosLead = { nome, whatsapp, email };
-    document.getElementById('etapa-form').style.display = 'none';
-    document.getElementById('etapa-notif').style.display = 'block';
-  }
-
-  async function ativarEEnviar() {
-    const btn = document.getElementById('btn-ativar');
-    const erroEl = document.getElementById('erro-notif');
     btn.disabled = true;
-    btn.textContent = 'Ativando...';
-    erroEl.style.display = 'none';
-
-    let fcmToken = null;
+    btn.textContent = 'Enviando...';
 
     try {
-      if ('Notification' in window) {
-        const permissao = await Notification.requestPermission();
-        if (permissao === 'granted') {
-          const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-          const messaging = firebase.messaging();
-          fcmToken = await messaging.getToken({ vapidKey: VAPID_KEY, serviceWorkerRegistration: registration });
-        }
-      }
-    } catch (err) {
-      // Segue o fluxo mesmo se a notificação falhar
-    }
-
-    try {
-      await fetch('/api/registrar-lead', {
+      const res = await fetch('/api/registrar-lead', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...dadosLead, fcmToken })
+        body: JSON.stringify({ nome, whatsapp, email })
       });
-      document.getElementById('etapa-notif').style.display = 'none';
+      const data = await res.json();
+
+      if (data.erro) {
+        erroEl.textContent = 'Não deu pra enviar agora. Tenta de novo.';
+        erroEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = '📲 SOLICITAR TESTE';
+        return;
+      }
+
+      document.getElementById('etapa-form').style.display = 'none';
       document.getElementById('etapa-sucesso').style.display = 'block';
+
+      if (data.whatsappAdmin) {
+        const mensagem = `Sou o cliente ${nome} e fiz a solicitação de um teste.`;
+        window.open(`https://wa.me/${data.whatsappAdmin}?text=${encodeURIComponent(mensagem)}`, '_blank');
+      }
     } catch (err) {
       erroEl.textContent = 'Não deu pra enviar agora. Tenta de novo.';
       erroEl.style.display = 'block';
       btn.disabled = false;
-      btn.textContent = '🔔 Ativar e liberar meu teste';
+      btn.textContent = '📲 SOLICITAR TESTE';
     }
   }
 </script>
