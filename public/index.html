@@ -6,6 +6,8 @@
 <title>Gestão de Clientes</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
 <style>
   :root {
     --bg: #0B0F14;
@@ -560,6 +562,8 @@
       <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirNotificacoes();">🔔 Notificações</button>
       <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirFinanceiro();">💰 Financeiro</button>
       <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirMensagens();">✉️ Mensagens</button>
+      <button class="btn" style="text-align:left; background:linear-gradient(135deg,#FBBF24,#F59E0B); border-color:#F59E0B; color:#412402; font-weight:600;" onclick="fecharMenu(); abrirLeads();">🎯 Leads (testes pendentes)</button>
+      <button class="btn" id="btn-notif-admin" style="text-align:left;" onclick="fecharMenu(); ativarNotificacoesAdmin();">🔔 Ativar minhas notificações</button>
       <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirConfig();">⚙️ Configurações</button>
     </div>
     <div class="modal-actions">
@@ -569,6 +573,11 @@
 </div>
 
 <main>
+  <div id="banner-notif-admin" style="display:none; border:1px solid rgba(96,165,250,0.4); background:rgba(96,165,250,0.1); border-radius:10px; padding:12px 16px; margin-bottom:18px; font-size:13px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+    <span style="color:#60A5FA;">🔔 Ativa suas notificações pra receber um aviso na hora que um lead pedir teste.</span>
+    <button class="btn" style="padding:7px 12px; font-size:12px;" onclick="ativarNotificacoesAdmin()">Ativar</button>
+  </div>
+
   <div class="stats">
     <div class="stat-card" id="card-todos" onclick="filtrar('todos')" style="cursor:pointer;">
       <div class="label">Total de clientes</div>
@@ -1544,7 +1553,57 @@
   }
   setModoVisualizacao(localStorage.getItem('modoVisualizacao') || 'grade');
 
+  const firebaseConfig = {
+    apiKey: "AIzaSyBaVUpfN03wm2mm_C3sUZhMUZtThb32FSQ",
+    authDomain: "gestao-clientes-a1664.firebaseapp.com",
+    databaseURL: "https://gestao-clientes-a1664-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "gestao-clientes-a1664",
+    storageBucket: "gestao-clientes-a1664.firebasestorage.app",
+    messagingSenderId: "417549104013",
+    appId: "1:417549104013:web:0a753604b6eaf2f65243c4"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const VAPID_KEY = "BB7h2P--2AyZfHmes1ibhzHlWY1DVPFvyWp6r4CIyQrPbDLOS_xx0zteP8SIbH34m2Txx0KLnLu8ZOF6RbSzY8U";
+
   const FIREBASE_DB = "https://gestao-clientes-a1664-default-rtdb.europe-west1.firebasedatabase.app";
+
+  async function ativarNotificacoesAdmin() {
+    try {
+      if (!('Notification' in window)) {
+        alert('Esse navegador não tem suporte a notificações.');
+        return;
+      }
+      if (Notification.permission === 'denied') {
+        alert('As notificações desse site já estão bloqueadas no seu navegador. Vai no ícone de cadeado ao lado do endereço, muda pra "Permitir", e recarrega a página.');
+        return;
+      }
+      const permissao = await Notification.requestPermission();
+      if (permissao !== 'granted') {
+        alert('Você precisa permitir as notificações.');
+        return;
+      }
+      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+      const messaging = firebase.messaging();
+      const token = await messaging.getToken({ vapidKey: VAPID_KEY, serviceWorkerRegistration: registration });
+
+      await fetch(`${FIREBASE_DB}/config.json`, {
+        method: 'PATCH',
+        body: JSON.stringify({ adminFcmToken: token, adminNotificacaoAtiva: true })
+      });
+
+      document.getElementById('banner-notif-admin').style.display = 'none';
+      alert('✅ Notificações ativadas! Você vai receber um aviso toda vez que alguém pedir teste grátis.');
+    } catch (err) {
+      alert('Não deu pra ativar agora (' + (err.message || 'erro desconhecido') + '). Tenta de novo.');
+    }
+  }
+
+  async function verificarNotificacaoAdmin() {
+    const res = await fetch(`${FIREBASE_DB}/config.json`);
+    const config = await res.json() || {};
+    document.getElementById('banner-notif-admin').style.display = config.adminNotificacaoAtiva ? 'none' : 'flex';
+  }
+
 
   let clientes = [];
   let servidores = [];
@@ -2908,6 +2967,7 @@
 
   carregarConfigMusica();
   carregarClientes();
+  verificarNotificacaoAdmin();
 </script>
 
 </body>
