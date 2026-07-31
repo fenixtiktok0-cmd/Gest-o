@@ -288,7 +288,7 @@
 
       await carregar();
     } catch (err) {
-      alert('Não deu pra ativar as notificações agora. Tenta de novo.');
+      alert('Não deu pra ativar as notificações agora (' + (err.message || 'erro desconhecido') + '). Tenta de novo.');
       btn.disabled = false;
       btn.textContent = 'Ativar notificações';
     }
