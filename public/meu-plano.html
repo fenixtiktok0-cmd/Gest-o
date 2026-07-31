@@ -228,6 +228,15 @@
       ? `<a class="btn-suporte" href="https://wa.me/${config.whatsappAdmin}?text=${encodeURIComponent('Olá! Sou o cliente ' + c.nome + ' e preciso de suporte.')}" target="_blank">${textoBotaoSuporte}</a>`
       : '';
 
+    const bannerPagamentoHtml = (c.emTeste && c.planoValor > 0) ? `
+      <div style="margin-top:16px; background:linear-gradient(135deg, rgba(52,211,153,0.15), rgba(52,211,153,0.05)); border:1px solid rgba(52,211,153,0.4); border-radius:12px; padding:16px; text-align:center;">
+        <div style="font-size:11px; color:var(--ok); font-weight:700; text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px;">🎉 Oferta especial liberada pra você</div>
+        <div style="font-size:28px; font-weight:700; font-family:'Space Grotesk',sans-serif; color:var(--ok);">R$ ${Number(c.planoValor).toFixed(2)}<span style="font-size:13px; color:var(--text-muted); font-weight:500;">/mês</span></div>
+        <button id="btn-pagar" style="margin-top:12px;" onclick="gerarPix()">💳 Pagar e ativar agora</button>
+      </div>
+      <div id="area-pix" style="display:none;"></div>
+    ` : '';
+
     card.innerHTML = `
       ${logoHtml}
       <h1>Olá, ${c.nome}</h1>
@@ -238,12 +247,57 @@
       <div class="linha"><span class="label">Situação</span><span class="status-pill ${statusClasse}">${statusTexto}</span></div>
       ${emailCapturaHtml}
       ${dadosAcessoHtml}
+      ${bannerPagamentoHtml}
       <button id="btn-notif" ${notifAtiva ? 'disabled' : ''}>${notifAtiva ? 'Notificações ativadas ✓' : textoBotaoNotif}</button>
       ${botaoSuporteHtml}
     `;
 
     const botaoNotif = document.getElementById('btn-notif');
     if (botaoNotif && !notifAtiva) botaoNotif.onclick = ativarNotificacoes;
+  }
+
+  async function gerarPix() {
+    const btn = document.getElementById('btn-pagar');
+    btn.disabled = true;
+    btn.textContent = 'Gerando PIX...';
+
+    try {
+      const res = await fetch('/api/gerar-pix-cliente', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clienteId })
+      });
+      const data = await res.json();
+
+      if (data.erro) {
+        alert('Erro: ' + data.erro);
+        btn.disabled = false;
+        btn.textContent = '💳 Pagar e ativar agora';
+        return;
+      }
+
+      const area = document.getElementById('area-pix');
+      area.style.display = 'block';
+      area.innerHTML = `
+        <div style="background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:16px; margin-top:10px; text-align:center;">
+          <img src="data:image/png;base64,${data.qrCodeBase64}" style="width:170px; height:170px; margin:0 auto 12px; display:block; border-radius:8px;">
+          <div style="font-size:11px; color:var(--text-muted); margin-bottom:8px;">Escaneia o QR Code ou copia o código Pix Copia e Cola</div>
+          <textarea readonly rows="3" style="width:100%; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:8px; color:var(--text); font-family:'JetBrains Mono',monospace; font-size:10px; resize:none; box-sizing:border-box;" onclick="this.select()">${data.qrCodeTexto}</textarea>
+          <button type="button" style="margin-top:8px; background:var(--surface-2); color:var(--text); border:1px solid var(--border);" onclick="copiarPix()">📋 Copiar código</button>
+          <div style="font-size:11.5px; color:var(--text-muted); margin-top:12px;">Depois de pagar, seu plano ativa sozinho em instantes. Se demorar, toca no botão 🔄 no canto da tela.</div>
+        </div>
+      `;
+      btn.style.display = 'none';
+    } catch (err) {
+      alert('Não deu pra gerar o Pix agora. Tenta de novo.');
+      btn.disabled = false;
+      btn.textContent = '💳 Pagar e ativar agora';
+    }
+  }
+
+  function copiarPix() {
+    const texto = document.querySelector('#area-pix textarea').value;
+    navigator.clipboard.writeText(texto).then(() => alert('Código copiado!'));
   }
 
   async function ativarNotificacoes() {
