@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Teste Grátis</title>
+<title>Teste Grátis — Filmes, Séries e Esportes</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
 <style>
   :root {
-    --bg: #0B0F14; --surface: #131A22; --surface-2: #1B232D; --border: #232C37;
+    --bg: #05070A; --surface: #131A22; --surface-2: #1B232D; --border: #232C37;
     --text: #E6EDF3; --text-muted: #7C8798;
     --ok: #34D399; --warn: #FBBF24; --danger: #F87171;
   }
@@ -18,75 +18,141 @@
   body {
     margin: 0; background: var(--bg); color: var(--text);
     font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased;
-    display: flex; align-items: center; justify-content: center;
-    min-height: 100vh; padding: 20px;
   }
+  .hero {
+    background:
+      radial-gradient(circle at 20% 0%, rgba(52,211,153,0.16), transparent 55%),
+      radial-gradient(circle at 85% 15%, rgba(96,165,250,0.14), transparent 50%),
+      var(--bg);
+    padding: 40px 20px 32px;
+    text-align: center;
+  }
+  .badge-topo {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(52,211,153,0.12); border: 1px solid rgba(52,211,153,0.35);
+    color: var(--ok); font-size: 12px; font-weight: 700;
+    padding: 6px 14px; border-radius: 100px; margin-bottom: 18px;
+  }
+  .hero h1 {
+    font-family: 'Space Grotesk', sans-serif; font-size: 30px; font-weight: 800;
+    margin: 0 0 10px; line-height: 1.2;
+  }
+  .hero h1 span { color: var(--ok); }
+  .hero p { color: var(--text-muted); font-size: 14.5px; max-width: 340px; margin: 0 auto; }
+
+  .icones-conteudo {
+    display: flex; justify-content: center; gap: 10px; margin-top: 24px; flex-wrap: wrap;
+  }
+  .icone-item {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 12px 16px; text-align: center; min-width: 92px;
+  }
+  .icone-item .emoji { font-size: 22px; margin-bottom: 4px; }
+  .icone-item .texto { font-size: 11px; color: var(--text-muted); font-weight: 600; }
+
+  main { max-width: 420px; margin: -18px auto 0; padding: 0 20px 40px; position: relative; z-index: 2; }
+
   .card {
     background: var(--surface); border: 1px solid var(--border);
-    border-radius: 16px; padding: 28px 24px; max-width: 400px; width: 100%;
+    border-radius: 18px; padding: 26px 22px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.4);
   }
-  h1 { font-family: 'Space Grotesk', sans-serif; font-size: 22px; margin: 0 0 6px; }
-  .sub { color: var(--text-muted); font-size: 13.5px; margin-bottom: 22px; }
+  .card h2 { font-family: 'Space Grotesk', sans-serif; font-size: 18px; margin: 0 0 4px; }
+  .card .sub { color: var(--text-muted); font-size: 13px; margin-bottom: 20px; }
+
   .field { margin-bottom: 14px; }
   .field label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
   .field input {
     width: 100%; background: var(--surface-2); border: 1px solid var(--border);
-    border-radius: 8px; padding: 11px 12px; color: var(--text);
-    font-family: 'Inter', sans-serif; font-size: 14px; box-sizing: border-box;
+    border-radius: 8px; padding: 12px 12px; color: var(--text);
+    font-family: 'Inter', sans-serif; font-size: 14.5px; box-sizing: border-box;
   }
+
   button {
-    width: 100%; margin-top: 8px; padding: 13px; border-radius: 10px;
+    width: 100%; margin-top: 8px; padding: 14px; border-radius: 10px;
     border: none; background: var(--ok); color: #06231A;
-    font-weight: 600; font-size: 14px; cursor: pointer;
+    font-weight: 700; font-size: 14.5px; cursor: pointer;
   }
   button:disabled { opacity: 0.6; cursor: default; }
+
   .destaque {
     background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.35);
-    border-radius: 12px; padding: 16px; margin-bottom: 18px; font-size: 13.5px;
+    border-radius: 12px; padding: 16px; margin-bottom: 18px; font-size: 13.5px; line-height: 1.5;
   }
   .destaque b { color: var(--ok); }
+
+  .lista-beneficios { list-style: none; margin: 16px 0 0; padding: 0; }
+  .lista-beneficios li { display: flex; gap: 8px; font-size: 13px; color: var(--text-muted); padding: 5px 0; }
+  .lista-beneficios .check { color: var(--ok); font-weight: 700; }
+
   .erro { color: var(--danger); font-size: 13px; margin-top: 10px; display: none; }
   .sucesso { text-align: center; }
-  .sucesso .icone { font-size: 40px; margin-bottom: 10px; }
+  .sucesso .icone { font-size: 44px; margin-bottom: 10px; }
+
+  footer { text-align: center; padding: 20px; color: var(--text-muted); font-size: 11.5px; }
 </style>
 </head>
 <body>
 
-<div class="card" id="card">
-  <h1>🎬 Teste grátis agora</h1>
-  <div class="sub">Preenche seus dados e libera seu teste em minutos</div>
+<div class="hero">
+  <div class="badge-topo">🔥 Teste 100% grátis</div>
+  <h1>Filmes, séries e esportes<br><span>sem mensalidade pra testar</span></h1>
+  <p>Milhares de títulos, lançamentos toda semana, e todos os jogos ao vivo — direto no seu celular, TV ou computador.</p>
 
-  <div id="etapa-form">
-    <div class="field">
-      <label>Seu nome</label>
-      <input type="text" id="input-nome" placeholder="Nome completo">
-    </div>
-    <div class="field">
-      <label>WhatsApp (com DDD)</label>
-      <input type="text" id="input-whatsapp" placeholder="21999999999">
-    </div>
-    <div class="field">
-      <label>E-mail (opcional)</label>
-      <input type="email" id="input-email" placeholder="seuemail@exemplo.com">
-    </div>
-    <button id="btn-continuar" onclick="irParaNotificacao()">Continuar</button>
-    <div class="erro" id="erro-form"></div>
-  </div>
-
-  <div id="etapa-notif" style="display:none;">
-    <div class="destaque">
-      🔔 <b>Ative agora pra receber seu teste na hora.</b> Assim que liberarmos seu acesso, você recebe direto aqui — sem precisar ficar checando o WhatsApp toda hora esperando resposta.
-    </div>
-    <button id="btn-ativar" onclick="ativarEEnviar()">🔔 Ativar e liberar meu teste</button>
-    <div class="erro" id="erro-notif"></div>
-  </div>
-
-  <div id="etapa-sucesso" class="sucesso" style="display:none;">
-    <div class="icone">✅</div>
-    <h1 style="font-size:19px;">Prontinho!</h1>
-    <div class="sub" style="margin-bottom:0;">Seu pedido foi enviado. Assim que seu teste for liberado, você recebe um aviso automático aqui — geralmente é rápido!</div>
+  <div class="icones-conteudo">
+    <div class="icone-item"><div class="emoji">🎬</div><div class="texto">Filmes</div></div>
+    <div class="icone-item"><div class="emoji">📺</div><div class="texto">Séries</div></div>
+    <div class="icone-item"><div class="emoji">⚽</div><div class="texto">Esportes</div></div>
+    <div class="icone-item"><div class="emoji">🧒</div><div class="texto">Infantil</div></div>
   </div>
 </div>
+
+<main>
+  <div class="card" id="card">
+    <div id="etapa-form">
+      <h2>Libera seu teste agora</h2>
+      <div class="sub">Preenche seus dados — leva menos de 1 minuto</div>
+
+      <div class="field">
+        <label>Seu nome</label>
+        <input type="text" id="input-nome" placeholder="Nome completo">
+      </div>
+      <div class="field">
+        <label>WhatsApp (com DDD)</label>
+        <input type="text" id="input-whatsapp" placeholder="21999999999">
+      </div>
+      <div class="field">
+        <label>E-mail (opcional)</label>
+        <input type="email" id="input-email" placeholder="seuemail@exemplo.com">
+      </div>
+      <button id="btn-continuar" onclick="irParaNotificacao()">Continuar →</button>
+      <div class="erro" id="erro-form"></div>
+
+      <ul class="lista-beneficios">
+        <li><span class="check">✓</span> Sem cartão de crédito</li>
+        <li><span class="check">✓</span> Sem compromisso</li>
+        <li><span class="check">✓</span> Liberação rápida</li>
+      </ul>
+    </div>
+
+    <div id="etapa-notif" style="display:none;">
+      <h2>🔔 Última etapa</h2>
+      <div class="destaque">
+        <b>Ative agora pra receber seu teste na hora.</b> Assim que liberarmos seu acesso, você recebe direto aqui — sem precisar ficar checando o WhatsApp toda hora esperando resposta.
+      </div>
+      <button id="btn-ativar" onclick="ativarEEnviar()">🔔 Ativar e liberar meu teste</button>
+      <div class="erro" id="erro-notif"></div>
+    </div>
+
+    <div id="etapa-sucesso" class="sucesso" style="display:none;">
+      <div class="icone">✅</div>
+      <h2>Prontinho!</h2>
+      <div class="sub" style="margin-bottom:0;">Seu pedido foi enviado. Assim que seu teste for liberado, você recebe um aviso automático aqui — geralmente é rápido!</div>
+    </div>
+  </div>
+</main>
+
+<footer>🔒 Seus dados estão seguros e não são compartilhados.</footer>
 
 <script>
   const firebaseConfig = {
@@ -140,7 +206,7 @@
         }
       }
     } catch (err) {
-      // Segue o fluxo mesmo se a notificação falhar — o WhatsApp continua funcionando
+      // Segue o fluxo mesmo se a notificação falhar
     }
 
     try {
