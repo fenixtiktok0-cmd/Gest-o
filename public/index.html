@@ -1854,7 +1854,7 @@
   }
 
   function atualizarStats() {
-    const clientesOficiais = clientes.filter(c => !c.emTeste && !c.musica && !(c.origemCaptura && c.statusLead !== 'ativo'));
+    const clientesOficiais = clientes.filter(c => !c.emTeste && !c.musica && !(c.origemCaptura && (c.statusLead === 'lead' || c.emTeste)));
     const ativos = clientesOficiais.filter(c => statusCalculado(c) === 'ativo');
     const em3dias = clientesOficiais.filter(c => diasAte(c.vencimento) === 3).length;
     const hoje = clientesOficiais.filter(c => diasAte(c.vencimento) === 0).length;
@@ -2386,9 +2386,9 @@
     } else if (filtroAtual === 'musica') {
       lista = lista.filter(c => c.musica && !c.emTeste);
     } else if (filtroAtual === 'leads') {
-      lista = lista.filter(c => c.origemCaptura && c.statusLead !== 'ativo');
+      lista = lista.filter(c => c.origemCaptura && (c.statusLead === 'lead' || c.emTeste));
     } else {
-      lista = lista.filter(c => !c.emTeste && !c.musica && !(c.origemCaptura && c.statusLead !== 'ativo'));
+      lista = lista.filter(c => !c.emTeste && !c.musica && !(c.origemCaptura && (c.statusLead === 'lead' || c.emTeste)));
       if (filtroAtual === 'ativo') lista = lista.filter(c => statusCalculado(c) === 'ativo');
       if (filtroAtual === '3dias') lista = lista.filter(c => diasAte(c.vencimento) === 3);
       if (filtroAtual === 'hoje') lista = lista.filter(c => diasAte(c.vencimento) === 0);
@@ -2458,10 +2458,13 @@
           <td data-label="Status" class="td-hide-mobile"><span class="badge ${statusCalculado(c)}">${statusCalculado(c)}</span></td>
           <td data-label="Ações" class="actions-cell">
             <div class="actions">
-              ${c.origemCaptura && c.statusLead !== 'ativo' ? `
+              ${c.origemCaptura && (c.statusLead === 'lead' || c.emTeste) ? `
                 ${c.statusLead === 'teste_enviado' ? `<span class="badge" style="background:rgba(96,165,250,0.15); color:#60A5FA;">🧪 Teste enviado</span>` : ''}
                 ${c.statusLead === 'pagamento_pendente' ? `<span class="badge" style="background:rgba(251,191,36,0.15); color:var(--warn);">💳 Aguardando pagamento</span>` : ''}
-                <button class="icon-btn" style="color:var(--warn); border-color:var(--warn); width:auto; padding:0 10px; font-size:12px; font-weight:600;" onclick="abrirProcessarLead('${c.id}')">${c.statusLead === 'lead' ? '▶️ Processar teste' : '✏️ Editar teste'}</button>
+                ${c.statusLead === 'pagamento_confirmado' ? `<span class="badge" style="background:rgba(52,211,153,0.15); color:var(--ok);">💰 Pago — falta ativar</span>` : ''}
+                ${c.statusLead === 'pagamento_confirmado'
+                  ? `<button class="icon-btn" style="color:var(--ok); border-color:var(--ok); width:auto; padding:0 10px; font-size:12px; font-weight:600;" onclick="abrirAtivarOficial('${c.id}')">✅ Ativar oficial</button>`
+                  : `<button class="icon-btn" style="color:var(--warn); border-color:var(--warn); width:auto; padding:0 10px; font-size:12px; font-weight:600;" onclick="abrirProcessarLead('${c.id}')">${c.statusLead === 'lead' ? '▶️ Processar teste' : '✏️ Editar teste'}</button>`}
                 <button class="icon-btn del" onclick="excluirCliente('${c.id}')" title="Excluir lead">🗑️</button>
               ` : `
                 ${c.emTeste ? `<button class="icon-btn" style="color:#60A5FA; border-color:#60A5FA;" onclick="abrirAtivarOficial('${c.id}')" title="Ativar como cliente oficial">✅</button>` : ''}
@@ -2999,7 +3002,7 @@
     if (!cliente) return;
 
     document.getElementById('oficial-cliente-id').value = id;
-    document.getElementById('oficial-valor').value = '';
+    document.getElementById('oficial-valor').value = cliente.planoValor || '';
     const amanha = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     document.getElementById('oficial-vencimento').value = paraInputData(amanha.getTime());
     document.getElementById('oficial-vencimento-status').textContent = '';
