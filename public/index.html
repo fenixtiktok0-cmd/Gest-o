@@ -573,6 +573,11 @@
 </div>
 
 <main>
+  <div style="border:1px solid rgba(52,211,153,0.35); background:rgba(52,211,153,0.08); border-radius:10px; padding:12px 16px; margin-bottom:14px; font-size:13px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+    <span>🎯 <b>Link da página de captura</b> (pra divulgar e captar leads): <span class="mono" style="color:var(--ok);" id="texto-link-captura">gestor.fenixsocial.site/captura.html</span></span>
+    <button class="btn" style="padding:7px 12px; font-size:12px;" onclick="copiarLinkCaptura()">📋 Copiar link</button>
+  </div>
+
   <div id="banner-notif-admin" style="display:none; border:1px solid rgba(96,165,250,0.4); background:rgba(96,165,250,0.1); border-radius:10px; padding:12px 16px; margin-bottom:18px; font-size:13px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
     <span style="color:#60A5FA;">🔔 Ativa suas notificações pra receber um aviso na hora que um lead pedir teste.</span>
     <button class="btn" style="padding:7px 12px; font-size:12px;" onclick="ativarNotificacoesAdmin()">Ativar</button>
@@ -1628,6 +1633,11 @@
   const VAPID_KEY = "BB7h2P--2AyZfHmes1ibhzHlWY1DVPFvyWp6r4CIyQrPbDLOS_xx0zteP8SIbH34m2Txx0KLnLu8ZOF6RbSzY8U";
 
   const FIREBASE_DB = "https://gestao-clientes-a1664-default-rtdb.europe-west1.firebasedatabase.app";
+
+  function copiarLinkCaptura() {
+    const link = `${window.location.origin}/captura.html`;
+    navigator.clipboard.writeText(link).then(() => alert('Link copiado!'));
+  }
 
   async function ativarNotificacoesAdmin() {
     try {
