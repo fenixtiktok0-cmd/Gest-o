@@ -32,6 +32,7 @@ module.exports = async (req, res) => {
 
     return res.status(200).json({
       ok: true,
+      paymentId: pix.paymentId,
       qrCodeBase64: pix.qrCodeBase64,
       qrCodeTexto: pix.qrCodeTexto,
       valor: cliente.planoValor,
