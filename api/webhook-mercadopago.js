@@ -78,6 +78,35 @@ module.exports = async (req, res) => {
       }
     }
 
+    // Avisa o admin também — push e e-mail juntos, pra garantir que chegue
+    const configSnap = await db.ref('config').once('value');
+    const config = configSnap.val() || {};
+    const corpoAdmin = `💰 ${cliente.nome} pagou e o plano foi ativado!\nValor: R$ ${Number(cliente.planoValor || 0).toFixed(2)}\nVencimento: ${new Date(novoVencimento).toLocaleDateString('pt-BR')}`;
+
+    if (config.adminFcmToken && config.adminNotificacaoAtiva) {
+      try {
+        await messaging.send({
+          token: config.adminFcmToken,
+          data: { title: '💰 Pagamento confirmado', body: corpoAdmin, link: `${process.env.APP_URL}/index.html` },
+        });
+      } catch (err) {
+        console.error('Erro ao avisar admin por push:', err.message);
+      }
+    }
+
+    if (config.adminEmail) {
+      try {
+        await resend.emails.send({
+          from: process.env.RESEND_FROM,
+          to: config.adminEmail,
+          subject: `💰 Pagamento confirmado — ${cliente.nome}`,
+          text: corpoAdmin,
+        });
+      } catch (err) {
+        console.error('Erro ao avisar admin por e-mail:', err.message);
+      }
+    }
+
     return res.status(200).json({ ok: true, ativado: true });
   } catch (err) {
     console.error('Erro no webhook Mercado Pago:', err);
