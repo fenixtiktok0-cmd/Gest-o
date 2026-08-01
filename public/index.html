@@ -1054,6 +1054,10 @@
       <label>WhatsApp do suporte (com DDI, só números)</label>
       <input type="text" id="cfg-whatsapp" placeholder="5521999999999">
     </div>
+    <div class="field">
+      <label>Seu e-mail (pra receber aviso quando um cliente pagar)</label>
+      <input type="email" id="cfg-email-admin" placeholder="seuemail@exemplo.com">
+    </div>
     <div class="field" style="background:rgba(52,211,153,0.1); border:1px solid rgba(52,211,153,0.35); border-radius:10px; padding:12px;">
       <label style="color:var(--ok); font-weight:600;">🎵 Links do produto Música</label>
       <div style="margin-top:8px;">
@@ -1850,7 +1854,7 @@
   }
 
   function atualizarStats() {
-    const clientesOficiais = clientes.filter(c => !c.emTeste && !c.musica && !c.origemCaptura);
+    const clientesOficiais = clientes.filter(c => !c.emTeste && !c.musica && !(c.origemCaptura && c.statusLead !== 'ativo'));
     const ativos = clientesOficiais.filter(c => statusCalculado(c) === 'ativo');
     const em3dias = clientesOficiais.filter(c => diasAte(c.vencimento) === 3).length;
     const hoje = clientesOficiais.filter(c => diasAte(c.vencimento) === 0).length;
@@ -2382,9 +2386,9 @@
     } else if (filtroAtual === 'musica') {
       lista = lista.filter(c => c.musica && !c.emTeste);
     } else if (filtroAtual === 'leads') {
-      lista = lista.filter(c => c.origemCaptura);
+      lista = lista.filter(c => c.origemCaptura && c.statusLead !== 'ativo');
     } else {
-      lista = lista.filter(c => !c.emTeste && !c.musica && !c.origemCaptura);
+      lista = lista.filter(c => !c.emTeste && !c.musica && !(c.origemCaptura && c.statusLead !== 'ativo'));
       if (filtroAtual === 'ativo') lista = lista.filter(c => statusCalculado(c) === 'ativo');
       if (filtroAtual === '3dias') lista = lista.filter(c => diasAte(c.vencimento) === 3);
       if (filtroAtual === 'hoje') lista = lista.filter(c => diasAte(c.vencimento) === 0);
@@ -2454,8 +2458,10 @@
           <td data-label="Status" class="td-hide-mobile"><span class="badge ${statusCalculado(c)}">${statusCalculado(c)}</span></td>
           <td data-label="Ações" class="actions-cell">
             <div class="actions">
-              ${c.origemCaptura ? `
-                <button class="icon-btn" style="color:var(--warn); border-color:var(--warn); width:auto; padding:0 10px; font-size:12px; font-weight:600;" onclick="abrirProcessarLead('${c.id}')">▶️ Processar teste</button>
+              ${c.origemCaptura && c.statusLead !== 'ativo' ? `
+                ${c.statusLead === 'teste_enviado' ? `<span class="badge" style="background:rgba(96,165,250,0.15); color:#60A5FA;">🧪 Teste enviado</span>` : ''}
+                ${c.statusLead === 'pagamento_pendente' ? `<span class="badge" style="background:rgba(251,191,36,0.15); color:var(--warn);">💳 Aguardando pagamento</span>` : ''}
+                <button class="icon-btn" style="color:var(--warn); border-color:var(--warn); width:auto; padding:0 10px; font-size:12px; font-weight:600;" onclick="abrirProcessarLead('${c.id}')">${c.statusLead === 'lead' ? '▶️ Processar teste' : '✏️ Editar teste'}</button>
                 <button class="icon-btn del" onclick="excluirCliente('${c.id}')" title="Excluir lead">🗑️</button>
               ` : `
                 ${c.emTeste ? `<button class="icon-btn" style="color:#60A5FA; border-color:#60A5FA;" onclick="abrirAtivarOficial('${c.id}')" title="Ativar como cliente oficial">✅</button>` : ''}
@@ -2590,11 +2596,11 @@
     document.getElementById('lead-cliente-id').value = id;
     document.getElementById('lead-nome-preview').textContent = c.nome;
     document.getElementById('lead-contato-preview').textContent = `${c.whatsapp || '—'} · ${c.email || 'sem e-mail'}`;
-    document.getElementById('lead-m3u').value = '';
+    document.getElementById('lead-m3u').value = c.m3uLink || '';
     document.getElementById('lead-m3u-status').textContent = '';
-    document.getElementById('lead-usuario').value = '';
-    document.getElementById('lead-senha').value = '';
-    document.getElementById('lead-valor').value = '';
+    document.getElementById('lead-usuario').value = c.usuario || '';
+    document.getElementById('lead-senha').value = c.senha || '';
+    document.getElementById('lead-valor').value = c.planoValor || '';
     vencimentoPrecisoLead = null;
     setHorasTesteLead(2);
 
@@ -2602,7 +2608,8 @@
     select.innerHTML = servidores.length
       ? servidores.map(s => `<option value="${s.nome}">${s.nome}</option>`).join('')
       : '<option value="">Nenhum servidor cadastrado</option>';
-    preencherChecklistAplicativosLead('');
+    if (c.servidor) select.value = c.servidor;
+    preencherChecklistAplicativosLead(c.servidor || '', c.aplicativosIds || []);
 
     document.getElementById('overlay-processar-lead').classList.add('open');
   }
@@ -2942,6 +2949,7 @@
     const res = await fetch(`${FIREBASE_DB}/config.json`);
     const config = await res.json() || {};
     document.getElementById('cfg-whatsapp').value = config.whatsappAdmin || '5521993473619';
+    document.getElementById('cfg-email-admin').value = config.adminEmail || '';
     document.getElementById('cfg-apk-link').value = config.apkLink || '';
     document.getElementById('cfg-web-link').value = config.webLink || '';
     document.getElementById('cfg-musica-botao').value = config.musicaBotaoTexto || '📥 Baixe o Xtream Music';
@@ -2957,6 +2965,7 @@
   async function salvarConfig() {
     const whatsapp = document.getElementById('cfg-whatsapp').value.replace(/\D/g, '');
     if (!whatsapp) { alert('Preenche o número.'); return; }
+    const adminEmail = document.getElementById('cfg-email-admin').value.trim();
     const apkLink = document.getElementById('cfg-apk-link').value.trim();
     const webLink = document.getElementById('cfg-web-link').value.trim();
     const musicaBotaoTexto = document.getElementById('cfg-musica-botao').value.trim();
@@ -2964,7 +2973,7 @@
     const musicaApiBase = document.getElementById('cfg-musica-api').value.trim().replace(/\/$/, '');
     await fetch(`${FIREBASE_DB}/config.json`, {
       method: 'PATCH',
-      body: JSON.stringify({ whatsappAdmin: whatsapp, apkLink, webLink, musicaBotaoTexto, musicaInstrucao, musicaApiBase })
+      body: JSON.stringify({ whatsappAdmin: whatsapp, adminEmail, apkLink, webLink, musicaBotaoTexto, musicaInstrucao, musicaApiBase })
     });
     configMusica = { apkLink, webLink, musicaBotaoTexto, musicaInstrucao, musicaApiBase };
     fecharConfig();
