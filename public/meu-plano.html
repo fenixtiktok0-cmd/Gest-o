@@ -129,6 +129,12 @@
   let nomeClienteGlobal = '';
   let whatsappAdminGlobal = '';
 
+  function extrairIdYoutube(url) {
+    if (!url) return null;
+    const match = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    return match ? match[1] : null;
+  }
+
   async function carregar() {
     const card = document.getElementById('card');
     if (!clienteId) {
@@ -136,15 +142,18 @@
       return;
     }
 
-    const [clienteRes, configRes, appsRes] = await Promise.all([
+    const [clienteRes, configRes, appsRes, servidoresRes] = await Promise.all([
       fetch(`${FIREBASE_DB}/clientes/${clienteId}.json`),
       fetch(`${FIREBASE_DB}/config.json`),
-      fetch(`${FIREBASE_DB}/aplicativos.json`)
+      fetch(`${FIREBASE_DB}/aplicativos.json`),
+      fetch(`${FIREBASE_DB}/servidores.json`)
     ]);
     const c = await clienteRes.json();
     const config = await configRes.json() || {};
     const appsData = await appsRes.json() || {};
     const apps = Object.entries(appsData).map(([id, a]) => ({ id, ...a }));
+    const servidoresData = await servidoresRes.json() || {};
+    const servidoresList = Object.values(servidoresData);
 
     if (!c) {
       card.innerHTML = '<div class="loading">Cliente não encontrado.</div>';
@@ -244,6 +253,22 @@
       <div id="area-pix" style="display:none;"></div>
     ` : '';
 
+    let tutorialHtml = '';
+    if (notifAtiva && c.servidor) {
+      const servidorInfo = servidoresList.find(s => s.nome === c.servidor);
+      const idYoutube = extrairIdYoutube(servidorInfo?.tutorialUrl || '');
+      if (idYoutube) {
+        tutorialHtml = `
+          <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--border);">
+            <div style="font-size:12px; color:var(--text-muted); margin-bottom:8px;">📺 Como instalar na sua TV Box, TV Android ou Firestick:</div>
+            <div style="position:relative; padding-bottom:56.25%; height:0; border-radius:10px; overflow:hidden;">
+              <iframe src="https://www.youtube.com/embed/${idYoutube}" style="position:absolute; top:0; left:0; width:100%; height:100%; border:none;" allowfullscreen></iframe>
+            </div>
+          </div>
+        `;
+      }
+    }
+
     card.innerHTML = `
       ${logoHtml}
       <h1>Olá, ${c.nome}</h1>
@@ -254,6 +279,7 @@
       <div class="linha"><span class="label">Situação</span><span class="status-pill ${statusClasse}">${statusTexto}</span></div>
       ${emailCapturaHtml}
       ${dadosAcessoHtml}
+      ${tutorialHtml}
       ${bannerPagamentoHtml}
       <button id="btn-notif" ${notifAtiva ? 'disabled' : ''}>${notifAtiva ? 'Notificações ativadas ✓' : textoBotaoNotif}</button>
       ${botaoSuporteHtml}
