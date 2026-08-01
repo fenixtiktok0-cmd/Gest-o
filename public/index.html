@@ -2616,9 +2616,15 @@
 
   function setHorasTesteLead(horas) {
     horasTesteLead = horas;
+    vencimentoPrecisoLead = null; // clique manual sempre sobrescreve a data vinda do M3U
     document.querySelectorAll('.lead-horas-chip').forEach(el => {
       el.classList.toggle('active', Number(el.dataset.horas) === horas);
     });
+    const statusEl = document.getElementById('lead-m3u-status');
+    if (statusEl && statusEl.textContent.includes('Dados encontrados')) {
+      statusEl.textContent = `⚠️ Usando ${horas}h manual (ignorando o vencimento do M3U)`;
+      statusEl.style.color = 'var(--warn)';
+    }
   }
 
   function abrirProcessarLead(id) {
