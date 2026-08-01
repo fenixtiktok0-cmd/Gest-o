@@ -126,6 +126,8 @@
 
   const params = new URLSearchParams(window.location.search);
   const clienteId = params.get('id');
+  let nomeClienteGlobal = '';
+  let whatsappAdminGlobal = '';
 
   async function carregar() {
     const card = document.getElementById('card');
@@ -226,6 +228,9 @@
       `;
     }
 
+    nomeClienteGlobal = c.nome;
+    whatsappAdminGlobal = config.whatsappAdmin || '';
+
     const botaoSuporteHtml = config.whatsappAdmin
       ? `<a class="btn-suporte" href="https://wa.me/${config.whatsappAdmin}?text=${encodeURIComponent('Olá! Sou o cliente ' + c.nome + ' e preciso de suporte.')}" target="_blank">${textoBotaoSuporte}</a>`
       : '';
@@ -281,20 +286,55 @@
       const area = document.getElementById('area-pix');
       area.style.display = 'block';
       area.innerHTML = `
-        <div style="background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:16px; margin-top:10px; text-align:center;">
+        <div id="bloco-qrcode" style="background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:16px; margin-top:10px; text-align:center;">
           <img src="data:image/png;base64,${data.qrCodeBase64}" style="width:170px; height:170px; margin:0 auto 12px; display:block; border-radius:8px;">
           <div style="font-size:11px; color:var(--text-muted); margin-bottom:8px;">Escaneia o QR Code ou copia o código Pix Copia e Cola</div>
           <textarea readonly rows="3" style="width:100%; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:8px; color:var(--text); font-family:'JetBrains Mono',monospace; font-size:10px; resize:none; box-sizing:border-box;" onclick="this.select()">${data.qrCodeTexto}</textarea>
           <button type="button" style="margin-top:8px; background:var(--surface-2); color:var(--text); border:1px solid var(--border);" onclick="copiarPix()">📋 Copiar código</button>
-          <div style="font-size:11.5px; color:var(--text-muted); margin-top:12px;">Depois de pagar, seu plano ativa sozinho em instantes. Se demorar, toca no botão 🔄 no canto da tela.</div>
+          <div id="status-verificacao" style="font-size:11.5px; color:var(--text-muted); margin-top:12px;">🔄 Verificando pagamento automaticamente...</div>
         </div>
       `;
       btn.style.display = 'none';
+
+      verificarPagamentoPeriodicamente(data.paymentId);
     } catch (err) {
       alert('Não deu pra gerar o Pix agora. Tenta de novo.');
       btn.disabled = false;
       btn.textContent = '💳 Pagar e ativar agora';
     }
+  }
+
+  function verificarPagamentoPeriodicamente(paymentId) {
+    const intervalo = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/verificar-pagamento?paymentId=${paymentId}`);
+        const data = await res.json();
+        if (data.status === 'approved') {
+          clearInterval(intervalo);
+          mostrarBotaoAvisarPagamento();
+        }
+      } catch (err) {
+        // Tenta de novo no próximo ciclo
+      }
+    }, 5000);
+  }
+
+  function mostrarBotaoAvisarPagamento() {
+    const bloco = document.getElementById('bloco-qrcode');
+    if (!bloco) return;
+    bloco.innerHTML = `
+      <div style="font-size:32px; margin-bottom:8px;">✅</div>
+      <div style="font-weight:700; margin-bottom:4px;">Pagamento identificado!</div>
+      <div style="font-size:12.5px; color:var(--text-muted); margin-bottom:14px;">Clica no botão abaixo pra avisar e liberar a ativação do seu plano.</div>
+      <button type="button" style="background:var(--ok);" onclick="avisarPagamento()">📲 Informar que paguei</button>
+      <div style="font-size:11px; color:var(--text-muted); margin-top:10px;">⏱️ A ativação pode demorar até 20 minutos depois do envio da mensagem.</div>
+    `;
+  }
+
+  function avisarPagamento() {
+    if (!whatsappAdminGlobal) { alert('Não encontrei o WhatsApp de suporte configurado.'); return; }
+    const mensagem = `Meu pagamento foi confirmado! Sou o cliente ${nomeClienteGlobal}.`;
+    window.open(`https://wa.me/${whatsappAdminGlobal}?text=${encodeURIComponent(mensagem)}`, '_blank');
   }
 
   function copiarPix() {
