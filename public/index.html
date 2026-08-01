@@ -2702,6 +2702,11 @@
       document.getElementById('lead-usuario').value = data.usuario || '';
       document.getElementById('lead-senha').value = data.senha || '';
       vencimentoPrecisoLead = data.vencimento || null;
+      // Desmarca os botões de hora — deixa claro que agora o vencimento vem
+      // do painel IPTV, não de uma escolha manual (evita confusão visual).
+      if (vencimentoPrecisoLead) {
+        document.querySelectorAll('.lead-horas-chip').forEach(el => el.classList.remove('active'));
+      }
 
       let servidorDetectado = '';
       if (data.baseUrl) {
@@ -2713,7 +2718,8 @@
           preencherChecklistAplicativosLead(servidorDetectado, null);
         }
       }
-      statusEl.textContent = `✅ Dados encontrados!${servidorDetectado ? ' Servidor detectado: ' + servidorDetectado : ''}`;
+      const vencimentoTexto = vencimentoPrecisoLead ? new Date(vencimentoPrecisoLead).toLocaleString('pt-BR') : '';
+      statusEl.textContent = `✅ Dados encontrados!${vencimentoTexto ? ' Vencimento real: ' + vencimentoTexto : ''}${servidorDetectado ? ' · Servidor: ' + servidorDetectado : ''}`;
       statusEl.style.color = 'var(--ok)';
     } catch (err) {
       statusEl.textContent = '❌ Erro ao consultar. Tenta de novo.';
