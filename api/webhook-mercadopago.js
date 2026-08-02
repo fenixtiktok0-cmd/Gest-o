@@ -30,24 +30,29 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: true, jaProcessado: true });
     }
 
-    // NÃO ativa o cliente aqui — o pagamento confirmado só significa que ele
-    // pode ser ativado. A ativação de verdade (com a data real do painel IPTV)
-    // continua sendo feita manualmente pelo admin, em "✅ Ativar oficial".
-    await db.ref(`clientes/${clienteId}`).update({
-      statusLead: 'pagamento_confirmado',
+    // NÃO renova/ativa o cliente aqui — o pagamento confirmado só significa que
+    // ele pode ser processado. A renovação/ativação de verdade (com a data real
+    // do painel IPTV) continua sendo feita manualmente pelo admin.
+    const atualizacao = {
+      pagamentoPendenteRenovacao: true,
       ultimoPagamentoConfirmado: String(pagamentoId),
-    });
+    };
+    if (cliente.origemCaptura) atualizacao.statusLead = 'pagamento_confirmado';
+    await db.ref(`clientes/${clienteId}`).update(atualizacao);
 
     // Avisa só o admin — push e e-mail juntos, pra garantir que chegue
     const configSnap = await db.ref('config').once('value');
     const config = configSnap.val() || {};
-    const corpoAdmin = `💰 ${cliente.nome} pagou! Valor: R$ ${Number(cliente.planoValor || 0).toFixed(2)}.\n\nAtiva ele no seu painel IPTV, depois volta aqui pra sincronizar e confirmar como oficial.`;
+    const acaoTexto = cliente.emTeste
+      ? 'Ativa ele no seu painel IPTV, depois volta aqui pra sincronizar e confirmar como oficial.'
+      : 'Renova ele no seu painel IPTV, depois volta aqui pra sincronizar e confirmar a renovação.';
+    const corpoAdmin = `💰 ${cliente.nome} pagou! Valor: R$ ${Number(cliente.planoValor || 0).toFixed(2)}.\n\n${acaoTexto}`;
 
     if (config.adminFcmToken && config.adminNotificacaoAtiva) {
       try {
         await messaging.send({
           token: config.adminFcmToken,
-          data: { title: '💰 Pagamento confirmado — falta ativar', body: corpoAdmin, link: `${process.env.APP_URL}/index.html` },
+          data: { title: '💰 Pagamento confirmado — falta processar', body: corpoAdmin, link: `${process.env.APP_URL}/index.html` },
         });
       } catch (err) {
         console.error('Erro ao avisar admin por push:', err.message);
@@ -59,7 +64,7 @@ module.exports = async (req, res) => {
         await resend.emails.send({
           from: process.env.RESEND_FROM,
           to: config.adminEmail,
-          subject: `💰 Pagamento confirmado — ${cliente.nome} (falta ativar)`,
+          subject: `💰 Pagamento confirmado — ${cliente.nome} (falta processar)`,
           text: corpoAdmin,
         });
       } catch (err) {
