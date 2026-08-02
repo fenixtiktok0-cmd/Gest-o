@@ -128,6 +128,7 @@
   const clienteId = params.get('id');
   let nomeClienteGlobal = '';
   let whatsappAdminGlobal = '';
+  let emTesteGlobal = false;
 
   function extrairIdYoutube(url) {
     if (!url) return null;
@@ -239,16 +240,22 @@
 
     nomeClienteGlobal = c.nome;
     whatsappAdminGlobal = config.whatsappAdmin || '';
+    emTesteGlobal = !!c.emTeste;
 
     const botaoSuporteHtml = config.whatsappAdmin
       ? `<a class="btn-suporte" href="https://wa.me/${config.whatsappAdmin}?text=${encodeURIComponent('Olá! Sou o cliente ' + c.nome + ' e preciso de suporte.')}" target="_blank">${textoBotaoSuporte}</a>`
       : '';
 
-    const bannerPagamentoHtml = (c.emTeste && c.planoValor > 0) ? `
+    const pagamentoAutomatico = !!config.pagamentoAutomaticoAtivo;
+    const botaoPagamentoHtml = pagamentoAutomatico
+      ? `<button id="btn-pagar" style="margin-top:12px;" onclick="gerarPix()">💳 Pagar e ${c.emTeste ? 'ativar' : 'renovar'} agora</button>`
+      : `<button id="btn-pagar" style="margin-top:12px; background:var(--surface-2); color:var(--text); border:1px solid var(--border);" onclick="solicitarPix()">📲 Solicitar PIX</button>`;
+
+    const bannerPagamentoHtml = (c.planoValor > 0) ? `
       <div style="margin-top:16px; background:linear-gradient(135deg, rgba(52,211,153,0.15), rgba(52,211,153,0.05)); border:1px solid rgba(52,211,153,0.4); border-radius:12px; padding:16px; text-align:center;">
-        <div style="font-size:11px; color:var(--ok); font-weight:700; text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px;">🎉 Oferta especial liberada pra você</div>
+        <div style="font-size:11px; color:var(--ok); font-weight:700; text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px;">💎 Seu valor exclusivo</div>
         <div style="font-size:28px; font-weight:700; font-family:'Space Grotesk',sans-serif; color:var(--ok);">R$ ${Number(c.planoValor).toFixed(2)}<span style="font-size:13px; color:var(--text-muted); font-weight:500;">/mês</span></div>
-        <button id="btn-pagar" style="margin-top:12px;" onclick="gerarPix()">💳 Pagar e ativar agora</button>
+        ${botaoPagamentoHtml}
       </div>
       <div id="area-pix" style="display:none;"></div>
     ` : '';
@@ -353,8 +360,14 @@
       <div style="font-weight:700; margin-bottom:4px;">Pagamento identificado!</div>
       <div style="font-size:12.5px; color:var(--text-muted); margin-bottom:14px;">Clica no botão abaixo pra avisar e liberar a ativação do seu plano.</div>
       <button type="button" style="background:var(--ok);" onclick="avisarPagamento()">📲 Informar que paguei</button>
-      <div style="font-size:11px; color:var(--text-muted); margin-top:10px;">⏱️ A ativação pode demorar até 20 minutos depois do envio da mensagem.</div>
+      <div style="font-size:11px; color:var(--text-muted); margin-top:10px;">⏱️ ${emTesteGlobal ? 'A ativação pode demorar até 20 minutos' : 'A renovação pode demorar até 1 hora'} depois do envio da mensagem, dependendo da demanda.</div>
     `;
+  }
+
+  function solicitarPix() {
+    if (!whatsappAdminGlobal) { alert('Não encontrei o WhatsApp de suporte configurado.'); return; }
+    const mensagem = `Sou o cliente ${nomeClienteGlobal}, preciso do PIX pra pagar meu plano.`;
+    window.open(`https://wa.me/${whatsappAdminGlobal}?text=${encodeURIComponent(mensagem)}`, '_blank');
   }
 
   function avisarPagamento() {
