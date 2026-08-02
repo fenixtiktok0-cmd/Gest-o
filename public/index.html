@@ -2852,9 +2852,11 @@
   function alternarModoTeste() {
     const emTeste = document.getElementById('f-teste').checked;
     document.getElementById('f-teste-horas-bloco').style.display = emTeste ? 'block' : 'none';
-    document.getElementById('f-valor-bloco').style.display = emTeste ? 'none' : 'block';
     document.getElementById('f-vencimento-bloco').style.display = emTeste ? 'none' : 'block';
     if (emTeste) setHorasTeste(2);
+
+    const labelValor = document.querySelector('#f-valor-bloco label');
+    if (labelValor) labelValor.textContent = emTeste ? 'Valor especial (opcional — aparece pra ele pagar e ativar direto)' : 'Valor do plano (R$)';
   }
 
   function alternarModoMusica() {
@@ -2938,7 +2940,7 @@
     let planoValor, vencimento;
 
     if (emTeste) {
-      planoValor = 0;
+      planoValor = parseFloat(document.getElementById('f-valor').value) || 0;
       const vencimentoPreciso = document.getElementById('f-vencimento-preciso').value;
       vencimento = vencimentoPreciso ? Number(vencimentoPreciso) : Date.now() + horasTeste * 60 * 60 * 1000;
     } else {
