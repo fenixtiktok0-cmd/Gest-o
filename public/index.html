@@ -632,6 +632,7 @@
     <input type="date" id="filtro-data-especifica" style="display:none; background:var(--surface); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:13px; padding:7px 10px;" onchange="filtrarPorDataEspecifica()">
     <button class="filter-chip" data-filtro="teste" onclick="filtrar('teste')" style="border-color:#60A5FA55;">🧪 Em teste</button>
     <button class="filter-chip" id="chip-leads" data-filtro="leads" onclick="filtrar('leads')" style="border-color:#FBBF2455; color:var(--warn);">🎯 Leads (<span id="contagem-leads">0</span>)</button>
+    <button class="filter-chip" id="chip-pendente-renovacao" data-filtro="pendente-renovacao" onclick="filtrar('pendente-renovacao')" style="border-color:rgba(52,211,153,0.35); color:var(--ok);">🔄 Pendente de renovação (<span id="contagem-pendente-renovacao">0</span>)</button>
     <div style="display:flex; gap:4px; align-items:center; margin-left:8px;">
       <select id="filtro-dias-vencido" style="background:var(--surface); border:1px solid var(--border); border-radius:100px; color:var(--text); font-size:13px; padding:7px 10px;">
         <option value="30">+30 dias</option>
@@ -1075,6 +1076,13 @@
     <div class="field">
       <label>Seu e-mail (pra receber aviso quando um cliente pagar)</label>
       <input type="email" id="cfg-email-admin" placeholder="seuemail@exemplo.com">
+    </div>
+    <div class="field" style="background:rgba(96,165,250,0.1); border:1px solid rgba(96,165,250,0.35); border-radius:10px; padding:12px;">
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-bottom:0; color:#60A5FA; font-weight:600;">
+        <input type="checkbox" id="cfg-pagamento-automatico" style="width:16px; height:16px; accent-color:#60A5FA;">
+        💳 Pagamento automático ativado (mostra o botão de pagar pros clientes)
+      </label>
+      <div style="font-size:11px; color:var(--text-muted); margin-top:6px;">Desativado: os clientes veem um botão "Solicitar PIX" que abre o WhatsApp com você, em vez de pagar sozinhos.</div>
     </div>
     <div class="field" style="background:rgba(52,211,153,0.1); border:1px solid rgba(52,211,153,0.35); border-radius:10px; padding:12px;">
       <label style="color:var(--ok); font-weight:600;">🎵 Links do produto Música</label>
@@ -1884,6 +1892,7 @@
     const vencidos = clientesOficiais.filter(c => diasAte(c.vencimento) < 0).length;
     const musica = clientes.filter(c => c.musica && !c.emTeste).length;
     const leadsAbertos = clientes.filter(c => c.origemCaptura && c.statusLead === 'lead').length;
+    const pendentesRenovacao = clientes.filter(c => c.pagamentoPendenteRenovacao).length;
 
     document.getElementById('stat-total').textContent = clientesOficiais.length;
     document.getElementById('stat-ativos').textContent = ativos.length;
@@ -1893,7 +1902,10 @@
     document.getElementById('stat-musica').textContent = musica;
     document.getElementById('contagem-leads').textContent = leadsAbertos;
     document.getElementById('chip-leads').classList.toggle('tem-lead-novo', leadsAbertos > 0);
-    document.title = leadsAbertos > 0 ? `🔴 (${leadsAbertos}) Gestão de Clientes` : 'Gestão de Clientes';
+    document.getElementById('contagem-pendente-renovacao').textContent = pendentesRenovacao;
+    document.getElementById('chip-pendente-renovacao').classList.toggle('tem-lead-novo', pendentesRenovacao > 0);
+    const totalAvisos = leadsAbertos + pendentesRenovacao;
+    document.title = totalAvisos > 0 ? `🔴 (${totalAvisos}) Gestão de Clientes` : 'Gestão de Clientes';
   }
 
   let timeoutBusca = null;
@@ -2416,6 +2428,8 @@
       lista = lista.filter(c => c.musica && !c.emTeste);
     } else if (filtroAtual === 'leads') {
       lista = lista.filter(c => c.origemCaptura && (c.statusLead === 'lead' || c.emTeste));
+    } else if (filtroAtual === 'pendente-renovacao') {
+      lista = lista.filter(c => c.pagamentoPendenteRenovacao);
     } else {
       lista = lista.filter(c => !c.emTeste && !c.musica && !(c.origemCaptura && (c.statusLead === 'lead' || c.emTeste)));
       if (filtroAtual === 'ativo') lista = lista.filter(c => statusCalculado(c) === 'ativo');
@@ -2496,6 +2510,7 @@
                   : `<button class="icon-btn" style="color:var(--warn); border-color:var(--warn); width:auto; padding:0 10px; font-size:12px; font-weight:600;" onclick="abrirProcessarLead('${c.id}')">${c.statusLead === 'lead' ? '▶️ Processar teste' : '✏️ Editar teste'}</button>`}
                 <button class="icon-btn del" onclick="excluirCliente('${c.id}')" title="Excluir lead">🗑️</button>
               ` : `
+                ${c.pagamentoPendenteRenovacao ? `<span class="badge" style="background:rgba(52,211,153,0.15); color:var(--ok);">💰 Pago — falta renovar</span>` : ''}
                 ${c.emTeste ? `<button class="icon-btn" style="color:#60A5FA; border-color:#60A5FA;" onclick="abrirAtivarOficial('${c.id}')" title="Ativar como cliente oficial">✅</button>` : ''}
                 <button class="icon-btn whats" onclick="abrirRenovacao('${c.id}')" title="Renovar cliente">🔄</button>
                 <button class="icon-btn" onclick="enviarAcesso('${c.id}')" title="Enviar dados de acesso">📲</button>
@@ -2597,6 +2612,11 @@
         alert(data.mensagem);
         return;
       }
+
+      await fetch(`${FIREBASE_DB}/clientes/${id}.json`, {
+        method: 'PATCH',
+        body: JSON.stringify({ pagamentoPendenteRenovacao: false })
+      });
 
       fecharRenovacao();
       await carregarClientes();
@@ -2994,6 +3014,7 @@
     const config = await res.json() || {};
     document.getElementById('cfg-whatsapp').value = config.whatsappAdmin || '5521993473619';
     document.getElementById('cfg-email-admin').value = config.adminEmail || '';
+    document.getElementById('cfg-pagamento-automatico').checked = !!config.pagamentoAutomaticoAtivo;
     document.getElementById('cfg-apk-link').value = config.apkLink || '';
     document.getElementById('cfg-web-link').value = config.webLink || '';
     document.getElementById('cfg-musica-botao').value = config.musicaBotaoTexto || '📥 Baixe o Xtream Music';
@@ -3010,6 +3031,7 @@
     const whatsapp = document.getElementById('cfg-whatsapp').value.replace(/\D/g, '');
     if (!whatsapp) { alert('Preenche o número.'); return; }
     const adminEmail = document.getElementById('cfg-email-admin').value.trim();
+    const pagamentoAutomaticoAtivo = document.getElementById('cfg-pagamento-automatico').checked;
     const apkLink = document.getElementById('cfg-apk-link').value.trim();
     const webLink = document.getElementById('cfg-web-link').value.trim();
     const musicaBotaoTexto = document.getElementById('cfg-musica-botao').value.trim();
@@ -3017,7 +3039,7 @@
     const musicaApiBase = document.getElementById('cfg-musica-api').value.trim().replace(/\/$/, '');
     await fetch(`${FIREBASE_DB}/config.json`, {
       method: 'PATCH',
-      body: JSON.stringify({ whatsappAdmin: whatsapp, adminEmail, apkLink, webLink, musicaBotaoTexto, musicaInstrucao, musicaApiBase })
+      body: JSON.stringify({ whatsappAdmin: whatsapp, adminEmail, pagamentoAutomaticoAtivo, apkLink, webLink, musicaBotaoTexto, musicaInstrucao, musicaApiBase })
     });
     configMusica = { apkLink, webLink, musicaBotaoTexto, musicaInstrucao, musicaApiBase };
     fecharConfig();
@@ -3113,6 +3135,11 @@
 
       if (data.erro) { alert('Erro: ' + data.erro); return; }
 
+      await fetch(`${FIREBASE_DB}/clientes/${id}.json`, {
+        method: 'PATCH',
+        body: JSON.stringify({ pagamentoPendenteRenovacao: false })
+      });
+
       fecharAtivarOficial();
       await carregarClientes();
 
@@ -3205,6 +3232,11 @@
         alert('Erro ao renovar: ' + (data.erro || 'desconhecido'));
         return;
       }
+
+      await fetch(`${FIREBASE_DB}/clientes/${id}.json`, {
+        method: 'PATCH',
+        body: JSON.stringify({ pagamentoPendenteRenovacao: false })
+      });
 
       fecharRenovacao();
       await registrarFinanceiro({ id: cliente.id, nome: cliente.nome, servidor: cliente.servidor, musica: cliente.musica }, cliente.planoValor, 'renovacao');
