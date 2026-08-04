@@ -246,7 +246,7 @@
       ? `<a class="btn-suporte" href="https://wa.me/${config.whatsappAdmin}?text=${encodeURIComponent('Olá! Sou o cliente ' + c.nome + ' e preciso de suporte.')}" target="_blank">${textoBotaoSuporte}</a>`
       : '';
 
-    const pagamentoAutomatico = !!config.pagamentoAutomaticoAtivo;
+    const pagamentoAutomatico = c.emTeste ? !!config.pagamentoAutomaticoTeste : !!config.pagamentoAutomaticoCliente;
     const botaoPagamentoHtml = pagamentoAutomatico
       ? `<button id="btn-pagar" style="margin-top:12px;" onclick="gerarPix()">💳 Pagar e ${c.emTeste ? 'ativar' : 'renovar'} agora</button>`
       : `<button id="btn-pagar" style="margin-top:12px; background:var(--surface-2); color:var(--text); border:1px solid var(--border);" onclick="solicitarPix()">📲 Solicitar PIX</button>`;
