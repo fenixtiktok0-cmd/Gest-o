@@ -923,6 +923,7 @@
         <option value="3dias">Vencendo em 3 dias</option>
         <option value="hoje">Vencendo hoje</option>
         <option value="vencido">Vencidos</option>
+        <option value="teste-vencido">🧪 Testou e não converteu (teste vencido)</option>
       </select>
     </div>
     <div class="field">
@@ -2326,6 +2327,7 @@
     if (status === '3dias') lista = lista.filter(c => diasAte(c.vencimento) === 3);
     if (status === 'hoje') lista = lista.filter(c => diasAte(c.vencimento) === 0);
     if (status === 'vencido') lista = lista.filter(c => diasAte(c.vencimento) < 0);
+    if (status === 'teste-vencido') lista = lista.filter(c => c.emTeste && c.vencimento < Date.now());
     if (servidor !== 'todos') lista = lista.filter(c => c.servidor === servidor);
     return lista;
   }
