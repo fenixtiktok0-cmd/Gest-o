@@ -630,8 +630,7 @@
     </div>
     <button class="filter-chip" id="btn-calendario" onclick="toggleCalendarioFiltro()">📅 Data específica</button>
     <input type="date" id="filtro-data-especifica" style="display:none; background:var(--surface); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:13px; padding:7px 10px;" onchange="filtrarPorDataEspecifica()">
-    <button class="filter-chip" data-filtro="teste" onclick="filtrar('teste')" style="border-color:#60A5FA55;">🧪 Em teste</button>
-    <button class="filter-chip" id="chip-leads" data-filtro="leads" onclick="filtrar('leads')" style="border-color:#FBBF2455; color:var(--warn);">🎯 Leads (<span id="contagem-leads">0</span>)</button>
+    <button class="filter-chip" id="chip-teste" data-filtro="teste" onclick="filtrar('teste')" style="border-color:#60A5FA55;">🧪 Em teste (<span id="contagem-teste">0</span>)</button>
     <button class="filter-chip" id="chip-pendente-renovacao" data-filtro="pendente-renovacao" onclick="filtrar('pendente-renovacao')" style="border-color:rgba(52,211,153,0.35); color:var(--ok);">🔄 Pendente de renovação (<span id="contagem-pendente-renovacao">0</span>)</button>
     <div style="display:flex; gap:4px; align-items:center; margin-left:8px;">
       <select id="filtro-dias-vencido" style="background:var(--surface); border:1px solid var(--border); border-radius:100px; color:var(--text); font-size:13px; padding:7px 10px;">
@@ -1079,10 +1078,15 @@
     </div>
     <div class="field" style="background:rgba(96,165,250,0.1); border:1px solid rgba(96,165,250,0.35); border-radius:10px; padding:12px;">
       <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-bottom:0; color:#60A5FA; font-weight:600;">
-        <input type="checkbox" id="cfg-pagamento-automatico" style="width:16px; height:16px; accent-color:#60A5FA;">
-        💳 Pagamento automático ativado (mostra o botão de pagar pros clientes)
+        <input type="checkbox" id="cfg-pagamento-automatico-cliente" style="width:16px; height:16px; accent-color:#60A5FA;">
+        💳 Pagamento automático — clientes normais
       </label>
-      <div style="font-size:11px; color:var(--text-muted); margin-top:6px;">Desativado: os clientes veem um botão "Solicitar PIX" que abre o WhatsApp com você, em vez de pagar sozinhos.</div>
+      <div style="font-size:11px; color:var(--text-muted); margin-top:6px 0 10px;">Desativado: cliente vê "Solicitar PIX" (abre WhatsApp com você) em vez de pagar sozinho.</div>
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-bottom:0; color:#60A5FA; font-weight:600;">
+        <input type="checkbox" id="cfg-pagamento-automatico-teste" style="width:16px; height:16px; accent-color:#60A5FA;">
+        💳 Pagamento automático — clientes em teste
+      </label>
+      <div style="font-size:11px; color:var(--text-muted); margin-top:6px;">Controla separadamente o botão de pagar pra quem ainda está em teste.</div>
     </div>
     <div class="field" style="background:rgba(52,211,153,0.1); border:1px solid rgba(52,211,153,0.35); border-radius:10px; padding:12px;">
       <label style="color:var(--ok); font-weight:600;">🎵 Links do produto Música</label>
@@ -1885,12 +1889,13 @@
   }
 
   function atualizarStats() {
-    const clientesOficiais = clientes.filter(c => !c.emTeste && !c.musica && !(c.origemCaptura && (c.statusLead === 'lead' || c.emTeste)));
+    const clientesOficiais = clientes.filter(c => !c.emTeste && !c.musica && !(c.origemCaptura && c.statusLead !== 'ativo'));
     const ativos = clientesOficiais.filter(c => statusCalculado(c) === 'ativo');
     const em3dias = clientesOficiais.filter(c => diasAte(c.vencimento) === 3).length;
     const hoje = clientesOficiais.filter(c => diasAte(c.vencimento) === 0).length;
     const vencidos = clientesOficiais.filter(c => diasAte(c.vencimento) < 0).length;
     const musica = clientes.filter(c => c.musica && !c.emTeste).length;
+    const totalEmTeste = clientes.filter(c => c.emTeste || (c.origemCaptura && c.statusLead !== 'ativo')).length;
     const leadsAbertos = clientes.filter(c => c.origemCaptura && c.statusLead === 'lead').length;
     const pendentesRenovacao = clientes.filter(c => c.pagamentoPendenteRenovacao).length;
 
@@ -1900,8 +1905,8 @@
     document.getElementById('stat-hoje').textContent = hoje;
     document.getElementById('stat-vencidos').textContent = vencidos;
     document.getElementById('stat-musica').textContent = musica;
-    document.getElementById('contagem-leads').textContent = leadsAbertos;
-    document.getElementById('chip-leads').classList.toggle('tem-lead-novo', leadsAbertos > 0);
+    document.getElementById('contagem-teste').textContent = totalEmTeste;
+    document.getElementById('chip-teste').classList.toggle('tem-lead-novo', leadsAbertos > 0);
     document.getElementById('contagem-pendente-renovacao').textContent = pendentesRenovacao;
     document.getElementById('chip-pendente-renovacao').classList.toggle('tem-lead-novo', pendentesRenovacao > 0);
     const totalAvisos = leadsAbertos + pendentesRenovacao;
@@ -2423,15 +2428,13 @@
     );
 
     if (filtroAtual === 'teste') {
-      lista = lista.filter(c => c.emTeste);
+      lista = lista.filter(c => c.emTeste || (c.origemCaptura && c.statusLead !== 'ativo'));
     } else if (filtroAtual === 'musica') {
       lista = lista.filter(c => c.musica && !c.emTeste);
-    } else if (filtroAtual === 'leads') {
-      lista = lista.filter(c => c.origemCaptura && (c.statusLead === 'lead' || c.emTeste));
     } else if (filtroAtual === 'pendente-renovacao') {
       lista = lista.filter(c => c.pagamentoPendenteRenovacao);
     } else {
-      lista = lista.filter(c => !c.emTeste && !c.musica && !(c.origemCaptura && (c.statusLead === 'lead' || c.emTeste)));
+      lista = lista.filter(c => !c.emTeste && !c.musica && !(c.origemCaptura && c.statusLead !== 'ativo'));
       if (filtroAtual === 'ativo') lista = lista.filter(c => statusCalculado(c) === 'ativo');
       if (filtroAtual === '3dias') lista = lista.filter(c => diasAte(c.vencimento) === 3);
       if (filtroAtual === 'hoje') lista = lista.filter(c => diasAte(c.vencimento) === 0);
@@ -2501,7 +2504,7 @@
           <td data-label="Status" class="td-hide-mobile"><span class="badge ${statusCalculado(c)}">${statusCalculado(c)}</span></td>
           <td data-label="Ações" class="actions-cell">
             <div class="actions">
-              ${c.origemCaptura && (c.statusLead === 'lead' || c.emTeste) ? `
+              ${c.origemCaptura && c.statusLead !== 'ativo' ? `
                 ${c.statusLead === 'teste_enviado' ? `<span class="badge" style="background:rgba(96,165,250,0.15); color:#60A5FA;">🧪 Teste enviado</span>` : ''}
                 ${c.statusLead === 'pagamento_pendente' ? `<span class="badge" style="background:rgba(251,191,36,0.15); color:var(--warn);">💳 Aguardando pagamento</span>` : ''}
                 ${c.statusLead === 'pagamento_confirmado' ? `<span class="badge" style="background:rgba(52,211,153,0.15); color:var(--ok);">💰 Pago — falta ativar</span>` : ''}
@@ -3016,7 +3019,8 @@
     const config = await res.json() || {};
     document.getElementById('cfg-whatsapp').value = config.whatsappAdmin || '5521993473619';
     document.getElementById('cfg-email-admin').value = config.adminEmail || '';
-    document.getElementById('cfg-pagamento-automatico').checked = !!config.pagamentoAutomaticoAtivo;
+    document.getElementById('cfg-pagamento-automatico-cliente').checked = !!config.pagamentoAutomaticoCliente;
+    document.getElementById('cfg-pagamento-automatico-teste').checked = !!config.pagamentoAutomaticoTeste;
     document.getElementById('cfg-apk-link').value = config.apkLink || '';
     document.getElementById('cfg-web-link').value = config.webLink || '';
     document.getElementById('cfg-musica-botao').value = config.musicaBotaoTexto || '📥 Baixe o Xtream Music';
@@ -3033,7 +3037,8 @@
     const whatsapp = document.getElementById('cfg-whatsapp').value.replace(/\D/g, '');
     if (!whatsapp) { alert('Preenche o número.'); return; }
     const adminEmail = document.getElementById('cfg-email-admin').value.trim();
-    const pagamentoAutomaticoAtivo = document.getElementById('cfg-pagamento-automatico').checked;
+    const pagamentoAutomaticoCliente = document.getElementById('cfg-pagamento-automatico-cliente').checked;
+    const pagamentoAutomaticoTeste = document.getElementById('cfg-pagamento-automatico-teste').checked;
     const apkLink = document.getElementById('cfg-apk-link').value.trim();
     const webLink = document.getElementById('cfg-web-link').value.trim();
     const musicaBotaoTexto = document.getElementById('cfg-musica-botao').value.trim();
@@ -3041,7 +3046,7 @@
     const musicaApiBase = document.getElementById('cfg-musica-api').value.trim().replace(/\/$/, '');
     await fetch(`${FIREBASE_DB}/config.json`, {
       method: 'PATCH',
-      body: JSON.stringify({ whatsappAdmin: whatsapp, adminEmail, pagamentoAutomaticoAtivo, apkLink, webLink, musicaBotaoTexto, musicaInstrucao, musicaApiBase })
+      body: JSON.stringify({ whatsappAdmin: whatsapp, adminEmail, pagamentoAutomaticoCliente, pagamentoAutomaticoTeste, apkLink, webLink, musicaBotaoTexto, musicaInstrucao, musicaApiBase })
     });
     configMusica = { apkLink, webLink, musicaBotaoTexto, musicaInstrucao, musicaApiBase };
     fecharConfig();
