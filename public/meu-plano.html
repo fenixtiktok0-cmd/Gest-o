@@ -136,6 +136,33 @@
     return match ? match[1] : null;
   }
 
+  // Detecta se a página está aberta dentro do navegador embutido de apps
+  // como WhatsApp, Instagram e Facebook — esses navegadores não suportam
+  // notificação push, então avisamos o cliente a abrir no navegador de
+  // verdade em vez de deixar ele tomar um erro genérico confuso.
+  function detectarNavegadorEmbutido() {
+    const ua = navigator.userAgent || '';
+    return /WhatsApp|FBAN|FBAV|Instagram|Line\//i.test(ua);
+  }
+
+  function mostrarAvisoNavegadorEmbutido() {
+    const card = document.getElementById('card');
+    const avisoHtml = `
+      <div id="aviso-navegador-embutido" style="background:rgba(251,191,36,0.12); border:1px solid rgba(251,191,36,0.4); border-radius:10px; padding:14px; margin-top:16px;">
+        <div style="font-weight:600; font-size:14px; margin-bottom:8px; color:var(--warn);">⚠️ Abre esse link no navegador de verdade</div>
+        <p style="font-size:13px; margin:0 0 10px; line-height:1.5;">Você está vendo essa página dentro de um app (WhatsApp, Instagram, etc.) — esses apps não deixam ativar notificação. Segue o passo a passo:</p>
+        <ol style="margin:0; padding-left:18px; font-size:13px; line-height:1.7;">
+          <li>Toca nos <b>três pontinhos (⋮)</b> ou no ícone de compartilhar, aqui em cima da tela</li>
+          <li>Escolhe <b>"Abrir no navegador"</b> (ou "Abrir no Chrome" / "Abrir no Safari")</li>
+          <li>A página abre de novo, só que no navegador de verdade — aí sim clica pra ativar</li>
+        </ol>
+      </div>
+    `;
+    const existente = document.getElementById('aviso-navegador-embutido');
+    if (existente) existente.remove();
+    card.insertAdjacentHTML('beforeend', avisoHtml);
+  }
+
   async function carregar() {
     const card = document.getElementById('card');
     if (!clienteId) {
@@ -294,6 +321,12 @@
 
     const botaoNotif = document.getElementById('btn-notif');
     if (botaoNotif && !notifAtiva) botaoNotif.onclick = ativarNotificacoes;
+
+    // Se estiver dentro do WhatsApp/Instagram/etc, já avisa de cara,
+    // sem esperar o cliente clicar e tomar um erro confuso.
+    if (!notifAtiva && detectarNavegadorEmbutido()) {
+      mostrarAvisoNavegadorEmbutido();
+    }
   }
 
   async function gerarPix() {
@@ -383,6 +416,11 @@
 
   async function ativarNotificacoes() {
     const btn = document.getElementById('btn-notif');
+
+    if (detectarNavegadorEmbutido()) {
+      mostrarAvisoNavegadorEmbutido();
+      return;
+    }
 
     if (!('Notification' in window)) {
       alert('Esse navegador não tem suporte a notificações. Tenta usar o Chrome atualizado.');
