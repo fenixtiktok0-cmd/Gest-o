@@ -25,7 +25,7 @@
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    background: var(--bg);
+    background: radial-gradient(circle at 15% 0%, rgba(52,211,153,0.14), transparent 45%), radial-gradient(circle at 90% 20%, rgba(96,165,250,0.12), transparent 40%), var(--bg);
     color: var(--text);
     font-family: 'Inter', sans-serif;
     -webkit-font-smoothing: antialiased;
@@ -39,10 +39,27 @@
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 16px;
-    padding: 28px 24px;
+    padding: 0 24px 24px;
     max-width: 400px;
     width: 100%;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.35);
+    animation: entrarCard .4s ease both;
   }
+  @keyframes entrarCard { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+  .vitrine-wrap {
+    margin: 0 -24px 20px;
+    padding: 16px 20px 4px;
+    background: linear-gradient(180deg, rgba(52,211,153,0.1), transparent);
+    border-radius: 16px 16px 0 0;
+  }
+  .vitrine-titulo { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px; font-weight: 600; }
+  .vitrine-scroll { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: none; }
+  .vitrine-scroll::-webkit-scrollbar { display: none; }
+  .conteudo-principal { padding-top: 20px; }
+  .mural-avisos { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+  .mural-item { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; font-size: 12.5px; }
+  .mural-item .titulo { font-weight: 600; margin-bottom: 2px; }
+  .mural-item .data { font-size: 10.5px; color: var(--text-muted); margin-bottom: 4px; }
   .logo-cliente { max-width: 140px; max-height: 60px; margin-bottom: 14px; }
   h1 {
     font-family: 'Space Grotesk', sans-serif;
@@ -123,6 +140,26 @@
 
   const FIREBASE_DB = firebaseConfig.databaseURL;
   const VAPID_KEY = "BB7h2P--2AyZfHmes1ibhzHlWY1DVPFvyWp6r4CIyQrPbDLOS_xx0zteP8SIbH34m2Txx0KLnLu8ZOF6RbSzY8U";
+  const TMDB_TOKEN = "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI2OTE0ODExYzM0MWY3MTE1YjU0MWM3OWU5MjI1NjZhYiIsIm5iZiI6MTc1MDI5MzYwNC43MDU5OTk5LCJzdWIiOiI2ODUzNWM2NDM2ODE0OTFlYjExYzBiYjAiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.MZRHZb5Xd9SqxNZnluiMfQjIl4CpnWsU56HESNZAf94";
+
+  async function carregarVitrineTMDB() {
+    const container = document.getElementById('vitrine-tmdb');
+    if (!container) return;
+    try {
+      const res = await fetch('https://api.themoviedb.org/3/trending/all/week?language=pt-BR', {
+        headers: { Authorization: `Bearer ${TMDB_TOKEN}` }
+      });
+      const data = await res.json();
+      const itens = (data.results || []).filter(i => i.poster_path).slice(0, 14);
+      container.innerHTML = itens.map(i => `
+        <div style="flex-shrink:0; width:86px;">
+          <img src="https://image.tmdb.org/t/p/w200${i.poster_path}" loading="lazy" style="width:100%; border-radius:8px; box-shadow:0 6px 14px rgba(0,0,0,0.45); display:block;">
+        </div>
+      `).join('');
+    } catch (err) {
+      container.parentElement.style.display = 'none';
+    }
+  }
 
   const params = new URLSearchParams(window.location.search);
   const clienteId = params.get('id');
@@ -170,11 +207,12 @@
       return;
     }
 
-    const [clienteRes, configRes, appsRes, servidoresRes] = await Promise.all([
+    const [clienteRes, configRes, appsRes, servidoresRes, avisosRes] = await Promise.all([
       fetch(`${FIREBASE_DB}/clientes/${clienteId}.json`),
       fetch(`${FIREBASE_DB}/config.json`),
       fetch(`${FIREBASE_DB}/aplicativos.json`),
-      fetch(`${FIREBASE_DB}/servidores.json`)
+      fetch(`${FIREBASE_DB}/servidores.json`),
+      fetch(`${FIREBASE_DB}/avisos.json`)
     ]);
     const c = await clienteRes.json();
     const config = await configRes.json() || {};
@@ -182,6 +220,8 @@
     const apps = Object.entries(appsData).map(([id, a]) => ({ id, ...a }));
     const servidoresData = await servidoresRes.json() || {};
     const servidoresList = Object.values(servidoresData);
+    const avisosData = await avisosRes.json() || {};
+    const avisosList = Object.values(avisosData).sort((a, b) => b.criadoEm - a.criadoEm).slice(0, 3);
 
     if (!c) {
       card.innerHTML = '<div class="loading">Cliente não encontrado.</div>';
@@ -303,24 +343,45 @@
       }
     }
 
+    const muralAvisosHtml = avisosList.length > 0 ? `
+      <div class="mural-avisos">
+        <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:8px; font-weight:600;">📢 Novidades</div>
+        ${avisosList.map(a => `
+          <div class="mural-item">
+            <div class="titulo">${a.titulo}</div>
+            <div class="data">${new Date(a.criadoEm).toLocaleDateString('pt-BR')}</div>
+            <div>${a.mensagem}</div>
+          </div>
+        `).join('')}
+      </div>
+    ` : '';
+
     card.innerHTML = `
-      ${logoHtml}
-      <h1>Olá, ${c.nome}</h1>
-      <div class="sub">${marca.nome ? `Status do seu plano · ${marca.nome}` : 'Status do seu plano'}</div>
-      ${c.servidor ? `<div class="linha"><span class="label">Servidor</span><span class="mono">${c.servidor}</span></div>` : ''}
-      <div class="linha"><span class="label">Valor</span><span class="mono">R$ ${Number(c.planoValor||0).toFixed(2)}</span></div>
-      <div class="linha"><span class="label">${c.emTeste ? 'Teste termina em' : 'Vencimento'}</span><span class="mono">${vencimentoTexto}</span></div>
-      <div class="linha"><span class="label">Situação</span><span class="status-pill ${statusClasse}">${statusTexto}</span></div>
-      ${emailCapturaHtml}
-      ${dadosAcessoHtml}
-      ${tutorialHtml}
-      ${bannerPagamentoHtml}
-      <button id="btn-notif" ${notifAtiva ? 'disabled' : ''}>${notifAtiva ? 'Notificações ativadas ✓' : textoBotaoNotif}</button>
-      ${botaoSuporteHtml}
+      <div class="vitrine-wrap">
+        <div class="vitrine-titulo">🔥 Em alta essa semana</div>
+        <div class="vitrine-scroll" id="vitrine-tmdb"></div>
+      </div>
+      <div class="conteudo-principal">
+        ${logoHtml}
+        <h1>Olá, ${c.nome}</h1>
+        <div class="sub">${marca.nome ? `Status do seu plano · ${marca.nome}` : 'Status do seu plano'}</div>
+        ${c.servidor ? `<div class="linha"><span class="label">Servidor</span><span class="mono">${c.servidor}</span></div>` : ''}
+        <div class="linha"><span class="label">Valor</span><span class="mono">R$ ${Number(c.planoValor||0).toFixed(2)}</span></div>
+        <div class="linha"><span class="label">${c.emTeste ? 'Teste termina em' : 'Vencimento'}</span><span class="mono">${vencimentoTexto}</span></div>
+        <div class="linha"><span class="label">Situação</span><span class="status-pill ${statusClasse}">${statusTexto}</span></div>
+        ${emailCapturaHtml}
+        ${dadosAcessoHtml}
+        ${tutorialHtml}
+        ${bannerPagamentoHtml}
+        <button id="btn-notif" ${notifAtiva ? 'disabled' : ''}>${notifAtiva ? 'Notificações ativadas ✓' : textoBotaoNotif}</button>
+        ${botaoSuporteHtml}
+        ${muralAvisosHtml}
+      </div>
     `;
 
     const botaoNotif = document.getElementById('btn-notif');
     if (botaoNotif && !notifAtiva) botaoNotif.onclick = ativarNotificacoes;
+    carregarVitrineTMDB();
 
     // Se estiver dentro do WhatsApp/Instagram/etc, já avisa de cara,
     // sem esperar o cliente clicar e tomar um erro confuso.
