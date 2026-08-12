@@ -2769,7 +2769,7 @@
     if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
 
     try {
-      const res = await fetch('/api/enviar-teste-lead', {
+      const res = await fetch('/api/leads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ clienteId: id, m3uLink, usuario, senha, servidor, aplicativosIds, vencimento, planoValor })
