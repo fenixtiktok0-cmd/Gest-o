@@ -256,6 +256,31 @@
     }
   } else {
     localStorage.setItem('ultimoClienteId', clienteId);
+
+    // Gera um manifest.json específico pra esse cliente, na hora, com o
+    // "endereço de abertura" já incluindo o ?id= dele — assim, quando ele
+    // instalar (principalmente no iPhone), o app abre direto na conta
+    // certa, em vez de depender só do localStorage (que no iPhone às vezes
+    // não é compartilhado entre o Safari normal e o app instalado).
+    try {
+      const manifestDinamico = {
+        name: 'Meu Plano',
+        short_name: 'Meu Plano',
+        description: 'Acompanhe seu plano, ative notificações e veja seus dados de acesso.',
+        start_url: `/meu-plano.html?id=${clienteId}`,
+        display: 'standalone',
+        background_color: '#0B0F14',
+        theme_color: '#34D399',
+        orientation: 'portrait',
+        icons: [
+          { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+        ],
+      };
+      const blob = new Blob([JSON.stringify(manifestDinamico)], { type: 'application/json' });
+      const linkManifest = document.querySelector('link[rel="manifest"]');
+      if (linkManifest) linkManifest.setAttribute('href', URL.createObjectURL(blob));
+    } catch (err) {}
   }
 
   let nomeClienteGlobal = '';
@@ -386,7 +411,7 @@
 
       dadosAcessoHtml = `
         <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--border);">
-          <div style="font-size:12px; color:var(--ok); margin-bottom:8px;">✅ Dados de acesso aos aplicativos parceiros:</div>
+          <div style="font-size:12px; color:var(--ok); margin-bottom:8px;">✅ Dados de acesso:</div>
           ${appsHtml}
           ${credenciaisHtml}
         </div>
