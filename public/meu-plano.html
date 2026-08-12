@@ -68,6 +68,7 @@
     flex-shrink: 0; width: 86px; opacity: 0; transform: translateY(6px) scale(.96);
     animation: entrarPoster .4s ease forwards;
     transition: transform .15s ease;
+    cursor: pointer;
   }
   .poster-item img { width: 100%; border-radius: 8px; box-shadow: 0 6px 14px rgba(0,0,0,0.45); display: block; }
   .poster-item:active { transform: scale(0.93); }
@@ -144,6 +145,20 @@
   <div class="loading">Carregando...</div>
 </div>
 
+<div id="modal-conteudo" onclick="if(event.target===this) fecharDetalheConteudo()" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:100; align-items:center; justify-content:center; padding:20px;">
+  <div style="background:var(--surface); border:1px solid var(--border); border-radius:16px; max-width:380px; width:100%; overflow:hidden; max-height:85vh; overflow-y:auto;">
+    <div style="position:relative;">
+      <img id="modal-conteudo-imagem" src="" style="width:100%; display:block; aspect-ratio:16/9; object-fit:cover;">
+      <button onclick="fecharDetalheConteudo()" style="position:absolute; top:10px; right:10px; width:32px; height:32px; margin:0; padding:0; border-radius:50%; background:rgba(0,0,0,0.6); color:#fff; font-size:16px; border:none;">✕</button>
+    </div>
+    <div style="padding:18px;">
+      <h2 id="modal-conteudo-titulo" style="font-family:'Space Grotesk',sans-serif; font-size:18px; margin:0 0 6px;"></h2>
+      <div id="modal-conteudo-meta" style="font-size:12px; color:var(--text-muted); margin-bottom:12px;"></div>
+      <p id="modal-conteudo-sinopse" style="font-size:13.5px; line-height:1.6; margin:0; color:var(--text);"></p>
+    </div>
+  </div>
+</div>
+
 <button id="btn-atualizar-flutuante" onclick="location.reload()" title="Atualizar" style="position:fixed; bottom:20px; right:20px; width:48px; height:48px; border-radius:50%; border:1px solid var(--border); background:var(--surface); color:var(--ok); font-size:20px; cursor:pointer; box-shadow:0 4px 14px rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; margin:0;">🔄</button>
 
 <script>
@@ -170,15 +185,45 @@
     return (data.results || []).filter(i => i.poster_path).slice(0, 10);
   }
 
-  function montarFileiraPosteres(itens) {
+  let itensFilmesGlobal = [];
+  let itensSeriesGlobal = [];
+
+  function montarFileiraPosteres(itens, tipo) {
     const postersHtml = itens.map((i, idx) => `
-      <div class="poster-item" style="animation-delay:${idx * 0.06}s;">
+      <div class="poster-item" style="animation-delay:${idx * 0.06}s;" onclick="abrirDetalheConteudo('${tipo}', ${idx})">
         <img src="https://image.tmdb.org/t/p/w200${i.poster_path}" loading="lazy" alt="${(i.title || i.name || '').replace(/"/g,'')}">
       </div>
     `).join('');
     // Duplica a lista uma vez — é o que permite a rolagem automática dar
     // a volta e continuar de forma contínua, sem "pulo" visível.
     return postersHtml + postersHtml;
+  }
+
+  function abrirDetalheConteudo(tipo, idx) {
+    const item = (tipo === 'filme' ? itensFilmesGlobal : itensSeriesGlobal)[idx];
+    if (!item) return;
+
+    const titulo = item.title || item.name || 'Sem título';
+    const data = item.release_date || item.first_air_date;
+    const ano = data ? new Date(data + 'T12:00:00').getFullYear() : '';
+    const nota = item.vote_average ? item.vote_average.toFixed(1) : null;
+    const sinopse = item.overview || 'Sem sinopse disponível.';
+    const backdrop = item.backdrop_path
+      ? `https://image.tmdb.org/t/p/w780${item.backdrop_path}`
+      : `https://image.tmdb.org/t/p/w500${item.poster_path}`;
+
+    document.getElementById('modal-conteudo-imagem').src = backdrop;
+    document.getElementById('modal-conteudo-titulo').textContent = titulo;
+    document.getElementById('modal-conteudo-meta').textContent = [
+      ano,
+      tipo === 'filme' ? 'Filme' : 'Série',
+      nota ? `⭐ ${nota}` : null,
+    ].filter(Boolean).join(' · ');
+    document.getElementById('modal-conteudo-sinopse').textContent = sinopse;
+    document.getElementById('modal-conteudo').style.display = 'flex';
+  }
+  function fecharDetalheConteudo() {
+    document.getElementById('modal-conteudo').style.display = 'none';
   }
 
   async function carregarVitrineTMDB() {
@@ -194,10 +239,13 @@
 
       if (filmes.length === 0 && series.length === 0) throw new Error('sem resultados');
 
-      containerFilmes.innerHTML = montarFileiraPosteres(filmes);
+      itensFilmesGlobal = filmes;
+      itensSeriesGlobal = series;
+
+      containerFilmes.innerHTML = montarFileiraPosteres(filmes, 'filme');
       containerFilmes.classList.add('autoscroll');
 
-      containerSeries.innerHTML = montarFileiraPosteres(series);
+      containerSeries.innerHTML = montarFileiraPosteres(series, 'serie');
       containerSeries.classList.add('autoscroll');
       containerSeries.style.animationDirection = 'reverse';
       containerSeries.style.animationDuration = '38s';
@@ -402,13 +450,7 @@
     ` : '';
 
     card.innerHTML = `
-      <div class="vitrine-wrap" id="vitrine-wrap-el">
-        <div class="vitrine-titulo">🎬 Filmes em alta</div>
-        <div class="vitrine-scroll" id="vitrine-filmes"><div class="vitrine-skeleton"><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div></div></div>
-        <div class="vitrine-titulo" style="margin-top:14px;">📺 Séries em alta</div>
-        <div class="vitrine-scroll" id="vitrine-series"><div class="vitrine-skeleton"><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div></div></div>
-      </div>
-      <div class="conteudo-principal">
+      <div class="conteudo-principal" style="padding-top:24px;">
         ${logoHtml}
         <h1>Olá, ${c.nome}</h1>
         <div class="sub">${marca.nome ? `Status do seu plano · ${marca.nome}` : 'Status do seu plano'}</div>
@@ -416,6 +458,14 @@
         <div class="linha"><span class="label">Valor</span><span class="mono">R$ ${Number(c.planoValor||0).toFixed(2)}</span></div>
         <div class="linha"><span class="label">${c.emTeste ? 'Teste termina em' : 'Vencimento'}</span><span class="mono">${vencimentoTexto}</span></div>
         <div class="linha"><span class="label">Situação</span><span class="status-pill ${statusClasse}">${statusTexto}</span></div>
+      </div>
+      <div class="vitrine-wrap" id="vitrine-wrap-el" style="margin-top:16px;">
+        <div class="vitrine-titulo">🎬 Filmes em alta</div>
+        <div class="vitrine-scroll" id="vitrine-filmes"><div class="vitrine-skeleton"><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div></div></div>
+        <div class="vitrine-titulo" style="margin-top:14px;">📺 Séries em alta</div>
+        <div class="vitrine-scroll" id="vitrine-series"><div class="vitrine-skeleton"><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div></div></div>
+      </div>
+      <div class="conteudo-principal" style="padding-top:4px;">
         ${emailCapturaHtml}
         ${dadosAcessoHtml}
         ${tutorialHtml}
