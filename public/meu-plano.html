@@ -396,7 +396,7 @@
     btn.textContent = 'Gerando PIX...';
 
     try {
-      const res = await fetch('/api/gerar-pix-cliente', {
+      const res = await fetch('/api/pix-cliente', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ clienteId })
@@ -434,7 +434,7 @@
   function verificarPagamentoPeriodicamente(paymentId) {
     const intervalo = setInterval(async () => {
       try {
-        const res = await fetch(`/api/verificar-pagamento?paymentId=${paymentId}`);
+        const res = await fetch(`/api/pix-cliente?paymentId=${paymentId}`);
         const data = await res.json();
         if (data.status === 'approved') {
           clearInterval(intervalo);
