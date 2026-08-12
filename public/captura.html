@@ -155,7 +155,7 @@
     btn.textContent = 'Enviando...';
 
     try {
-      const res = await fetch('/api/registrar-lead', {
+      const res = await fetch('/api/leads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nome, whatsapp, email })
