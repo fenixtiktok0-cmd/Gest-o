@@ -58,12 +58,7 @@
     scroll-behavior: smooth;
   }
   .vitrine-scroll::-webkit-scrollbar { display: none; }
-  .vitrine-scroll.autoscroll { animation: rolarVitrine 32s linear infinite; }
-  .vitrine-scroll.autoscroll:hover, .vitrine-scroll.autoscroll:active { animation-play-state: paused; }
-  @keyframes rolarVitrine {
-    0% { transform: translateX(0); }
-    100% { transform: translateX(calc(-50%)); }
-  }
+  .vitrine-dica { font-size: 10.5px; color: var(--text-muted); margin-top: 4px; opacity: .8; }
   .poster-item {
     flex-shrink: 0; width: 86px; opacity: 0; transform: translateY(6px) scale(.96);
     animation: entrarPoster .4s ease forwards;
@@ -189,14 +184,11 @@
   let itensSeriesGlobal = [];
 
   function montarFileiraPosteres(itens, tipo) {
-    const postersHtml = itens.map((i, idx) => `
+    return itens.map((i, idx) => `
       <div class="poster-item" style="animation-delay:${idx * 0.06}s;" onclick="abrirDetalheConteudo('${tipo}', ${idx})">
         <img src="https://image.tmdb.org/t/p/w200${i.poster_path}" loading="lazy" alt="${(i.title || i.name || '').replace(/"/g,'')}">
       </div>
     `).join('');
-    // Duplica a lista uma vez — é o que permite a rolagem automática dar
-    // a volta e continuar de forma contínua, sem "pulo" visível.
-    return postersHtml + postersHtml;
   }
 
   function abrirDetalheConteudo(tipo, idx) {
@@ -243,12 +235,7 @@
       itensSeriesGlobal = series;
 
       containerFilmes.innerHTML = montarFileiraPosteres(filmes, 'filme');
-      containerFilmes.classList.add('autoscroll');
-
       containerSeries.innerHTML = montarFileiraPosteres(series, 'serie');
-      containerSeries.classList.add('autoscroll');
-      containerSeries.style.animationDirection = 'reverse';
-      containerSeries.style.animationDuration = '38s';
     } catch (err) {
       document.getElementById('vitrine-wrap-el')?.remove();
     }
@@ -459,12 +446,16 @@
         <div class="linha"><span class="label">${c.emTeste ? 'Teste termina em' : 'Vencimento'}</span><span class="mono">${vencimentoTexto}</span></div>
         <div class="linha"><span class="label">Situação</span><span class="status-pill ${statusClasse}">${statusTexto}</span></div>
       </div>
+      ${notifAtiva ? `
       <div class="vitrine-wrap" id="vitrine-wrap-el" style="margin-top:16px;">
         <div class="vitrine-titulo">🎬 Filmes em alta</div>
         <div class="vitrine-scroll" id="vitrine-filmes"><div class="vitrine-skeleton"><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div></div></div>
+        <div class="vitrine-dica">👉 Arrasta pro lado pra ver mais</div>
         <div class="vitrine-titulo" style="margin-top:14px;">📺 Séries em alta</div>
         <div class="vitrine-scroll" id="vitrine-series"><div class="vitrine-skeleton"><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div></div></div>
+        <div class="vitrine-dica">👉 Arrasta pro lado pra ver mais</div>
       </div>
+      ` : ''}
       <div class="conteudo-principal" style="padding-top:4px;">
         ${emailCapturaHtml}
         ${dadosAcessoHtml}
@@ -478,7 +469,7 @@
 
     const botaoNotif = document.getElementById('btn-notif');
     if (botaoNotif && !notifAtiva) botaoNotif.onclick = ativarNotificacoes;
-    carregarVitrineTMDB();
+    if (notifAtiva) carregarVitrineTMDB();
 
     // Se estiver dentro do WhatsApp/Instagram/etc, já avisa de cara,
     // sem esperar o cliente clicar e tomar um erro confuso.
