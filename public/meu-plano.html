@@ -156,6 +156,8 @@
 
 <button id="btn-atualizar-flutuante" onclick="location.reload()" title="Atualizar" style="position:fixed; bottom:20px; right:20px; width:48px; height:48px; border-radius:50%; border:1px solid var(--border); background:var(--surface); color:var(--ok); font-size:20px; cursor:pointer; box-shadow:0 4px 14px rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; margin:0;">🔄</button>
 
+<button id="btn-instalar-app" onclick="instalarApp()" style="display:none; position:fixed; bottom:20px; left:20px; padding:0 16px; height:44px; width:auto; margin:0; border-radius:100px; background:var(--ok); color:#06231A; font-weight:700; font-size:13px; box-shadow:0 4px 14px rgba(0,0,0,0.4); align-items:center; justify-content:center; gap:6px;">📲 Instalar app</button>
+
 <script>
   const firebaseConfig = {
     apiKey: "AIzaSyBaVUpfN03wm2mm_C3sUZhMUZtThb32FSQ",
@@ -242,7 +244,20 @@
   }
 
   const params = new URLSearchParams(window.location.search);
-  const clienteId = params.get('id');
+  let clienteId = params.get('id');
+
+  // Quando o app é aberto pelo ícone instalado (PWA), o navegador abre a
+  // "start_url" do manifest, sem o ?id=... — recupera o último cliente
+  // salvo nesse mesmo aparelho pra não cair numa tela de "link inválido".
+  if (!clienteId) {
+    const idSalvo = localStorage.getItem('ultimoClienteId');
+    if (idSalvo) {
+      window.location.replace(`/meu-plano.html?id=${idSalvo}`);
+    }
+  } else {
+    localStorage.setItem('ultimoClienteId', clienteId);
+  }
+
   let nomeClienteGlobal = '';
   let whatsappAdminGlobal = '';
   let emTesteGlobal = false;
@@ -614,6 +629,49 @@
       btn.disabled = false;
       btn.textContent = 'Ativar notificações';
     }
+  }
+
+  // ---- Instalar como app ----
+  let deferredPrompt = null;
+
+  // Registra o service worker logo de cara (não só depois de ativar
+  // notificação) — é um dos requisitos do navegador pra oferecer a
+  // instalação como app.
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/firebase-messaging-sw.js').catch(() => {});
+  }
+
+  function detectarIOS() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  }
+  function jaInstalado() {
+    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  }
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (!jaInstalado()) document.getElementById('btn-instalar-app').style.display = 'flex';
+  });
+
+  function instalarApp() {
+    if (detectarIOS()) {
+      alert('Pra instalar no iPhone:\n\n1. Toca no ícone de compartilhar (□ com uma seta pra cima), na barra de baixo do Safari\n2. Escolhe "Adicionar à Tela de Início"\n3. Confirma tocando em "Adicionar"');
+      return;
+    }
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(() => {
+      deferredPrompt = null;
+      document.getElementById('btn-instalar-app').style.display = 'none';
+    });
+  }
+
+  // No iPhone o navegador nunca avisa que dá pra instalar (não existe esse
+  // evento lá) — então mostra o botão de qualquer forma, se ainda não tiver
+  // instalado, e ao clicar mostra o passo a passo manual.
+  if (detectarIOS() && !jaInstalado() && !detectarNavegadorEmbutido()) {
+    document.getElementById('btn-instalar-app').style.display = 'flex';
   }
 
   carregar();
