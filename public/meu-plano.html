@@ -53,8 +53,28 @@
     border-radius: 16px 16px 0 0;
   }
   .vitrine-titulo { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px; font-weight: 600; }
-  .vitrine-scroll { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: none; }
+  .vitrine-scroll {
+    display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: none;
+    scroll-behavior: smooth;
+  }
   .vitrine-scroll::-webkit-scrollbar { display: none; }
+  .vitrine-scroll.autoscroll { animation: rolarVitrine 32s linear infinite; }
+  .vitrine-scroll.autoscroll:hover, .vitrine-scroll.autoscroll:active { animation-play-state: paused; }
+  @keyframes rolarVitrine {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(calc(-50%)); }
+  }
+  .poster-item {
+    flex-shrink: 0; width: 86px; opacity: 0; transform: translateY(6px) scale(.96);
+    animation: entrarPoster .4s ease forwards;
+    transition: transform .15s ease;
+  }
+  .poster-item img { width: 100%; border-radius: 8px; box-shadow: 0 6px 14px rgba(0,0,0,0.45); display: block; }
+  .poster-item:active { transform: scale(0.93); }
+  @keyframes entrarPoster { to { opacity: 1; transform: translateY(0) scale(1); } }
+  .vitrine-skeleton { display: flex; gap: 8px; }
+  .vitrine-skeleton .sk { flex-shrink: 0; width: 86px; height: 129px; border-radius: 8px; background: linear-gradient(90deg, var(--surface-2) 25%, #263042 50%, var(--surface-2) 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
   .conteudo-principal { padding-top: 20px; }
   .mural-avisos { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
   .mural-item { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; font-size: 12.5px; }
@@ -142,22 +162,47 @@
   const VAPID_KEY = "BB7h2P--2AyZfHmes1ibhzHlWY1DVPFvyWp6r4CIyQrPbDLOS_xx0zteP8SIbH34m2Txx0KLnLu8ZOF6RbSzY8U";
   const TMDB_TOKEN = "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI2OTE0ODExYzM0MWY3MTE1YjU0MWM3OWU5MjI1NjZhYiIsIm5iZiI6MTc1MDI5MzYwNC43MDU5OTk5LCJzdWIiOiI2ODUzNWM2NDM2ODE0OTFlYjExYzBiYjAiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.MZRHZb5Xd9SqxNZnluiMfQjIl4CpnWsU56HESNZAf94";
 
+  async function buscarTMDB(caminho) {
+    const res = await fetch(`https://api.themoviedb.org/3${caminho}`, {
+      headers: { Authorization: `Bearer ${TMDB_TOKEN}` }
+    });
+    const data = await res.json();
+    return (data.results || []).filter(i => i.poster_path).slice(0, 10);
+  }
+
+  function montarFileiraPosteres(itens) {
+    const postersHtml = itens.map((i, idx) => `
+      <div class="poster-item" style="animation-delay:${idx * 0.06}s;">
+        <img src="https://image.tmdb.org/t/p/w200${i.poster_path}" loading="lazy" alt="${(i.title || i.name || '').replace(/"/g,'')}">
+      </div>
+    `).join('');
+    // Duplica a lista uma vez — é o que permite a rolagem automática dar
+    // a volta e continuar de forma contínua, sem "pulo" visível.
+    return postersHtml + postersHtml;
+  }
+
   async function carregarVitrineTMDB() {
-    const container = document.getElementById('vitrine-tmdb');
-    if (!container) return;
+    const containerFilmes = document.getElementById('vitrine-filmes');
+    const containerSeries = document.getElementById('vitrine-series');
+    if (!containerFilmes || !containerSeries) return;
+
     try {
-      const res = await fetch('https://api.themoviedb.org/3/trending/all/week?language=pt-BR', {
-        headers: { Authorization: `Bearer ${TMDB_TOKEN}` }
-      });
-      const data = await res.json();
-      const itens = (data.results || []).filter(i => i.poster_path).slice(0, 14);
-      container.innerHTML = itens.map(i => `
-        <div style="flex-shrink:0; width:86px;">
-          <img src="https://image.tmdb.org/t/p/w200${i.poster_path}" loading="lazy" style="width:100%; border-radius:8px; box-shadow:0 6px 14px rgba(0,0,0,0.45); display:block;">
-        </div>
-      `).join('');
+      const [filmes, series] = await Promise.all([
+        buscarTMDB('/trending/movie/week?language=pt-BR'),
+        buscarTMDB('/trending/tv/week?language=pt-BR'),
+      ]);
+
+      if (filmes.length === 0 && series.length === 0) throw new Error('sem resultados');
+
+      containerFilmes.innerHTML = montarFileiraPosteres(filmes);
+      containerFilmes.classList.add('autoscroll');
+
+      containerSeries.innerHTML = montarFileiraPosteres(series);
+      containerSeries.classList.add('autoscroll');
+      containerSeries.style.animationDirection = 'reverse';
+      containerSeries.style.animationDuration = '38s';
     } catch (err) {
-      container.parentElement.style.display = 'none';
+      document.getElementById('vitrine-wrap-el')?.remove();
     }
   }
 
@@ -357,9 +402,11 @@
     ` : '';
 
     card.innerHTML = `
-      <div class="vitrine-wrap">
-        <div class="vitrine-titulo">🔥 Em alta essa semana</div>
-        <div class="vitrine-scroll" id="vitrine-tmdb"></div>
+      <div class="vitrine-wrap" id="vitrine-wrap-el">
+        <div class="vitrine-titulo">🎬 Filmes em alta</div>
+        <div class="vitrine-scroll" id="vitrine-filmes"><div class="vitrine-skeleton"><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div></div></div>
+        <div class="vitrine-titulo" style="margin-top:14px;">📺 Séries em alta</div>
+        <div class="vitrine-scroll" id="vitrine-series"><div class="vitrine-skeleton"><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div></div></div>
       </div>
       <div class="conteudo-principal">
         ${logoHtml}
