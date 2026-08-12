@@ -1,0 +1,24 @@
+{
+  "name": "Meu Plano",
+  "short_name": "Meu Plano",
+  "description": "Acompanhe seu plano, ative notificações e veja seus dados de acesso.",
+  "start_url": "/meu-plano.html",
+  "display": "standalone",
+  "background_color": "#0B0F14",
+  "theme_color": "#34D399",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
