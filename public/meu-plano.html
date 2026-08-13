@@ -640,13 +640,6 @@
   // ---- Instalar como app ----
   let deferredPrompt = null;
 
-  // Registra o service worker logo de cara (não só depois de ativar
-  // notificação) — é um dos requisitos do navegador pra oferecer a
-  // instalação como app.
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/firebase-messaging-sw.js').catch(() => {});
-  }
-
   function detectarIOS() {
     return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
   }
