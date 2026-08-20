@@ -2772,7 +2772,7 @@
       const res = await fetch('/api/leads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clienteId: id, m3uLink, usuario, senha, servidor, aplicativosIds, vencimento, planoValor })
+        body: JSON.stringify({ acao: 'enviar-teste', clienteId: id, m3uLink, usuario, senha, servidor, aplicativosIds, vencimento, planoValor })
       });
       const data = await res.json();
       if (data.erro) { alert('Erro: ' + data.erro); if (btn) { btn.disabled = false; btn.textContent = '💾📲 Salvar e enviar teste'; } return; }
