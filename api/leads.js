@@ -4,6 +4,14 @@ const { Resend } = require('resend');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+// Se o cliente digitar só DDD + número (sem o 55 do Brasil na frente),
+// completa sozinho — evita link de WhatsApp quebrado.
+function normalizarWhatsapp(numero) {
+  const digitos = (numero || '').replace(/\D/g, '');
+  if (digitos.length === 10 || digitos.length === 11) return `55${digitos}`;
+  return digitos;
+}
+
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
     res.setHeader('Allow', ['POST']);
@@ -22,7 +30,7 @@ module.exports = async (req, res) => {
 
       const novoLead = {
         nome,
-        whatsapp: whatsapp.replace(/\D/g, ''),
+        whatsapp: normalizarWhatsapp(whatsapp),
         email: email || '',
         usuario: '',
         senha: '',
