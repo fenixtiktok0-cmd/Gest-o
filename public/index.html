@@ -2754,11 +2754,10 @@ if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.textContent = '💾📲 S
     }
   }
 
-  async function salvarEEnviarTeste() {
+ async function salvarEEnviarTeste() {
     const id = document.getElementById('lead-cliente-id').value;
     const cliente = clientes.find(c => c.id === id);
     if (!cliente) return;
-
     const m3uLink = document.getElementById('lead-m3u').value.trim();
     const usuario = document.getElementById('lead-usuario').value.trim();
     const senha = document.getElementById('lead-senha').value.trim();
@@ -2766,10 +2765,8 @@ if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.textContent = '💾📲 S
     const aplicativosIds = Array.from(document.querySelectorAll('.chk-app-lead:checked')).map(el => el.value);
     const planoValor = parseFloat(document.getElementById('lead-valor').value) || 0;
     const vencimento = vencimentoPrecisoLead || (Date.now() + horasTesteLead * 60 * 60 * 1000);
-
     const btn = event?.target;
     if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
-
     try {
       const res = await fetch('/api/leads', {
         method: 'POST',
@@ -2778,7 +2775,19 @@ if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.textContent = '💾📲 S
       });
       const data = await res.json();
       if (data.erro) { alert('Erro: ' + data.erro); if (btn) { btn.disabled = false; btn.textContent = '💾📲 Salvar e enviar teste'; } return; }
-
+      fecharProcessarLead();
+      await carregarClientes();
+      const linkAtivacao = `${window.location.origin}/meu-plano.html?id=${id}`;
+      const mensagem = `Olá ${cliente.nome}! 🎉\n\nSeu teste foi liberado! Pra ver os dados de acesso, entra nesse link e clica no botão "Ativar notificações":\n\n${linkAtivacao}\n\nDepois disso os dados aparecem na hora. Qualquer dúvida, me chama!`;
+      const numeroCorrigido = cliente.whatsapp && cliente.whatsapp.length <= 11 ? '55' + cliente.whatsapp : cliente.whatsapp;
+      window.open(`https://wa.me/${numeroCorrigido}?text=${encodeURIComponent(mensagem)}`, '_blank');
+      alert('✅ Teste enviado! Push e e-mail (se tinha) já foram disparados, e o WhatsApp abriu com o link.');
+      if (btn) { btn.disabled = false; btn.textContent = '💾📲 Salvar e enviar teste'; }
+    } catch (err) {
+      alert('Erro ao processar o teste.');
+      if (btn) { btn.disabled = false; btn.textContent = '💾📲 Salvar e enviar teste'; }
+    }
+  }
       fecharProcessarLead();
       await carregarClientes();
 
