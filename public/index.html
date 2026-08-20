@@ -2655,7 +2655,6 @@
   function abrirProcessarLead(id) {
     const c = clientes.find(x => x.id === id);
     if (!c) return;
-
     document.getElementById('lead-cliente-id').value = id;
     document.getElementById('lead-nome-preview').textContent = c.nome;
     document.getElementById('lead-contato-preview').textContent = `${c.whatsapp || '—'} · ${c.email || 'sem e-mail'}`;
@@ -2665,10 +2664,9 @@
     document.getElementById('lead-senha').value = c.senha || '';
     document.getElementById('lead-valor').value = c.planoValor || '';
     vencimentoPrecisoLead = null;
-setHorasTesteLead(2);
-const btnSalvar = document.querySelector('#overlay-processar-lead .btn-primary');
-if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.textContent = '💾📲 Salvar e enviar teste'; }
-
+    setHorasTesteLead(2);
+    const btnSalvar = document.querySelector('#overlay-processar-lead .btn-primary');
+    if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.textContent = '💾📲 Salvar e enviar teste'; }
     const select = document.getElementById('lead-servidor');
     select.innerHTML = servidores.length
       ? servidores.map(s => `<option value="${s.nome}">${s.nome}</option>`).join('')
