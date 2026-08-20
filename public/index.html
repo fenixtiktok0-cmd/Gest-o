@@ -2786,22 +2786,7 @@
       if (btn) { btn.disabled = false; btn.textContent = '💾📲 Salvar e enviar teste'; }
     }
   }
-      fecharProcessarLead();
-      await carregarClientes();
-
-      // Abre o WhatsApp com o link de ativação, igual já fazemos com clientes normais
-      const linkAtivacao = `${window.location.origin}/meu-plano.html?id=${id}`;
-      const mensagem = `Olá ${cliente.nome}! 🎉\n\nSeu teste foi liberado! Pra ver os dados de acesso, entra nesse link e clica no botão "Ativar notificações":\n\n${linkAtivacao}\n\nDepois disso os dados aparecem na hora. Qualquer dúvida, me chama!`;
-      const numeroCorrigido = cliente.whatsapp && cliente.whatsapp.length <= 11 ? '55' + cliente.whatsapp : cliente.whatsapp;
-window.open(`https://wa.me/${numeroCorrigido}?text=${encodeURIComponent(mensagem)}`, '_blank');
-
-      alert('✅ Teste enviado! Push e e-mail (se tinha) já foram disparados, e o WhatsApp abriu com o link.');
-    } catch (err) {
-      alert('Erro ao processar o teste.');
-      if (btn) { btn.disabled = false; btn.textContent = '💾📲 Salvar e enviar teste'; }
-    }
-  }
-
+      
   async function buscarDadosM3U() {
     const link = document.getElementById('f-m3u').value.trim();
     const statusEl = document.getElementById('m3u-status');
