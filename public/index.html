@@ -2665,7 +2665,9 @@
     document.getElementById('lead-senha').value = c.senha || '';
     document.getElementById('lead-valor').value = c.planoValor || '';
     vencimentoPrecisoLead = null;
-    setHorasTesteLead(2);
+setHorasTesteLead(2);
+const btnSalvar = document.querySelector('#overlay-processar-lead .btn-primary');
+if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.textContent = '💾📲 Salvar e enviar teste'; }
 
     const select = document.getElementById('lead-servidor');
     select.innerHTML = servidores.length
@@ -2783,7 +2785,8 @@
       // Abre o WhatsApp com o link de ativação, igual já fazemos com clientes normais
       const linkAtivacao = `${window.location.origin}/meu-plano.html?id=${id}`;
       const mensagem = `Olá ${cliente.nome}! 🎉\n\nSeu teste foi liberado! Pra ver os dados de acesso, entra nesse link e clica no botão "Ativar notificações":\n\n${linkAtivacao}\n\nDepois disso os dados aparecem na hora. Qualquer dúvida, me chama!`;
-      window.open(`https://wa.me/${cliente.whatsapp}?text=${encodeURIComponent(mensagem)}`, '_blank');
+      const numeroCorrigido = cliente.whatsapp && cliente.whatsapp.length <= 11 ? '55' + cliente.whatsapp : cliente.whatsapp;
+window.open(`https://wa.me/${numeroCorrigido}?text=${encodeURIComponent(mensagem)}`, '_blank');
 
       alert('✅ Teste enviado! Push e e-mail (se tinha) já foram disparados, e o WhatsApp abriu com o link.');
     } catch (err) {
