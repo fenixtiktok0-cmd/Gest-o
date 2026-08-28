@@ -2,10 +2,15 @@ const { db, messaging } = require('../lib/firebaseAdmin');
 const { preencherTemplate } = require('../lib/templates');
 const { sincronizarComPainelIPTV } = require('../lib/iptvSync');
 const { enviarPushSeguro } = require('../lib/pushHelper');
+const { enviarWhatsappTextMeBot } = require('../lib/textmebot');
 const { Resend } = require('resend');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const UM_DIA = 1000 * 60 * 60 * 24;
+
+// Só nesses 3 momentos manda WhatsApp automático também (além de push/e-mail,
+// que continuam saindo em todos os tipos como já era).
+const TIPOS_COM_WHATSAPP = new Set(['3dias', 'vencimento', 'vencido']);
 
 function diasAte(timestampVencimento) {
   const hoje = new Date();
@@ -33,7 +38,7 @@ module.exports = async (req, res) => {
     const whatsappAdmin = config.whatsappAdmin;
 
     const hojeStr = new Date().toDateString();
-    const log = { processados: 0, emails: 0, renovacoesAutomaticas: 0, erros: [] };
+    const log = { processados: 0, emails: 0, whatsapps: 0, renovacoesAutomaticas: 0, erros: [] };
 
     // Sincroniza com o painel IPTV primeiro (só quem tem link M3U salvo)
     const idsParaSincronizar = Object.entries(clientes)
@@ -63,6 +68,7 @@ module.exports = async (req, res) => {
       if (dias === 7) tipo = '7dias';
       else if (dias === 3) tipo = '3dias';
       else if (dias === 0) tipo = 'vencimento';
+      else if (dias === -1) tipo = 'vencido';
       else if (dias === -3) tipo = '3diasVencido';
 
       if (!tipo) continue;
@@ -78,6 +84,7 @@ module.exports = async (req, res) => {
         '7dias': templates[`msg7dias${sufixo}`],
         '3dias': templates[`msg3dias${sufixo}`],
         vencimento: templates[`msgVencimento${sufixo}`],
+        vencido: templates[`msgVencido${sufixo}`],
         '3diasVencido': templates[`msg3diasVencido${sufixo}`],
       };
       const templateMsg = mapaTemplate[tipo];
@@ -120,6 +127,16 @@ module.exports = async (req, res) => {
           }
         } catch (err) {
           log.erros.push(`email ${id}: ${err.message}`);
+        }
+      }
+
+      // WhatsApp automático (TextMeBot) — só nos 3 momentos combinados
+      if (TIPOS_COM_WHATSAPP.has(tipo) && cliente.whatsapp) {
+        const resultadoWhats = await enviarWhatsappTextMeBot(cliente.whatsapp, corpo);
+        if (resultadoWhats.enviado) {
+          log.whatsapps++;
+        } else {
+          log.erros.push(`whatsapp ${id}: ${resultadoWhats.motivo}`);
         }
       }
 
