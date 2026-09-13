@@ -23,7 +23,10 @@ module.exports = async (req, res) => {
   }
 
   try {
-    if (String(req.body?.acao || '').startsWith('central_')) return central(req, res);
+    if (String(req.body?.acao || '').startsWith('central_')) {
+      try { return await central(req, res); }
+      catch (erro) { console.error('Central:', erro); return res.status(500).json({ erro: 'Falha na integração da Central.', detalhe: String(erro.message || erro).slice(0, 180) }); }
+    }
     const { link, tipoConsulta, usuario, senha, apiBase } = req.body || {};
 
     let resultado;
