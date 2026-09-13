@@ -1,11 +1,11 @@
 const { consultarContaXtream, consultarContaMusica } = require('../lib/xtream');
 const crypto = require('node:crypto');
-const { db } = require('../lib/firebaseAdmin');
 const { enviarWhatsappTextMeBot } = require('../lib/textmebot');
 const num = v => String(v || '').replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '');
 const sec = () => process.env.CENTRAL_INTEGRATION_SECRET || '';
 const sig = s => crypto.createHmac('sha256', sec()).update(s).digest('hex');
 async function central(req, res) {
+  const { db } = require('../lib/firebaseAdmin');
   const recebido=String(req.headers['x-central-secret']||''), esperado=sec(); if(!esperado||recebido.length!==esperado.length||!crypto.timingSafeEqual(Buffer.from(recebido),Buffer.from(esperado))) return res.status(401).json({erro:'Não autorizado.'});
   const telefone=num(req.body.whatsapp), clientes=(await db.ref('clientes').once('value')).val()||{}, achado=Object.entries(clientes).find(([,c])=>num(c?.whatsapp)===telefone); if(!achado)return res.status(404).json({encontrado:false}); const [,c]=achado, acao=req.body.acao;
   if(acao==='central_perfil'){const apps=(await db.ref('aplicativos').once('value')).val()||{};return res.json({encontrado:true,perfil:{nome:c.nome||'Cliente',status:c.status||'',servidor:c.servidor||'',vencimento:c.vencimento||null,aplicativos:(c.aplicativosIds||[]).map(x=>apps[x]?.nome).filter(Boolean),temDadosAcesso:!!(c.usuario||c.senha||c.m3uLink)}})}
