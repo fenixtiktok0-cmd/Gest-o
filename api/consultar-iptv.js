@@ -10,7 +10,13 @@ async function central(req, res) {
   const telefone=num(req.body.whatsapp), clientes=(await db.ref('clientes').once('value')).val()||{}, achado=Object.entries(clientes).find(([,c])=>num(c?.whatsapp)===telefone); if(!achado)return res.status(404).json({encontrado:false}); const [,c]=achado, acao=req.body.acao;
   if(acao==='central_perfil'){const apps=(await db.ref('aplicativos').once('value')).val()||{};return res.json({encontrado:true,perfil:{nome:c.nome||'Cliente',status:c.status||'',servidor:c.servidor||'',vencimento:c.vencimento||null,aplicativos:(c.aplicativosIds||[]).map(x=>apps[x]?.nome).filter(Boolean),temDadosAcesso:!!(c.usuario||c.senha||c.m3uLink)}})}
   const chave=crypto.createHash('sha256').update(telefone).digest('hex'),ref=db.ref('centralVerificacoes/'+chave);
-  if(acao==='central_enviar_codigo'){const codigo=String(crypto.randomInt(100000,1000000)),expiraEm=Date.now()+600000;await ref.set({hash:sig(telefone+':'+codigo+':'+expiraEm),expiraEm});const envio=await enviarWhatsappTextMeBot('55'+telefone,'MultiFlix: seu código de confirmação é '+codigo+'. Ele expira em 10 minutos. Não compartilhe este código.');return envio.enviado?res.json({enviado:true}):res.status(503).json({erro:'Não foi possível enviar o código.'})}
+  if(acao==='central_enviar_codigo'){
+    const codigo=String(crypto.randomInt(100000,1000000)),expiraEm=Date.now()+600000;
+    const envio=await enviarWhatsappTextMeBot('55'+telefone,'MultiFlix: seu código de confirmação é '+codigo+'. Ele expira em 10 minutos. Não compartilhe este código.');
+    if(!envio.enviado) return res.status(503).json({erro:'Não foi possível enviar o código agora. Tente novamente em alguns minutos.'});
+    await ref.set({hash:sig(telefone+':'+codigo+':'+expiraEm),expiraEm});
+    return res.json({enviado:true});
+  }
   if(acao==='central_confirmar_codigo'){const r=(await ref.once('value')).val(),codigo=String(req.body.codigo||'');if(!r||r.expiraEm<Date.now()||!/^\d{6}$/.test(codigo)||r.hash!==sig(telefone+':'+codigo+':'+r.expiraEm))return res.status(401).json({erro:'Código inválido ou expirado.'});await ref.remove();const expiraEm=Date.now()+600000;return res.json({prova:expiraEm+'.'+sig(telefone+':'+expiraEm)})}
   if(acao==='central_dados'){const[exp,assinatura]=String(req.body.prova||'').split('.');if(!/^\d+$/.test(exp||'')||Number(exp)<Date.now()||assinatura!==sig(telefone+':'+exp))return res.status(401).json({erro:'Confirmação necessária.'});return res.json({dados:{usuario:c.usuario||'',senha:c.senha||'',m3uLink:c.m3uLink||'',servidor:c.servidor||''}})}
   return res.status(400).json({erro:'Ação inválida.'});
