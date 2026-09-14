@@ -18,11 +18,13 @@ async function central(req, res) {
   const recebido=String(req.headers['x-central-secret']||''), esperado=sec(); if(!esperado||recebido.length!==esperado.length||!crypto.timingSafeEqual(Buffer.from(recebido),Buffer.from(esperado))) return res.status(401).json({erro:'Não autorizado.'});
   const telefone=num(req.body.whatsapp), clientes=(await db.ref('clientes').once('value')).val()||{}, achado=Object.entries(clientes).find(([,c])=>num(c?.whatsapp)===telefone); if(!achado)return res.status(404).json({encontrado:false}); const [,c]=achado, acao=req.body.acao;
   const apps=(await db.ref('aplicativos').once('value')).val()||{};
-  if(acao==='central_perfil') return res.json({encontrado:true,perfil:{nome:c.nome||'Cliente',status:c.status||'',servidor:c.servidor||'',vencimento:c.vencimento||null,aplicativos:appsDoCliente(c,apps).map((app)=>app.nome),temDadosAcesso:!!(c.usuario||c.senha||c.m3uLink),emailVerificado:!!(c.email&&c.emailVerificadoEm)}});
+  if(acao==='central_perfil') return res.json({encontrado:true,perfil:{nome:c.nome||'Cliente',status:c.status||'',servidor:c.servidor||'',vencimento:c.vencimento||null,aplicativos:appsDoCliente(c,apps).map((app)=>app.nome),temDadosAcesso:!!(c.usuario||c.senha||c.m3uLink),temEmailCadastrado:!!emailValido(c.email),emailVerificado:!!(c.email&&c.emailVerificadoEm)}});
   const chave=crypto.createHash('sha256').update(telefone).digest('hex'),ref=db.ref('centralVerificacoes/'+chave);
   if(acao==='central_enviar_codigo_email'){
-    const email=String(req.body.email||c.email||'').trim().toLowerCase();
-    if(!emailValido(email)) return res.status(400).json({erro:'Informe um e-mail válido para receber o código.'});
+    const emailInformado=String(req.body.email||'').trim().toLowerCase(),emailCadastrado=String(c.email||'').trim().toLowerCase();
+    if(!emailValido(emailInformado)) return res.status(400).json({erro:'Informe um e-mail válido para continuar.'});
+    if(emailValido(emailCadastrado)&&emailInformado!==emailCadastrado) return res.status(403).json({erro:'O e-mail informado não corresponde ao cadastro. Para alterar seu e-mail, fale com nosso atendimento pelo WhatsApp.'});
+    const email=emailValido(emailCadastrado)?emailCadastrado:emailInformado;
     if(!process.env.RESEND_API_KEY||!process.env.RESEND_FROM) return res.status(503).json({erro:'O envio por e-mail está em configuração. Tente novamente mais tarde.'});
     const codigo=String(crypto.randomInt(100000,1000000)),expiraEm=Date.now()+600000;
     try {
