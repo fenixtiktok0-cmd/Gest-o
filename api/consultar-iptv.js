@@ -1,15 +1,50 @@
 const { consultarContaXtream, consultarContaMusica } = require('../lib/xtream');
 const crypto = require('node:crypto');
+const { Resend } = require('resend');
 const { enviarWhatsappTextMeBot } = require('../lib/textmebot');
+const resend = new Resend(process.env.RESEND_API_KEY);
 const num = v => String(v || '').replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '');
 const sec = () => process.env.CENTRAL_INTEGRATION_SECRET || '';
 const sig = s => crypto.createHmac('sha256', sec()).update(s).digest('hex');
+const emailValido = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(String(v || '').trim());
+const appsDoCliente = (cliente, apps, incluirCodigo = false) => (cliente.aplicativosIds || [])
+  .map((id) => apps[id])
+  .filter(Boolean)
+  .map((app) => incluirCodigo ? { nome: String(app.nome || ''), codigo: String(app.codigo || '') } : { nome: String(app.nome || '') })
+  .filter((app) => app.nome);
+
 async function central(req, res) {
   const { db } = require('../lib/firebaseAdmin');
   const recebido=String(req.headers['x-central-secret']||''), esperado=sec(); if(!esperado||recebido.length!==esperado.length||!crypto.timingSafeEqual(Buffer.from(recebido),Buffer.from(esperado))) return res.status(401).json({erro:'Não autorizado.'});
   const telefone=num(req.body.whatsapp), clientes=(await db.ref('clientes').once('value')).val()||{}, achado=Object.entries(clientes).find(([,c])=>num(c?.whatsapp)===telefone); if(!achado)return res.status(404).json({encontrado:false}); const [,c]=achado, acao=req.body.acao;
-  if(acao==='central_perfil'){const apps=(await db.ref('aplicativos').once('value')).val()||{};return res.json({encontrado:true,perfil:{nome:c.nome||'Cliente',status:c.status||'',servidor:c.servidor||'',vencimento:c.vencimento||null,aplicativos:(c.aplicativosIds||[]).map(x=>apps[x]?.nome).filter(Boolean),temDadosAcesso:!!(c.usuario||c.senha||c.m3uLink)}})}
+  const apps=(await db.ref('aplicativos').once('value')).val()||{};
+  if(acao==='central_perfil') return res.json({encontrado:true,perfil:{nome:c.nome||'Cliente',status:c.status||'',servidor:c.servidor||'',vencimento:c.vencimento||null,aplicativos:appsDoCliente(c,apps).map((app)=>app.nome),temDadosAcesso:!!(c.usuario||c.senha||c.m3uLink),emailVerificado:!!(c.email&&c.emailVerificadoEm)}});
   const chave=crypto.createHash('sha256').update(telefone).digest('hex'),ref=db.ref('centralVerificacoes/'+chave);
+  if(acao==='central_enviar_codigo_email'){
+    const email=String(req.body.email||c.email||'').trim().toLowerCase();
+    if(!emailValido(email)) return res.status(400).json({erro:'Informe um e-mail válido para receber o código.'});
+    if(!process.env.RESEND_API_KEY||!process.env.RESEND_FROM) return res.status(503).json({erro:'O envio por e-mail está em configuração. Tente novamente mais tarde.'});
+    const codigo=String(crypto.randomInt(100000,1000000)),expiraEm=Date.now()+600000;
+    try {
+      const envio=await resend.emails.send({from:process.env.RESEND_FROM,to:email,subject:'Código de confirmação — MultiFlix',text:'Olá, '+(c.nome||'cliente')+'!\n\nSeu código de confirmação da Central MultiFlix é: '+codigo+'\n\nEle expira em 10 minutos. Não compartilhe este código.'});
+      if(envio?.error) { console.error('[Central e-mail] envio não confirmado:', envio.error.message||'erro do provedor'); return res.status(503).json({erro:'Não consegui enviar o e-mail agora. Confira o endereço e tente novamente.'}); }
+    } catch(erro) { console.error('[Central e-mail] falha no envio:', erro?.message||erro); return res.status(503).json({erro:'Não consegui enviar o e-mail agora. Tente novamente mais tarde.'}); }
+    await ref.set({hash:sig(telefone+':'+codigo+':'+expiraEm+':'+email),email,expiraEm});
+    return res.json({enviado:true});
+  }
+  if(acao==='central_confirmar_codigo_email'){
+    const r=(await ref.once('value')).val(),codigo=String(req.body.codigo||'');
+    if(!r||r.expiraEm<Date.now()||!emailValido(r.email)||!/^\d{6}$/.test(codigo)||r.hash!==sig(telefone+':'+codigo+':'+r.expiraEm+':'+r.email)) return res.status(401).json({erro:'Código inválido ou expirado.'});
+    await db.ref('clientes/'+achado[0]).update({email:r.email,emailVerificadoEm:Date.now()});
+    await ref.remove(); const expiraEm=Date.now()+600000;
+    return res.json({prova:expiraEm+'.'+sig(telefone+':'+expiraEm)});
+  }
+  if(acao==='central_salvar_push'){
+    const token=String(req.body.token||'');
+    if(token.length<80||token.length>4096) return res.status(400).json({erro:'Não consegui registrar as notificações neste navegador.'});
+    await db.ref('clientes/'+achado[0]).update({fcmToken:token,notificacaoAtiva:true});
+    return res.json({salvo:true});
+  }
   if(acao==='central_enviar_codigo'){
     const codigo=String(crypto.randomInt(100000,1000000)),expiraEm=Date.now()+600000;
     const envio=await enviarWhatsappTextMeBot('55'+telefone,'MultiFlix: seu código de confirmação é '+codigo+'. Ele expira em 10 minutos. Não compartilhe este código.');
@@ -18,7 +53,7 @@ async function central(req, res) {
     return res.json({enviado:true});
   }
   if(acao==='central_confirmar_codigo'){const r=(await ref.once('value')).val(),codigo=String(req.body.codigo||'');if(!r||r.expiraEm<Date.now()||!/^\d{6}$/.test(codigo)||r.hash!==sig(telefone+':'+codigo+':'+r.expiraEm))return res.status(401).json({erro:'Código inválido ou expirado.'});await ref.remove();const expiraEm=Date.now()+600000;return res.json({prova:expiraEm+'.'+sig(telefone+':'+expiraEm)})}
-  if(acao==='central_dados'){const[exp,assinatura]=String(req.body.prova||'').split('.');if(!/^\d+$/.test(exp||'')||Number(exp)<Date.now()||assinatura!==sig(telefone+':'+exp))return res.status(401).json({erro:'Confirmação necessária.'});return res.json({dados:{usuario:c.usuario||'',senha:c.senha||'',m3uLink:c.m3uLink||'',servidor:c.servidor||''}})}
+  if(acao==='central_dados'){const[exp,assinatura]=String(req.body.prova||'').split('.');if(!/^\d+$/.test(exp||'')||Number(exp)<Date.now()||assinatura!==sig(telefone+':'+exp))return res.status(401).json({erro:'Confirmação necessária.'});return res.json({dados:{usuario:c.usuario||'',senha:c.senha||'',m3uLink:c.m3uLink||'',servidor:c.servidor||'',aplicativos:appsDoCliente(c,apps,true)}})}
   return res.status(400).json({erro:'Ação inválida.'});
 }
 
