@@ -51,14 +51,24 @@ module.exports = async (req, res) => {
         [`renovacoes/${renovacaoId}`]: { ...renovacao, status: 'concluida', paymentId: String(pagamentoId), concluidaEm: Date.now(), novoVencimento },
       });
 
-      const texto = `✅ Pagamento confirmado!\n\nA renovação do seu aplicativo foi concluída com sucesso.\n\n📅 Novo vencimento: ${new Date(novoVencimento).toLocaleDateString('pt-BR')}.\n\n🔄 Feche e abra novamente o aplicativo para atualizar sua lista e validar o acesso.`;
+      let emailEnviado = false;
+      let texto = `✅ Pagamento confirmado!\n\nA renovação do seu aplicativo foi concluída com sucesso.\n\n📅 Novo vencimento: ${new Date(novoVencimento).toLocaleDateString('pt-BR')}.\n\n🔄 Feche e abra novamente o aplicativo para atualizar sua lista e validar o acesso.`;
       if (cliente.fcmToken && cliente.notificacaoAtiva) {
         try { await messaging.send({ token: cliente.fcmToken, data: { title: 'Plano renovado! ✅', body: texto, link: `${process.env.APP_URL}/meu-plano.html?id=${renovacao.clienteId}` } }); }
         catch (err) { console.error('Erro ao enviar push de renovação automática:', err.message); }
       }
-      if (cliente.email) {
-        try { await resend.emails.send({ from: process.env.RESEND_FROM, to: cliente.email, subject: 'Sua renovação MultiFlix foi concluída ✅', text: texto }); }
+      if (cliente.email && process.env.RESEND_API_KEY && process.env.RESEND_FROM) {
+        try {
+          const envio = await resend.emails.send({ from: process.env.RESEND_FROM, to: cliente.email, subject: 'Sua renovação MultiFlix foi concluída ✅', text: texto });
+          emailEnviado = !envio?.error;
+          if (envio?.error) console.error('Erro ao enviar e-mail de renovação automática:', envio.error.message || envio.error);
+        }
         catch (err) { console.error('Erro ao enviar e-mail de renovação automática:', err.message); }
+      }
+      if (emailEnviado) texto += '\n\n📧 Também enviamos a confirmação para o e-mail cadastrado.';
+      await renovacaoRef.update({ emailEnviado, notificacaoCentralEm: Date.now() });
+      if (/^[a-f0-9]{64}$/.test(String(renovacao.sessaoHash || ''))) {
+        await db.ref(`centralNotificacoes/${renovacao.sessaoHash}`).push({ mensagem: texto, criadoEm: Date.now(), tipo: 'renovacao_concluida' });
       }
       return res.status(200).json({ ok: true, renovacaoConcluida: true });
     }

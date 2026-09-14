@@ -38,13 +38,21 @@ async function central(req, res) {
     await db.ref('centralRenovacoes/'+ofertaId).set({clienteId:achado[0],telefone,usuario:c.usuario,plano:consulta.plano,expiraEm,criadoEm:Date.now()});
     return res.json({automatico:true,oferta:{token:ofertaId,plano:consulta.plano}});
   }
+  if(acao==='central_status_renovacao'){
+    const renovacaoId=String(req.body.renovacaoId||'');
+    if(!/^[a-f0-9]{40}$/.test(renovacaoId)) return res.status(400).json({erro:'Renovação inválida.'});
+    const renovacao=(await db.ref('renovacoes/'+renovacaoId).once('value')).val();
+    if(!renovacao||renovacao.clienteId!==achado[0]) return res.status(404).json({erro:'Renovação não encontrada.'});
+    return res.json({renovacao:{status:String(renovacao.status||''),novoVencimento:Number(renovacao.novoVencimento||0)||null,emailEnviado:renovacao.emailEnviado===true}});
+  }
   if(acao==='central_gerar_cobranca_renovacao'){
     const ofertaId=String(req.body.oferta||''),ofertaRef=db.ref('centralRenovacoes/'+ofertaId),oferta=(await ofertaRef.once('value')).val();
     if(!/^[a-f0-9]{40}$/.test(ofertaId)||!oferta||oferta.clienteId!==achado[0]||oferta.expiraEm<Date.now()) return res.status(401).json({erro:'Essa oferta expirou. Solicite a renovação novamente para consultar o plano atualizado.'});
     if(oferta.cobranca?.copiaCola) return res.json({cobranca:oferta.cobranca,reutilizada:true});
     const renovacaoId=crypto.randomBytes(20).toString('hex'),referencia='renovacao:'+renovacaoId;
     const cobranca=await criarCobrancaPixCentral({referencia,email:c.email,valor:oferta.plano.valor,descricao:'Renovação MultiFlix — '+oferta.plano.nome});
-    const registro={clienteId:achado[0],telefone,usuario:oferta.usuario,plano:oferta.plano,valor:oferta.plano.valor,status:'aguardando_pagamento',criadoEm:Date.now(),paymentId:cobranca.paymentId};
+    const sessaoHash=/^[a-f0-9]{64}$/.test(String(req.body.sessaoHash||''))?String(req.body.sessaoHash):'';
+    const registro={clienteId:achado[0],telefone,usuario:oferta.usuario,plano:oferta.plano,valor:oferta.plano.valor,status:'aguardando_pagamento',criadoEm:Date.now(),paymentId:cobranca.paymentId,sessaoHash};
     await db.ref().update({['renovacoes/'+renovacaoId]:registro,['centralRenovacoes/'+ofertaId+'/cobranca']:{...cobranca,renovacaoId}});
     return res.json({cobranca:{...cobranca,renovacaoId}});
   }
