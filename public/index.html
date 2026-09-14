@@ -572,6 +572,7 @@
       <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirNotificacoes();">🔔 Notificações</button>
       <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirFinanceiro();">💰 Financeiro</button>
       <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirMensagens();">✉️ Mensagens</button>
+      <button class="btn" style="text-align:left; background:rgba(96,165,250,0.12); border-color:rgba(96,165,250,0.42);" onclick="fecharMenu(); abrirCentralAdmin();">🤖 Central de atendimento</button>
       <button class="btn" style="text-align:left; background:linear-gradient(135deg,#FBBF24,#F59E0B); border-color:#F59E0B; color:#412402; font-weight:600;" onclick="fecharMenu(); abrirLeads();">🎯 Leads (testes pendentes)</button>
       <button class="btn" id="btn-notif-admin" style="text-align:left;" onclick="fecharMenu(); ativarNotificacoesAdmin();">🔔 Ativar minhas notificações</button>
       <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirConfig();">⚙️ Configurações</button>
@@ -579,6 +580,27 @@
     <div class="modal-actions">
       <button class="btn" onclick="fecharMenu()">Fechar</button>
     </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-central-admin">
+  <div class="modal" style="max-width:760px;">
+    <div class="modal-header"><h2>🤖 Central de atendimento</h2><button class="modal-close-x" onclick="fecharCentralAdmin()">✕</button></div>
+    <p style="margin-top:0; color:var(--text-muted); font-size:13px;">Visão dos atendimentos iniciados pela Central e atalhos para manter os aplicativos e mensagens atualizados.</p>
+    <div class="stats" style="margin:14px 0; grid-template-columns:repeat(4,minmax(110px,1fr));">
+      <div class="stat-card"><div class="label">Atendimentos</div><div class="value mono" id="central-total">0</div></div>
+      <div class="stat-card"><div class="label">Suporte</div><div class="value mono" id="central-suporte">0</div></div>
+      <div class="stat-card"><div class="label">Testes</div><div class="value mono" id="central-testes">0</div></div>
+      <div class="stat-card ok"><div class="label">Renovações pagas</div><div class="value mono" id="central-renovacoes">0</div></div>
+    </div>
+    <div style="display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 18px;">
+      <button class="btn btn-primary" onclick="fecharCentralAdmin(); abrirAplicativos();">📲 Gerenciar aplicativos</button>
+      <button class="btn" onclick="fecharCentralAdmin(); abrirMensagens();">✉️ Ajustar mensagens</button>
+      <button class="btn" onclick="carregarCentralAdmin();">↻ Atualizar dados</button>
+    </div>
+    <h3 style="font-size:15px; margin:0 0 10px;">Últimos contatos da Central</h3>
+    <div id="central-lista" style="max-height:310px; overflow:auto; display:grid; gap:8px;"><div style="color:var(--text-muted);">Carregando atendimentos…</div></div>
+    <div class="modal-actions"><button class="btn" onclick="fecharCentralAdmin()">Fechar</button></div>
   </div>
 </div>
 
@@ -3263,6 +3285,40 @@
   document.getElementById('fin-filtro-mes').addEventListener('change', renderizarFinanceiro);
   document.getElementById('fin-filtro-servidor').addEventListener('change', renderizarFinanceiro);
   document.getElementById('fin-filtro-produto').addEventListener('change', renderizarFinanceiro);
+
+  const escaparCentral = (valor) => String(valor || '').replace(/[&<>"']/g, (caractere) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' })[caractere]);
+  function fecharCentralAdmin() { document.getElementById('overlay-central-admin').classList.remove('open'); }
+  async function abrirCentralAdmin() {
+    document.getElementById('overlay-central-admin').classList.add('open');
+    await carregarCentralAdmin();
+  }
+  async function carregarCentralAdmin() {
+    const lista = document.getElementById('central-lista');
+    lista.innerHTML = '<div style="color:var(--text-muted);">Carregando atendimentos…</div>';
+    try {
+      const [atendimentosRes, renovacoesRes] = await Promise.all([
+        fetch(`${FIREBASE_DB}/centralAtendimentos.json`),
+        fetch(`${FIREBASE_DB}/renovacoes.json`)
+      ]);
+      const atendimentosDados = await atendimentosRes.json() || {};
+      const renovacoesDados = await renovacoesRes.json() || {};
+      const atendimentos = Object.entries(atendimentosDados).map(([id, item]) => ({ id, ...item })).sort((a,b) => Number(b.criadoEm || 0) - Number(a.criadoEm || 0));
+      const renovacoes = Object.values(renovacoesDados).filter((item) => item && item.status === 'concluida');
+      const contar = (tipo) => atendimentos.filter((item) => item.tipo === tipo).length;
+      document.getElementById('central-total').textContent = atendimentos.length;
+      document.getElementById('central-suporte').textContent = contar('suporte');
+      document.getElementById('central-testes').textContent = contar('teste');
+      document.getElementById('central-renovacoes').textContent = renovacoes.length;
+      if (!atendimentos.length) { lista.innerHTML = '<div style="color:var(--text-muted);">Ainda não há atendimentos registrados pela Central.</div>'; return; }
+      lista.innerHTML = atendimentos.slice(0,40).map((item) => {
+        const data = item.criadoEm ? new Date(item.criadoEm).toLocaleString('pt-BR') : '—';
+        const tipo = escaparCentral(item.tipo || 'atendimento');
+        return `<div class="lista-item" style="display:block; border:1px solid var(--border); border-radius:9px; padding:10px 12px;"><div style="display:flex; justify-content:space-between; gap:10px;"><b>${escaparCentral(item.nome || 'Novo atendimento')}</b><span class="badge">${tipo}</span></div><div class="mono" style="font-size:12px; color:var(--text-muted); margin-top:5px;">${escaparCentral(item.whatsapp || 'sem telefone')} · ${data}</div>${item.detalhe ? `<div style="font-size:12px; color:var(--text-muted); margin-top:6px;">${escaparCentral(item.detalhe)}</div>` : ''}</div>`;
+      }).join('');
+    } catch (_) {
+      lista.innerHTML = '<div style="color:var(--danger);">Não foi possível carregar os dados da Central agora.</div>';
+    }
+  }
 
   carregarConfigMusica();
   carregarClientes();

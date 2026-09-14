@@ -51,7 +51,7 @@ module.exports = async (req, res) => {
         [`renovacoes/${renovacaoId}`]: { ...renovacao, status: 'concluida', paymentId: String(pagamentoId), concluidaEm: Date.now(), novoVencimento },
       });
 
-      const texto = `✅ Pagamento confirmado!\n\nSua renovação MultiFlix foi concluída com sucesso.\n\n📅 Novo vencimento: ${new Date(novoVencimento).toLocaleDateString('pt-BR')}.`;
+      const texto = `✅ Pagamento confirmado!\n\nA renovação do seu aplicativo foi concluída com sucesso.\n\n📅 Novo vencimento: ${new Date(novoVencimento).toLocaleDateString('pt-BR')}.\n\n🔄 Feche e abra novamente o aplicativo para atualizar sua lista e validar o acesso.`;
       if (cliente.fcmToken && cliente.notificacaoAtiva) {
         try { await messaging.send({ token: cliente.fcmToken, data: { title: 'Plano renovado! ✅', body: texto, link: `${process.env.APP_URL}/meu-plano.html?id=${renovacao.clienteId}` } }); }
         catch (err) { console.error('Erro ao enviar push de renovação automática:', err.message); }

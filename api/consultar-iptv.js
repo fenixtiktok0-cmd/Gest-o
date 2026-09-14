@@ -19,7 +19,14 @@ const clienteMultiflix = cliente => /multiflix/i.test(String(cliente?.servidor |
 async function central(req, res) {
   const { db } = require('../lib/firebaseAdmin');
   const recebido=String(req.headers['x-central-secret']||''), esperado=sec(); if(!esperado||recebido.length!==esperado.length||!crypto.timingSafeEqual(Buffer.from(recebido),Buffer.from(esperado))) return res.status(401).json({erro:'Não autorizado.'});
-  const telefone=num(req.body.whatsapp), clientes=(await db.ref('clientes').once('value')).val()||{}, achado=Object.entries(clientes).find(([,c])=>num(c?.whatsapp)===telefone); if(!achado)return res.status(404).json({encontrado:false}); const [,c]=achado, acao=req.body.acao;
+  const telefone=num(req.body.whatsapp), clientes=(await db.ref('clientes').once('value')).val()||{}, achado=Object.entries(clientes).find(([,c])=>num(c?.whatsapp)===telefone), acao=req.body.acao;
+  if(acao==='central_registrar_atendimento'){
+    const tipo=String(req.body.tipo||'duvida').slice(0,40),detalhe=String(req.body.detalhe||'').slice(0,180);
+    const cliente=achado?.[1]||{};
+    await db.ref('centralAtendimentos').push({clienteId:achado?.[0]||'',nome:String(cliente.nome||'Novo atendimento').slice(0,100),whatsapp:telefone,tipo,detalhe,criadoEm:Date.now()});
+    return res.json({registrado:true});
+  }
+  if(!achado)return res.status(404).json({encontrado:false}); const [,c]=achado;
   const apps=(await db.ref('aplicativos').once('value')).val()||{};
   if(acao==='central_perfil') return res.json({encontrado:true,perfil:{nome:c.nome||'Cliente',status:c.status||'',servidor:c.servidor||'',vencimento:c.vencimento||null,aplicativos:appsDoCliente(c,apps).map((app)=>app.nome),temDadosAcesso:!!(c.usuario||c.senha||c.m3uLink),temEmailCadastrado:!!emailValido(c.email),emailVerificado:!!(c.email&&c.emailVerificadoEm)}});
   if(acao==='central_consultar_renovacao'){
