@@ -2,6 +2,8 @@ const { consultarContaXtream, consultarContaMusica } = require('../lib/xtream');
 const crypto = require('node:crypto');
 const { Resend } = require('resend');
 const { enviarWhatsappTextMeBot } = require('../lib/textmebot');
+const { consultarRenovacaoMultiflix } = require('../lib/multiflix-renovacao');
+const { criarCobrancaCheckout } = require('../lib/mercadopago');
 const resend = new Resend(process.env.RESEND_API_KEY);
 const num = v => String(v || '').replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '');
 const sec = () => process.env.CENTRAL_INTEGRATION_SECRET || '';
@@ -12,6 +14,7 @@ const appsDoCliente = (cliente, apps, incluirCodigo = false) => (cliente.aplicat
   .filter(Boolean)
   .map((app) => incluirCodigo ? { nome: String(app.nome || ''), codigo: String(app.codigo || '') } : { nome: String(app.nome || '') })
   .filter((app) => app.nome);
+const clienteMultiflix = cliente => /multiflix/i.test(String(cliente?.servidor || '')) || /x\.fenixsocial\.site/i.test(String(cliente?.m3uLink || ''));
 
 async function central(req, res) {
   const { db } = require('../lib/firebaseAdmin');
@@ -19,6 +22,25 @@ async function central(req, res) {
   const telefone=num(req.body.whatsapp), clientes=(await db.ref('clientes').once('value')).val()||{}, achado=Object.entries(clientes).find(([,c])=>num(c?.whatsapp)===telefone); if(!achado)return res.status(404).json({encontrado:false}); const [,c]=achado, acao=req.body.acao;
   const apps=(await db.ref('aplicativos').once('value')).val()||{};
   if(acao==='central_perfil') return res.json({encontrado:true,perfil:{nome:c.nome||'Cliente',status:c.status||'',servidor:c.servidor||'',vencimento:c.vencimento||null,aplicativos:appsDoCliente(c,apps).map((app)=>app.nome),temDadosAcesso:!!(c.usuario||c.senha||c.m3uLink),temEmailCadastrado:!!emailValido(c.email),emailVerificado:!!(c.email&&c.emailVerificadoEm)}});
+  if(acao==='central_consultar_renovacao'){
+    if(!clienteMultiflix(c)) return res.json({automatico:false,mensagem:'💬 Vamos ajudar com sua renovação\n\nNo momento, as renovações deste serviço são realizadas diretamente pelo nosso atendimento no WhatsApp.\n\nAssim conseguimos conferir as opções disponíveis para a sua conta e orientar você da melhor forma. 😊'});
+    if(!c.usuario) return res.status(409).json({erro:'Não localizei o usuário MultiFlix desta conta para consultar a renovação.'});
+    const consulta=await consultarRenovacaoMultiflix(c.usuario);
+    if(!consulta?.encontrado||!consulta.plano) return res.status(409).json({erro:'Não consegui localizar o plano MultiFlix desta conta agora. Fale com nosso suporte pelo WhatsApp.'});
+    const ofertaId=crypto.randomBytes(20).toString('hex'),expiraEm=Date.now()+15*60*1000;
+    await db.ref('centralRenovacoes/'+ofertaId).set({clienteId:achado[0],telefone,usuario:c.usuario,plano:consulta.plano,expiraEm,criadoEm:Date.now()});
+    return res.json({automatico:true,oferta:{token:ofertaId,plano:consulta.plano}});
+  }
+  if(acao==='central_gerar_cobranca_renovacao'){
+    const ofertaId=String(req.body.oferta||''),ofertaRef=db.ref('centralRenovacoes/'+ofertaId),oferta=(await ofertaRef.once('value')).val();
+    if(!/^[a-f0-9]{40}$/.test(ofertaId)||!oferta||oferta.clienteId!==achado[0]||oferta.expiraEm<Date.now()) return res.status(401).json({erro:'Essa oferta expirou. Solicite a renovação novamente para consultar o plano atualizado.'});
+    if(oferta.cobranca?.linkPagamento) return res.json({cobranca:oferta.cobranca,reutilizada:true});
+    const renovacaoId=crypto.randomBytes(20).toString('hex'),referencia='renovacao:'+renovacaoId;
+    const cobranca=await criarCobrancaCheckout({referencia,email:c.email,nome:c.nome,valor:oferta.plano.valor,descricao:'Renovação MultiFlix — '+oferta.plano.nome});
+    const registro={clienteId:achado[0],telefone,usuario:oferta.usuario,plano:oferta.plano,valor:oferta.plano.valor,status:'aguardando_pagamento',criadoEm:Date.now(),preferenceId:cobranca.preferenceId,linkPagamento:cobranca.linkPagamento};
+    await db.ref().update({['renovacoes/'+renovacaoId]:registro,['centralRenovacoes/'+ofertaId+'/cobranca']:{...cobranca,renovacaoId}});
+    return res.json({cobranca:{...cobranca,renovacaoId}});
+  }
   const chave=crypto.createHash('sha256').update(telefone).digest('hex'),ref=db.ref('centralVerificacoes/'+chave);
   if(acao==='central_enviar_codigo_email'){
     const emailInformado=String(req.body.email||'').trim().toLowerCase(),emailCadastrado=String(c.email||'').trim().toLowerCase();
