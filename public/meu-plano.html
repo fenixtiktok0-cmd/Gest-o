@@ -133,6 +133,13 @@
     box-sizing: border-box;
   }
   .loading { text-align: center; padding: 40px 0; color: var(--text-muted); }
+  .modal-area { display:none; position:fixed; inset:0; z-index:200; background:rgba(0,0,0,.76); padding:20px; align-items:center; justify-content:center; }
+  .modal-area-caixa { width:min(100%,390px); max-height:85vh; overflow:auto; background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:20px; box-shadow:0 24px 60px rgba(0,0,0,.45); }
+  .modal-area-caixa h2 { font-family:'Space Grotesk',sans-serif; margin:0 0 8px; font-size:19px; }
+  .modal-area-caixa p, .modal-area-caixa li { font-size:13px; line-height:1.6; color:var(--text-muted); }
+  .modal-area-caixa ul { margin:10px 0; padding-left:20px; }
+  .tour-etapa { color:var(--ok); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; }
+  .destaque-guia { outline:2px solid var(--ok); outline-offset:4px; border-radius:12px; }
 </style>
 </head>
 <body>
@@ -152,6 +159,10 @@
       <p id="modal-conteudo-sinopse" style="font-size:13.5px; line-height:1.6; margin:0; color:var(--text);"></p>
     </div>
   </div>
+</div>
+
+<div id="modal-area" class="modal-area" onclick="if(event.target===this) fecharModalArea()">
+  <div id="modal-area-caixa" class="modal-area-caixa" role="dialog" aria-modal="true" aria-label="Área do Cliente"></div>
 </div>
 
 <button id="btn-atualizar-flutuante" onclick="location.reload()" title="Atualizar" style="position:fixed; bottom:20px; right:20px; width:48px; height:48px; border-radius:50%; border:1px solid var(--border); background:var(--surface); color:var(--ok); font-size:20px; cursor:pointer; box-shadow:0 4px 14px rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; margin:0;">🔄</button>
@@ -267,6 +278,40 @@
   let nomeClienteGlobal = '';
   let whatsappAdminGlobal = '';
   let emTesteGlobal = false;
+  let dadosClienteModalGlobal = '';
+  let guiaEtapaAtual = 0;
+
+  function abrirModalArea(html) {
+    document.getElementById('modal-area-caixa').innerHTML = html;
+    document.getElementById('modal-area').style.display = 'flex';
+  }
+  function fecharModalArea() {
+    document.getElementById('modal-area').style.display = 'none';
+    document.querySelectorAll('.destaque-guia').forEach((el) => el.classList.remove('destaque-guia'));
+  }
+  function abrirDadosCliente() {
+    abrirModalArea('<button type="button" onclick="fecharModalArea()" style="float:right;width:auto;margin:0;padding:6px 10px;background:var(--surface-2);color:var(--text);border:1px solid var(--border);">✕</button><h2>🔐 Dados do Cliente</h2><p>Confira os dados abaixo. Não compartilhe sua senha nem seus códigos com terceiros.</p>' + (dadosClienteModalGlobal || '<p>Não há dados disponíveis agora.</p>'));
+  }
+  function abrirTrocaServidor() {
+    abrirModalArea('<button type="button" onclick="fecharModalArea()" style="float:right;width:auto;margin:0;padding:6px 10px;background:var(--surface-2);color:var(--text);border:1px solid var(--border);">✕</button><h2>🔄 Trocar servidor</h2><p>Seu acesso atual permanece funcionando enquanto a Central verifica as opções disponíveis.</p><p>Para escolher outro servidor, fale com a Central MultiFlix e escreva <b>“quero trocar de servidor”</b>. Ela explicará as opções compatíveis e o que muda no seu aparelho antes de qualquer alteração.</p><a class="btn-suporte" href="https://x.fenixsocial.site/central.html?origem=area-cliente" target="_blank" rel="noopener noreferrer">💬 Abrir a Central</a>');
+  }
+  function abrirGuiaArea(inicial) {
+    const etapas = [
+      { alvo:'btn-dados-cliente', titulo:'🔐 Seus dados de acesso', texto:'Toque em “Dados do Cliente” sempre que precisar conferir usuário, senha e os códigos dos aplicativos vinculados à sua conta.' },
+      { alvo:'btn-trocar-servidor', titulo:'🔄 Troca de servidor', texto:'Aqui você encontra o caminho seguro para pedir outra opção de servidor. A Central explica a compatibilidade antes de alterar qualquer coisa.' },
+      { alvo:'bloco-android', titulo:'📺 Android, TV Box e Firestick', texto:'Nesta parte há o vídeo de instalação indicado para o seu servidor. Siga o vídeo no seu aparelho para configurar corretamente.' },
+      { alvo:'btn-pagar', titulo:'💳 Pagamento e renovação', texto:'Quando estiver perto do vencimento, use este botão para gerar um Pix seguro. A confirmação e a renovação ocorrem automaticamente.' }
+    ];
+    guiaEtapaAtual = Number.isInteger(inicial) ? inicial : 0;
+    const etapa = etapas[guiaEtapaAtual] || etapas[0];
+    document.querySelectorAll('.destaque-guia').forEach((el) => el.classList.remove('destaque-guia'));
+    document.getElementById(etapa.alvo)?.classList.add('destaque-guia');
+    abrirModalArea('<button type="button" onclick="fecharModalArea()" style="float:right;width:auto;margin:0;padding:6px 10px;background:var(--surface-2);color:var(--text);border:1px solid var(--border);">✕</button><div class="tour-etapa">Guia da Área do Cliente · '+(guiaEtapaAtual+1)+' de '+etapas.length+'</div><h2>'+etapa.titulo+'</h2><p>'+etapa.texto+'</p><button type="button" onclick="proximaEtapaGuia()">'+(guiaEtapaAtual === etapas.length-1 ? 'Concluir guia ✓' : 'Próxima explicação →')+'</button>');
+  }
+  function proximaEtapaGuia() {
+    if (guiaEtapaAtual >= 3) { fecharModalArea(); localStorage.setItem('guiaAreaCliente:'+clienteId, 'visto'); return; }
+    abrirGuiaArea(guiaEtapaAtual + 1);
+  }
 
   function extrairIdYoutube(url) {
     if (!url) return null;
@@ -370,6 +415,7 @@
 
     let dadosAcessoHtml = '';
     let emailCapturaHtml = '';
+    dadosClienteModalGlobal = '';
 
     if (notifAtiva && temDadosAcesso) {
       const cores = ['#34D399', '#60A5FA', '#F472B6', '#A78BFA', '#FB923C', '#22D3EE'];
@@ -390,13 +436,8 @@
         </div>
       ` : '';
 
-      dadosAcessoHtml = `
-        <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--border);">
-          <div style="font-size:12px; color:var(--ok); margin-bottom:8px;">✅ Dados de acesso:</div>
-          ${appsHtml}
-          ${credenciaisHtml}
-        </div>
-      `;
+      dadosClienteModalGlobal = `${appsHtml}${credenciaisHtml}`;
+      dadosAcessoHtml = `<button id="btn-dados-cliente" type="button" class="btn-suporte" onclick="abrirDadosCliente()">🔐 Dados do Cliente</button>`;
     } else if (!notifAtiva && temDadosAcesso) {
       emailCapturaHtml = `
         <div style="margin-top:16px;">
@@ -434,7 +475,7 @@
       const idYoutube = extrairIdYoutube(servidorInfo?.tutorialUrl || '');
       if (idYoutube) {
         tutorialHtml = `
-          <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--border);">
+          <div id="bloco-android" style="margin-top:16px; padding-top:14px; border-top:1px solid var(--border);">
             <div style="font-size:12px; color:var(--text-muted); margin-bottom:8px;">📺 Como instalar na sua TV Box, TV Android ou Firestick:</div>
             <div style="position:relative; padding-bottom:56.25%; height:0; border-radius:10px; overflow:hidden;">
               <iframe src="https://www.youtube.com/embed/${idYoutube}" style="position:absolute; top:0; left:0; width:100%; height:100%; border:none;" allowfullscreen></iframe>
@@ -482,6 +523,8 @@
         ${dadosAcessoHtml}
         ${tutorialHtml}
         ${bannerPagamentoHtml}
+        ${c.servidor ? `<button id="btn-trocar-servidor" type="button" class="btn-suporte" onclick="abrirTrocaServidor()">🔄 Quero trocar de servidor</button>` : ''}
+        <button id="btn-ajuda-area" type="button" class="btn-suporte" onclick="abrirGuiaArea(0)">❓ Como usar a Área do Cliente?</button>
         <button id="btn-notif" ${notifAtiva ? 'disabled' : ''}>${notifAtiva ? 'Notificações ativadas ✓' : textoBotaoNotif}</button>
         ${botaoSuporteHtml}
         ${muralAvisosHtml}
@@ -491,6 +534,7 @@
     const botaoNotif = document.getElementById('btn-notif');
     if (botaoNotif && !notifAtiva) botaoNotif.onclick = ativarNotificacoes;
     if (notifAtiva) carregarVitrineTMDB();
+    if (!localStorage.getItem('guiaAreaCliente:'+clienteId)) setTimeout(() => abrirGuiaArea(0), 700);
 
     // Se estiver dentro do WhatsApp/Instagram/etc, já avisa de cara,
     // sem esperar o cliente clicar e tomar um erro confuso.
