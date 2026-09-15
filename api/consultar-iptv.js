@@ -34,6 +34,17 @@ async function central(req, res) {
     await db.ref('centralAtendimentos').push({clienteId:achado?.[0]||'',nome:String(cliente.nome||'Novo atendimento').slice(0,100),whatsapp:telefone,tipo,detalhe,criadoEm:Date.now()});
     return res.json({registrado:true});
   }
+  // O catálogo comercial da Central não depende de um cadastro de cliente.
+  // Assim, um interessado novo vê apenas os planos ativos — nunca os preços
+  // particulares usados nos cadastros manuais do Gestor.
+  if(acao==='central_listar_planos'){
+    const registros=(await db.ref('centralPlanos').once('value')).val()||{};
+    const planos=Object.entries(registros)
+      .map(([id,plano])=>({id,nome:String(plano?.nome||'').trim().slice(0,80),valor:Number(plano?.valor),dias:Number(plano?.dias),ativo:plano?.ativo===true}))
+      .filter((plano)=>plano.ativo&&plano.nome&&Number.isFinite(plano.valor)&&plano.valor>0&&Number.isInteger(plano.dias)&&plano.dias>0&&plano.dias<=366)
+      .sort((a,b)=>a.dias-b.dias||a.valor-b.valor);
+    return res.json({planos});
+  }
   if(!achado)return res.status(404).json({encontrado:false}); const [,c]=achado;
   const apps=(await db.ref('aplicativos').once('value')).val()||{};
   if(acao==='central_perfil') return res.json({encontrado:true,perfil:{nome:c.nome||'Cliente',status:c.status||'',servidor:c.servidor||'',vencimento:c.vencimento||null,aplicativos:appsDoCliente(c,apps).map((app)=>app.nome),temDadosAcesso:!!(c.usuario||c.senha||c.m3uLink),temEmailCadastrado:!!emailValido(c.email),emailVerificado:!!(c.email&&c.emailVerificadoEm),multiflix:clienteMultiflix(c),areaClienteUrl:clienteMultiflix(c)?'https://x.fenixsocial.site/cliente.html':''}});
