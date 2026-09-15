@@ -478,7 +478,7 @@
 
 <header>
   <h1><span class="signal-dot"></span> Gestão de Clientes</h1>
-  <button class="btn" onclick="abrirMenu()" style="font-size:20px; padding:8px 14px;">☰</button>
+  <div style="display:flex; gap:8px; align-items:center;"><button class="btn" onclick="abrirCentralAdmin()" style="border-color:rgba(96,165,250,0.55);">🤖 Central de Atendimento</button><button class="btn" onclick="abrirMenu()" style="font-size:20px; padding:8px 14px;">☰</button></div>
 </header>
 
 <button id="btn-atualizar-flutuante" onclick="location.reload()" title="Atualizar" style="position:fixed; bottom:20px; right:20px; width:48px; height:48px; border-radius:50%; border:1px solid var(--border); background:var(--surface); color:var(--ok); font-size:20px; cursor:pointer; box-shadow:0 4px 14px rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; z-index:60;">🔄</button>
@@ -572,7 +572,6 @@
       <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirNotificacoes();">🔔 Notificações</button>
       <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirFinanceiro();">💰 Financeiro</button>
       <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirMensagens();">✉️ Mensagens</button>
-      <button class="btn" style="text-align:left; background:rgba(96,165,250,0.12); border-color:rgba(96,165,250,0.42);" onclick="fecharMenu(); abrirCentralAdmin();">🤖 Central de atendimento</button>
       <button class="btn" style="text-align:left; background:linear-gradient(135deg,#FBBF24,#F59E0B); border-color:#F59E0B; color:#412402; font-weight:600;" onclick="fecharMenu(); abrirLeads();">🎯 Leads (testes pendentes)</button>
       <button class="btn" id="btn-notif-admin" style="text-align:left;" onclick="fecharMenu(); ativarNotificacoesAdmin();">🔔 Ativar minhas notificações</button>
       <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirConfig();">⚙️ Configurações</button>
@@ -607,6 +606,9 @@
       <button class="btn btn-primary" onclick="adicionarPlanoCentral()">Adicionar</button>
     </div>
     <div id="central-planos" style="display:grid; gap:7px; margin-bottom:18px;"></div>
+    <h3 style="font-size:15px; margin:0 0 10px;">📲 Ativações anuais de aplicativos</h3>
+    <p style="margin:0 0 10px; color:var(--text-muted); font-size:12px;">Cadastros separados de pessoas que solicitaram licença anual. Clique em um registro para ver os dados completos.</p>
+    <div id="central-ativacoes" style="max-height:260px; overflow:auto; display:grid; gap:8px; margin-bottom:18px;"><div style="color:var(--text-muted);">Carregando ativações…</div></div>
     <h3 style="font-size:15px; margin:0 0 10px;">Últimos contatos da Central</h3>
     <div id="central-lista" style="max-height:310px; overflow:auto; display:grid; gap:8px;"><div style="color:var(--text-muted);">Carregando atendimentos…</div></div>
     <div class="modal-actions"><button class="btn" onclick="fecharCentralAdmin()">Fechar</button></div>
@@ -3305,14 +3307,16 @@
     const lista = document.getElementById('central-lista');
     lista.innerHTML = '<div style="color:var(--text-muted);">Carregando atendimentos…</div>';
     try {
-      const [atendimentosRes, renovacoesRes, planosRes] = await Promise.all([
+      const [atendimentosRes, renovacoesRes, planosRes, ativacoesRes] = await Promise.all([
         fetch(`${FIREBASE_DB}/centralAtendimentos.json`),
         fetch(`${FIREBASE_DB}/renovacoes.json`),
-        fetch(`${FIREBASE_DB}/centralPlanos.json`)
+        fetch(`${FIREBASE_DB}/centralPlanos.json`),
+        fetch(`${FIREBASE_DB}/centralAtivacoes.json`)
       ]);
       const atendimentosDados = await atendimentosRes.json() || {};
       const renovacoesDados = await renovacoesRes.json() || {};
       renderizarPlanosCentral(await planosRes.json() || {});
+      renderizarAtivacoesCentral(await ativacoesRes.json() || {});
       const atendimentos = Object.entries(atendimentosDados).map(([id, item]) => ({ id, ...item })).sort((a,b) => Number(b.criadoEm || 0) - Number(a.criadoEm || 0));
       const renovacoes = Object.values(renovacoesDados).filter((item) => item && item.status === 'concluida');
       const contar = (tipo) => atendimentos.filter((item) => item.tipo === tipo).length;
@@ -3329,6 +3333,12 @@
     } catch (_) {
       lista.innerHTML = '<div style="color:var(--danger);">Não foi possível carregar os dados da Central agora.</div>';
     }
+  }
+
+  function renderizarAtivacoesCentral(ativacoes) {
+    const destino=document.getElementById('central-ativacoes'); const itens=Object.values(ativacoes || {}).filter(Boolean).sort((a,b)=>Number(b.atualizadoEm||b.criadoEm||0)-Number(a.atualizadoEm||a.criadoEm||0));
+    if(!itens.length){destino.innerHTML='<div style="color:var(--text-muted); font-size:12px;">Nenhuma ativação anual registrada ainda.</div>';return;}
+    destino.innerHTML=itens.slice(0,60).map((a)=>{const data=a.atualizadoEm?new Date(a.atualizadoEm).toLocaleString('pt-BR'):'—';return `<details style="border:1px solid var(--border); border-radius:9px; padding:10px 12px;"><summary style="cursor:pointer; display:flex; justify-content:space-between; gap:8px;"><b>${escaparCentral(a.aplicativo||'Aplicativo')}</b><span class="badge">${escaparCentral(a.status||'pendente')}</span></summary><div style="font-size:12px; line-height:1.65; margin-top:9px;"><div><b>Cliente:</b> ${escaparCentral(a.nome||'Não informado')}</div><div><b>WhatsApp:</b> ${escaparCentral(a.whatsapp||'—')}</div><div><b>E-mail:</b> ${escaparCentral(a.email||'—')}</div><div><b>MAC:</b> <span class="mono">${escaparCentral(a.mac||'—')}</span></div><div><b>Valor:</b> ${Number(a.valor||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</div><div><b>Validade:</b> ${a.validade?new Date(a.validade).toLocaleDateString('pt-BR'):'aguardando confirmação'}</div><div style="color:var(--text-muted);">Atualizado: ${data}</div></div></details>`;}).join('');
   }
 
   function valorPlanoCentral(valor) { return Number(String(valor || '').replace(',', '.')); }

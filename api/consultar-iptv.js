@@ -45,9 +45,20 @@ async function central(req, res) {
       .sort((a,b)=>a.dias-b.dias||a.valor-b.valor);
     return res.json({planos});
   }
+  if(acao==='central_registrar_ativacao'){
+    const id=String(req.body.id||''),mac=String(req.body.mac||'').toUpperCase();
+    if(!/^[A-F0-9]{2}(?::[A-F0-9]{2}){5}$/.test(mac)||!/^[A-Za-z0-9_-]{6,100}$/.test(id)) return res.status(400).json({erro:'Dados da ativação inválidos.'});
+    await db.ref('centralAtivacoes/'+id).set({id,nome:String(req.body.nome||'').trim().slice(0,100)||'Não informado',email:String(req.body.email||'').trim().toLowerCase().slice(0,160),whatsapp:num(req.body.whatsapp),aplicativo:String(req.body.aplicativo||'').trim().slice(0,120),mac,status:String(req.body.status||'aguardando_pagamento').slice(0,40),valor:Number(req.body.valor)||0,criadoEm:Date.now(),atualizadoEm:Date.now()});
+    return res.json({registrado:true});
+  }
+  if(acao==='central_atualizar_ativacao'){
+    const id=String(req.body.id||''); if(!/^[A-Za-z0-9_-]{6,100}$/.test(id)) return res.status(400).json({erro:'Ativação inválida.'});
+    const existente=(await db.ref('centralAtivacoes/'+id).once('value')).val(); if(!existente) return res.status(404).json({erro:'Ativação não encontrada.'});
+    await db.ref('centralAtivacoes/'+id).update({status:String(req.body.status||existente.status).slice(0,40),validade:Number(req.body.validade)||existente.validade||null,atualizadoEm:Date.now()}); return res.json({atualizado:true});
+  }
   if(!achado)return res.status(404).json({encontrado:false}); const [,c]=achado;
   const apps=(await db.ref('aplicativos').once('value')).val()||{};
-  if(acao==='central_perfil') return res.json({encontrado:true,perfil:{nome:c.nome||'Cliente',status:c.status||'',servidor:c.servidor||'',vencimento:c.vencimento||null,aplicativos:appsDoCliente(c,apps).map((app)=>app.nome),temDadosAcesso:!!(c.usuario||c.senha||c.m3uLink),temEmailCadastrado:!!emailValido(c.email),emailVerificado:!!(c.email&&c.emailVerificadoEm),multiflix:clienteMultiflix(c),areaClienteUrl:clienteMultiflix(c)?'https://x.fenixsocial.site/cliente.html':''}});
+  if(acao==='central_perfil') return res.json({encontrado:true,perfil:{nome:c.nome||'Cliente',status:c.status||'',servidor:c.servidor||'',vencimento:c.vencimento||null,plano:{nome:String(c.tipoPlano||c.plano||'').slice(0,80),valor:Number(c.valorPlano||c.planoValor||0)||0},aplicativos:appsDoCliente(c,apps).map((app)=>app.nome),temDadosAcesso:!!(c.usuario||c.senha||c.m3uLink),temEmailCadastrado:!!emailValido(c.email),emailVerificado:!!(c.email&&c.emailVerificadoEm),multiflix:clienteMultiflix(c),areaClienteUrl:clienteMultiflix(c)?'https://x.fenixsocial.site/cliente.html':''}});
   if(acao==='central_consultar_renovacao'){
     if(!clienteMultiflix(c)) return res.json({automatico:false,mensagem:'💬 Vamos ajudar com sua renovação\n\nNo momento, as renovações deste serviço são realizadas diretamente pelo nosso atendimento no WhatsApp.\n\nAssim conseguimos conferir as opções disponíveis para a sua conta e orientar você da melhor forma. 😊'});
     if(!c.usuario) return res.status(409).json({erro:'Não localizei o usuário MultiFlix desta conta para consultar a renovação.'});
