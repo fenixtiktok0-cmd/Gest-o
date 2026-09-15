@@ -56,6 +56,24 @@ async function central(req, res) {
     const existente=(await db.ref('centralAtivacoes/'+id).once('value')).val(); if(!existente) return res.status(404).json({erro:'Ativação não encontrada.'});
     await db.ref('centralAtivacoes/'+id).update({status:String(req.body.status||existente.status).slice(0,40),validade:Number(req.body.validade)||existente.validade||null,atualizadoEm:Date.now()}); return res.json({atualizado:true});
   }
+  if(acao==='central_preparar_contratacao_teste'){
+    const planoId=String(req.body.planoId||''),nome=String(req.body.nome||'').trim().slice(0,100),email=String(req.body.email||'').trim().toLowerCase().slice(0,160),usuario=String(req.body.usuario||'').trim(),senha=String(req.body.senha||'').trim(),grupoId=String(req.body.grupoId||'').trim().slice(0,100),sessaoHash=String(req.body.sessaoHash||'');
+    if(!nome||!emailValido(email)||!/^[A-Za-z0-9._-]{3,100}$/.test(usuario)||!senha||!grupoId||!/^[a-f0-9]{64}$/.test(sessaoHash)) return res.status(400).json({erro:'Não foi possível validar os dados do teste para contratação.'});
+    const registros=(await db.ref('centralPlanos').once('value')).val()||{},plano=registros[planoId];
+    if(!plano||plano.ativo!==true||!String(plano.nome||'').trim()||!Number.isFinite(Number(plano.valor))||Number(plano.valor)<=0||!Number.isInteger(Number(plano.dias))||Number(plano.dias)<=0||Number(plano.dias)>366) return res.status(400).json({erro:'Esse plano não está disponível agora. Escolha uma opção atualizada.'});
+    const contratoId=crypto.randomBytes(20).toString('hex'),referencia='contratacao:'+contratoId;
+    const planoSeguro={id:planoId,nome:String(plano.nome).trim().slice(0,80),valor:Number(Number(plano.valor).toFixed(2)),dias:Number(plano.dias)};
+    const cobranca=await criarCobrancaPixCentral({referencia,email,valor:planoSeguro.valor,descricao:'Plano MultiFlix — '+planoSeguro.nome});
+    const clienteId=crypto.randomBytes(18).toString('hex');
+    await db.ref('centralContratacoes/'+contratoId).set({id:contratoId,clienteId,telefone,nome,email,usuario,senha,grupoId,plano:planoSeguro,status:'aguardando_pagamento',paymentId:cobranca.paymentId,sessaoHash,criadoEm:Date.now(),cobranca});
+    return res.json({contratacaoId:contratoId,cobranca});
+  }
+  if(acao==='central_status_contratacao_teste'){
+    const id=String(req.body.contratacaoId||''); if(!/^[a-f0-9]{40}$/.test(id)) return res.status(400).json({erro:'Contratação inválida.'});
+    const contrato=(await db.ref('centralContratacoes/'+id).once('value')).val();
+    if(!contrato||contrato.telefone!==telefone) return res.status(404).json({erro:'Contratação não encontrada.'});
+    return res.json({contratacao:{status:String(contrato.status||''),plano:contrato.plano||null,novoVencimento:Number(contrato.novoVencimento||0)||null,usuario:contrato.status==='concluida'?String(contrato.usuario||''):'',senha:contrato.status==='concluida'?String(contrato.senha||''):''}});
+  }
   if(!achado)return res.status(404).json({encontrado:false}); const [,c]=achado;
   const apps=(await db.ref('aplicativos').once('value')).val()||{};
   if(acao==='central_perfil') return res.json({encontrado:true,perfil:{nome:c.nome||'Cliente',status:c.status||'',servidor:c.servidor||'',vencimento:c.vencimento||null,plano:{nome:String(c.tipoPlano||c.plano||'').slice(0,80),valor:Number(c.valorPlano||c.planoValor||0)||0},aplicativos:appsDoCliente(c,apps).map((app)=>app.nome),temDadosAcesso:!!(c.usuario||c.senha||c.m3uLink),temEmailCadastrado:!!emailValido(c.email),emailVerificado:!!(c.email&&c.emailVerificadoEm),multiflix:clienteMultiflix(c),areaClienteUrl:clienteMultiflix(c)?'https://x.fenixsocial.site/cliente.html':''}});

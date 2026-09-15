@@ -1,6 +1,6 @@
 const { db, messaging } = require('../lib/firebaseAdmin');
 const { consultarPagamento } = require('../lib/mercadopago');
-const { renovarNoMultiflix } = require('../lib/multiflix-renovacao');
+const { renovarNoMultiflix, ativarTesteNoMultiflix } = require('../lib/multiflix-renovacao');
 const { Resend } = require('resend');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -71,6 +71,31 @@ module.exports = async (req, res) => {
         await db.ref(`centralNotificacoes/${renovacao.sessaoHash}`).push({ mensagem: texto, criadoEm: Date.now(), tipo: 'renovacao_concluida' });
       }
       return res.status(200).json({ ok: true, renovacaoConcluida: true });
+    }
+
+    if (referencia.startsWith('contratacao:')) {
+      const contratacaoId = referencia.slice('contratacao:'.length);
+      const contratoRef = db.ref(`centralContratacoes/${contratacaoId}`);
+      const contrato = (await contratoRef.once('value')).val();
+      if (!contrato) return res.status(200).json({ ok: true, contratacaoNaoEncontrada: true });
+      if (contrato.status === 'concluida') return res.status(200).json({ ok: true, jaProcessado: true });
+      if (String(contrato.paymentId || '') !== String(pagamentoId) || Math.abs(Number(pagamento.transaction_amount) - Number(contrato.plano?.valor)) > 0.009) return res.status(200).json({ ok: true, pagamentoDivergente: true });
+      const resultado = await ativarTesteNoMultiflix(contrato.usuario, String(pagamentoId), contrato.plano);
+      const novoVencimento = Number(resultado.novoVencimento);
+      if (!novoVencimento) throw new Error('O MultiFlix não retornou o novo vencimento da ativação.');
+      const m3uLink = `http://lista.x.fenixsocial.site/get.php?username=${encodeURIComponent(contrato.usuario)}&password=${encodeURIComponent(contrato.senha)}&type=m3u_plus&output=ts`;
+      const cliente = { nome: contrato.nome, whatsapp: contrato.telefone, email: contrato.email, usuario: contrato.usuario, senha: contrato.senha, m3uLink, servidor: 'MULTIFLIX', grupoId: contrato.grupoId, tipoPlano: contrato.plano.nome, valorPlano: Number(contrato.plano.valor), vencimento: novoVencimento, status: 'ativo', emTeste: false, ocultarAdulto: false, criadoEm: Date.now(), atualizadoEm: Date.now(), ultimoPagamentoConfirmado: String(pagamentoId), origemCaptura: 'central' };
+      await db.ref().update({
+        [`clientes/${contrato.clienteId}`]: cliente,
+        [`centralContratacoes/${contratacaoId}`]: { ...contrato, status: 'concluida', concluidaEm: Date.now(), novoVencimento, paymentId: String(pagamentoId) },
+      });
+      let texto = `✅ Pagamento confirmado e acesso ativado!\n\n📦 Plano: ${contrato.plano.nome}\n📅 Vencimento: ${new Date(novoVencimento).toLocaleDateString('pt-BR')}\n\n🔐 Usuário: ${contrato.usuario}\n🔑 Senha: ${contrato.senha}\n\n🔄 Feche e abra novamente o aplicativo para validar o acesso.`;
+      if (contrato.email && process.env.RESEND_API_KEY && process.env.RESEND_FROM) {
+        try { const envio = await resend.emails.send({ from: process.env.RESEND_FROM, to: contrato.email, subject: 'Seu acesso MultiFlix foi ativado ✅', text: texto + '\n\nÁrea do Cliente: https://x.fenixsocial.site/cliente.html' }); if (!envio?.error) texto += '\n\n📧 Também enviamos esta confirmação ao seu e-mail.'; }
+        catch (err) { console.error('Erro ao enviar e-mail da contratação:', err.message); }
+      }
+      if (/^[a-f0-9]{64}$/.test(String(contrato.sessaoHash || ''))) await db.ref(`centralNotificacoes/${contrato.sessaoHash}`).push({ mensagem: texto, criadoEm: Date.now(), tipo: 'contratacao_concluida' });
+      return res.status(200).json({ ok: true, contratacaoConcluida: true });
     }
 
     const clienteId = referencia;
