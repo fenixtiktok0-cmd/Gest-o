@@ -85,10 +85,23 @@ module.exports = async (req, res) => {
       if (!novoVencimento) throw new Error('O MultiFlix não retornou o novo vencimento da ativação.');
       const m3uLink = `http://lista.x.fenixsocial.site/get.php?username=${encodeURIComponent(contrato.usuario)}&password=${encodeURIComponent(contrato.senha)}&type=m3u_plus&output=ts`;
       const cliente = { nome: contrato.nome, whatsapp: contrato.telefone, email: contrato.email, usuario: contrato.usuario, senha: contrato.senha, m3uLink, servidor: 'MULTIFLIX', grupoId: contrato.grupoId, tipoPlano: contrato.plano.nome, valorPlano: Number(contrato.plano.valor), vencimento: novoVencimento, status: 'ativo', emTeste: false, ocultarAdulto: false, criadoEm: Date.now(), atualizadoEm: Date.now(), ultimoPagamentoConfirmado: String(pagamentoId), origemCaptura: 'central' };
-      await db.ref().update({
-        [`clientes/${contrato.clienteId}`]: cliente,
-        [`centralContratacoes/${contratacaoId}`]: { ...contrato, status: 'concluida', concluidaEm: Date.now(), novoVencimento, paymentId: String(pagamentoId) },
-      });
+      try {
+        await db.ref().update({
+          [`clientes/${contrato.clienteId}`]: cliente,
+          [`centralContratacoes/${contratacaoId}`]: { ...contrato, status: 'concluida', concluidaEm: Date.now(), novoVencimento, paymentId: String(pagamentoId) },
+        });
+        const confirmado = (await db.ref(`clientes/${contrato.clienteId}`).once('value')).val();
+        if (!confirmado?.usuario || confirmado.usuario !== contrato.usuario) throw new Error('O Gestor não confirmou a gravação do novo cliente.');
+      } catch (erroCadastro) {
+        const pendencia = { id: contratacaoId, clienteId: contrato.clienteId, nome: contrato.nome, whatsapp: contrato.telefone, email: contrato.email, usuario: contrato.usuario, senha: contrato.senha, grupoId: contrato.grupoId, plano: contrato.plano, novoVencimento, pagamentoId: String(pagamentoId), status: 'ativado_pendente_cadastro', erro: String(erroCadastro.message || erroCadastro).slice(0,180), criadoEm: Date.now() };
+        await db.ref().update({
+          [`centralContratacoes/${contratacaoId}`]: { ...contrato, ...pendencia },
+          [`centralPendenciasCadastro/${contratacaoId}`]: pendencia,
+        });
+        await db.ref('centralAtendimentos').push({ clienteId: '', nome: contrato.nome || 'Cadastro pendente', whatsapp: contrato.telefone, tipo: 'cadastro_pendente', detalhe: `Pagamento aprovado; acesso ${contrato.usuario} ativado. Cadastro no Gestor pendente: ${pendencia.erro}`, criadoEm: Date.now(), contratacaoId });
+        if (/^[a-f0-9]{64}$/.test(String(contrato.sessaoHash || ''))) await db.ref(`centralNotificacoes/${contrato.sessaoHash}`).push({ mensagem: '✅ Pagamento confirmado e acesso ativado. Estamos finalizando seu cadastro no Gestor; você receberá a confirmação completa em breve.', criadoEm: Date.now(), tipo: 'cadastro_pendente' });
+        return res.status(200).json({ ok: true, ativadoCadastroPendente: true });
+      }
       let texto = `✅ Pagamento confirmado e acesso ativado!\n\n📦 Plano: ${contrato.plano.nome}\n📅 Vencimento: ${new Date(novoVencimento).toLocaleDateString('pt-BR')}\n\n🔐 Usuário: ${contrato.usuario}\n🔑 Senha: ${contrato.senha}\n\n🔄 Feche e abra novamente o aplicativo para validar o acesso.`;
       if (contrato.email && process.env.RESEND_API_KEY && process.env.RESEND_FROM) {
         try { const envio = await resend.emails.send({ from: process.env.RESEND_FROM, to: contrato.email, subject: 'Seu acesso MultiFlix foi ativado ✅', text: texto + '\n\nÁrea do Cliente: https://x.fenixsocial.site/cliente.html' }); if (!envio?.error) texto += '\n\n📧 Também enviamos esta confirmação ao seu e-mail.'; }
