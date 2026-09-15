@@ -14,12 +14,20 @@ const appsDoCliente = (cliente, apps, incluirCodigo = false) => (cliente.aplicat
   .filter(Boolean)
   .map((app) => incluirCodigo ? { nome: String(app.nome || ''), codigo: String(app.codigo || '') } : { nome: String(app.nome || '') })
   .filter((app) => app.nome);
-const clienteMultiflix = cliente => /multiflix/i.test(String(cliente?.servidor || '')) || /x\.fenixsocial\.site/i.test(String(cliente?.m3uLink || ''));
+const clienteMultiflix = cliente => /(?:multiflix|uni7)/i.test(String(cliente?.servidor || '')) || /x\.fenixsocial\.site/i.test(String(cliente?.m3uLink || ''));
+const clienteAtivo = cliente => {
+  if (!cliente || cliente.excluido === true || cliente.ativo === false) return false;
+  return !/(?:exclu[ií]do|removido|cancelado|inativo)/i.test(String(cliente.status || ''));
+};
+const dataDoCadastro = cliente => Number(cliente?.atualizadoEm || cliente?.criadoEm || cliente?.cadastradoEm || cliente?.dataCadastro || 0) || 0;
+const localizarClienteAtual = (clientes, telefone) => Object.entries(clientes || {})
+  .filter(([, cliente]) => num(cliente?.whatsapp) === telefone && clienteAtivo(cliente))
+  .sort(([, a], [, b]) => dataDoCadastro(b) - dataDoCadastro(a))[0];
 
 async function central(req, res) {
   const { db } = require('../lib/firebaseAdmin');
   const recebido=String(req.headers['x-central-secret']||''), esperado=sec(); if(!esperado||recebido.length!==esperado.length||!crypto.timingSafeEqual(Buffer.from(recebido),Buffer.from(esperado))) return res.status(401).json({erro:'Não autorizado.'});
-  const telefone=num(req.body.whatsapp), clientes=(await db.ref('clientes').once('value')).val()||{}, achado=Object.entries(clientes).find(([,c])=>num(c?.whatsapp)===telefone), acao=req.body.acao;
+  const telefone=num(req.body.whatsapp), clientes=(await db.ref('clientes').once('value')).val()||{}, achado=localizarClienteAtual(clientes, telefone), acao=req.body.acao;
   if(acao==='central_registrar_atendimento'){
     const tipo=String(req.body.tipo||'duvida').slice(0,40),detalhe=String(req.body.detalhe||'').slice(0,180);
     const cliente=achado?.[1]||{};
@@ -28,7 +36,7 @@ async function central(req, res) {
   }
   if(!achado)return res.status(404).json({encontrado:false}); const [,c]=achado;
   const apps=(await db.ref('aplicativos').once('value')).val()||{};
-  if(acao==='central_perfil') return res.json({encontrado:true,perfil:{nome:c.nome||'Cliente',status:c.status||'',servidor:c.servidor||'',vencimento:c.vencimento||null,aplicativos:appsDoCliente(c,apps).map((app)=>app.nome),temDadosAcesso:!!(c.usuario||c.senha||c.m3uLink),temEmailCadastrado:!!emailValido(c.email),emailVerificado:!!(c.email&&c.emailVerificadoEm),multiflix:clienteMultiflix(c),areaClienteUrl:clienteMultiflix(c)?'https://gestor.fenixsocial.site/meu-plano.html?id='+encodeURIComponent(achado[0]):''}});
+  if(acao==='central_perfil') return res.json({encontrado:true,perfil:{nome:c.nome||'Cliente',status:c.status||'',servidor:c.servidor||'',vencimento:c.vencimento||null,aplicativos:appsDoCliente(c,apps).map((app)=>app.nome),temDadosAcesso:!!(c.usuario||c.senha||c.m3uLink),temEmailCadastrado:!!emailValido(c.email),emailVerificado:!!(c.email&&c.emailVerificadoEm),multiflix:clienteMultiflix(c),areaClienteUrl:clienteMultiflix(c)?'https://x.fenixsocial.site/cliente.html':''}});
   if(acao==='central_consultar_renovacao'){
     if(!clienteMultiflix(c)) return res.json({automatico:false,mensagem:'💬 Vamos ajudar com sua renovação\n\nNo momento, as renovações deste serviço são realizadas diretamente pelo nosso atendimento no WhatsApp.\n\nAssim conseguimos conferir as opções disponíveis para a sua conta e orientar você da melhor forma. 😊'});
     if(!c.usuario) return res.status(409).json({erro:'Não localizei o usuário MultiFlix desta conta para consultar a renovação.'});
