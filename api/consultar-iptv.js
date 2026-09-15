@@ -76,7 +76,17 @@ async function central(req, res) {
   }
   if(!achado)return res.status(404).json({encontrado:false}); const [,c]=achado;
   const apps=(await db.ref('aplicativos').once('value')).val()||{};
-  if(acao==='central_perfil') return res.json({encontrado:true,perfil:{nome:c.nome||'Cliente',status:c.status||'',servidor:c.servidor||'',vencimento:c.vencimento||null,plano:{nome:String(c.tipoPlano||c.plano||'').slice(0,80),valor:Number(c.valorPlano||c.planoValor||0)||0},aplicativos:appsDoCliente(c,apps).map((app)=>app.nome),temDadosAcesso:!!(c.usuario||c.senha||c.m3uLink),temEmailCadastrado:!!emailValido(c.email),emailVerificado:!!(c.email&&c.emailVerificadoEm),multiflix:clienteMultiflix(c),areaClienteUrl:clienteMultiflix(c)?'https://x.fenixsocial.site/cliente.html':''}});
+  if(acao==='central_perfil') {
+    // Um registro antigo no Gestor não pode fazer a Central reconhecer como
+    // ativo um acesso MultiFlix que já foi apagado. Só reclassificamos quando
+    // o próprio MultiFlix confirma "não encontrado"; falhas de rede mantêm o
+    // cadastro protegido como está.
+    if(clienteMultiflix(c) && c.usuario) {
+      const multi=await consultarRenovacaoMultiflix(c.usuario).catch(()=>null);
+      if(multi?.encontrado===false) return res.json({encontrado:false,acessoEncerrado:true});
+    }
+    return res.json({encontrado:true,perfil:{nome:c.nome||'Cliente',status:c.status||'',servidor:c.servidor||'',vencimento:c.vencimento||null,plano:{nome:String(c.tipoPlano||c.plano||'').slice(0,80),valor:Number(c.valorPlano||c.planoValor||0)||0},aplicativos:appsDoCliente(c,apps).map((app)=>app.nome),temDadosAcesso:!!(c.usuario||c.senha||c.m3uLink),temEmailCadastrado:!!emailValido(c.email),emailVerificado:!!(c.email&&c.emailVerificadoEm),multiflix:clienteMultiflix(c),areaClienteUrl:clienteMultiflix(c)?'https://x.fenixsocial.site/cliente.html':''}});
+  }
   if(acao==='central_consultar_renovacao'){
     if(!clienteMultiflix(c)) return res.json({automatico:false,mensagem:'💬 Vamos ajudar com sua renovação\n\nNo momento, as renovações deste serviço são realizadas diretamente pelo nosso atendimento no WhatsApp.\n\nAssim conseguimos conferir as opções disponíveis para a sua conta e orientar você da melhor forma. 😊'});
     if(!c.usuario) return res.status(409).json({erro:'Não localizei o usuário MultiFlix desta conta para consultar a renovação.'});
