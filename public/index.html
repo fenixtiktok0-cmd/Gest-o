@@ -598,6 +598,15 @@
       <button class="btn" onclick="fecharCentralAdmin(); abrirMensagens();">✉️ Ajustar mensagens</button>
       <button class="btn" onclick="carregarCentralAdmin();">↻ Atualizar dados</button>
     </div>
+    <h3 style="font-size:15px; margin:0 0 10px;">💳 Planos padrão da Central</h3>
+    <p style="margin:0 0 10px; color:var(--text-muted); font-size:12px;">Usados somente pela Central para novos clientes e testes. Não alteram os valores manuais do Gestor.</p>
+    <div style="display:grid; grid-template-columns:1.3fr .8fr .7fr auto; gap:8px; margin-bottom:10px;">
+      <input id="central-plano-nome" placeholder="Ex.: Mensal" style="margin:0;">
+      <input id="central-plano-valor" inputmode="decimal" placeholder="Valor (R$)" style="margin:0;">
+      <input id="central-plano-dias" inputmode="numeric" placeholder="Dias" style="margin:0;">
+      <button class="btn btn-primary" onclick="adicionarPlanoCentral()">Adicionar</button>
+    </div>
+    <div id="central-planos" style="display:grid; gap:7px; margin-bottom:18px;"></div>
     <h3 style="font-size:15px; margin:0 0 10px;">Últimos contatos da Central</h3>
     <div id="central-lista" style="max-height:310px; overflow:auto; display:grid; gap:8px;"><div style="color:var(--text-muted);">Carregando atendimentos…</div></div>
     <div class="modal-actions"><button class="btn" onclick="fecharCentralAdmin()">Fechar</button></div>
@@ -3296,12 +3305,14 @@
     const lista = document.getElementById('central-lista');
     lista.innerHTML = '<div style="color:var(--text-muted);">Carregando atendimentos…</div>';
     try {
-      const [atendimentosRes, renovacoesRes] = await Promise.all([
+      const [atendimentosRes, renovacoesRes, planosRes] = await Promise.all([
         fetch(`${FIREBASE_DB}/centralAtendimentos.json`),
-        fetch(`${FIREBASE_DB}/renovacoes.json`)
+        fetch(`${FIREBASE_DB}/renovacoes.json`),
+        fetch(`${FIREBASE_DB}/centralPlanos.json`)
       ]);
       const atendimentosDados = await atendimentosRes.json() || {};
       const renovacoesDados = await renovacoesRes.json() || {};
+      renderizarPlanosCentral(await planosRes.json() || {});
       const atendimentos = Object.entries(atendimentosDados).map(([id, item]) => ({ id, ...item })).sort((a,b) => Number(b.criadoEm || 0) - Number(a.criadoEm || 0));
       const renovacoes = Object.values(renovacoesDados).filter((item) => item && item.status === 'concluida');
       const contar = (tipo) => atendimentos.filter((item) => item.tipo === tipo).length;
@@ -3319,6 +3330,20 @@
       lista.innerHTML = '<div style="color:var(--danger);">Não foi possível carregar os dados da Central agora.</div>';
     }
   }
+
+  function valorPlanoCentral(valor) { return Number(String(valor || '').replace(',', '.')); }
+  function renderizarPlanosCentral(planos) {
+    const destino=document.getElementById('central-planos'); const itens=Object.entries(planos || {}).map(([id,p])=>({id,...p})).sort((a,b)=>Number(a.dias||0)-Number(b.dias||0));
+    if (!itens.length) { destino.innerHTML='<div style="color:var(--text-muted); font-size:12px;">Nenhum plano padrão cadastrado ainda.</div>'; return; }
+    destino.innerHTML=itens.map((p)=>`<div style="display:flex; justify-content:space-between; gap:8px; align-items:center; border:1px solid var(--border); border-radius:8px; padding:9px 10px;"><span><b>${escaparCentral(p.nome)}</b> · ${Number(p.dias)} dias · ${Number(p.valor).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</span><button class="btn" style="padding:5px 8px;" onclick="alternarPlanoCentral('${p.id}',${p.ativo!==false})">${p.ativo!==false?'Ativo':'Pausado'}</button></div>`).join('');
+  }
+  async function adicionarPlanoCentral() {
+    const nome=document.getElementById('central-plano-nome').value.trim(), valor=valorPlanoCentral(document.getElementById('central-plano-valor').value), dias=Number(document.getElementById('central-plano-dias').value);
+    if (!nome || !Number.isFinite(valor) || valor<=0 || !Number.isInteger(dias) || dias<1) return alert('Informe nome, valor maior que zero e quantidade de dias.');
+    const id='plano_'+Date.now(); await fetch(`${FIREBASE_DB}/centralPlanos/${id}.json`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({nome,valor,dias,ativo:true,atualizadoEm:Date.now()})});
+    document.getElementById('central-plano-nome').value='';document.getElementById('central-plano-valor').value='';document.getElementById('central-plano-dias').value='';carregarCentralAdmin();
+  }
+  async function alternarPlanoCentral(id, ativo) { await fetch(`${FIREBASE_DB}/centralPlanos/${encodeURIComponent(id)}.json`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({ativo:!ativo,atualizadoEm:Date.now()})}); carregarCentralAdmin(); }
 
   carregarConfigMusica();
   carregarClientes();
