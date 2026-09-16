@@ -1,0 +1,3366 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestão de Clientes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
+<style>
+  :root {
+    --bg: #0B0F14;
+    --surface: #131A22;
+    --surface-2: #1B232D;
+    --border: #232C37;
+    --text: #E6EDF3;
+    --text-muted: #7C8798;
+    --ok: #34D399;
+    --warn: #FBBF24;
+    --danger: #F87171;
+    --ok-bg: rgba(52, 211, 153, 0.12);
+    --warn-bg: rgba(251, 191, 36, 0.12);
+    --danger-bg: rgba(248, 113, 113, 0.12);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, .display {
+    font-family: 'Space Grotesk', sans-serif;
+  }
+
+  .mono { font-family: 'JetBrains Mono', monospace; }
+
+  header {
+    padding: 28px 32px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  header h1 {
+    font-size: 22px;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  header h1 .signal-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--ok);
+    box-shadow: 0 0 8px var(--ok);
+  }
+
+  .btn {
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+    font-size: 14px;
+    padding: 10px 18px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text);
+    cursor: pointer;
+    transition: border-color .15s ease, transform .1s ease;
+  }
+  .btn:hover { border-color: #38424F; }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary {
+    background: var(--ok);
+    color: #06231A;
+    border-color: var(--ok);
+    font-weight: 600;
+  }
+  .btn-primary:hover { background: #3FE0AA; }
+
+  main {
+    padding: 28px 32px 60px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+    transition: border-color .15s ease, transform .1s ease;
+  }
+  .stat-card:hover { border-color: #38424F; transform: translateY(-1px); }
+  .stat-card.card-active { border-color: var(--ok); box-shadow: 0 0 0 1px var(--ok); }
+
+  .stat-card .label {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 8px;
+  }
+
+  .stat-card .value {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 32px;
+    font-weight: 600;
+  }
+
+  .stat-card.ok .value { color: var(--ok); }
+  .stat-card.warn .value { color: var(--warn); }
+  .stat-card.danger .value { color: var(--danger); }
+
+  .toolbar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+
+  .filter-chip {
+    font-size: 13px;
+    padding: 7px 14px;
+    border-radius: 100px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-muted);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .filter-chip.active {
+    color: var(--text);
+    border-color: var(--ok);
+    background: var(--ok-bg);
+  }
+
+  input[type="text"] {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 14px;
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    flex: 1;
+    min-width: 180px;
+  }
+
+  .table-scroll { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  thead th {
+    text-align: left;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 500;
+  }
+
+  tbody td {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+    vertical-align: middle;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: var(--surface-2); }
+
+  .signal {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 16px;
+  }
+  .signal span {
+    width: 3px;
+    background: var(--border);
+    border-radius: 1px;
+  }
+  .signal span:nth-child(1) { height: 5px; }
+  .signal span:nth-child(2) { height: 9px; }
+  .signal span:nth-child(3) { height: 13px; }
+  .signal span:nth-child(4) { height: 16px; }
+
+  .signal.ok span { background: var(--ok); }
+  .signal.warn span:nth-child(1),
+  .signal.warn span:nth-child(2),
+  .signal.warn span:nth-child(3) { background: var(--warn); }
+  .signal.danger span:nth-child(1),
+  .signal.danger span:nth-child(2) { background: var(--danger); }
+
+  .cliente-nome { font-weight: 500; }
+  .cliente-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .cliente-sub-email { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+  .actions { display: flex; gap: 6px; }
+  .icon-btn {
+    width: 32px; height: 32px;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px;
+  }
+  .icon-btn:hover { color: var(--text); border-color: #38424F; }
+  .icon-btn.whats:hover { color: var(--ok); border-color: var(--ok); }
+  .icon-btn.push:hover { color: var(--warn); border-color: var(--warn); }
+  .icon-btn.del:hover { color: var(--danger); border-color: var(--danger); }
+
+  .badge {
+    font-size: 12px;
+    padding: 3px 9px;
+    border-radius: 100px;
+    font-weight: 500;
+  }
+  .badge.ativo { background: var(--ok-bg); color: var(--ok); }
+  .badge.inativo { background: var(--surface-2); color: var(--text-muted); }
+
+  /* Modal */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.55);
+    display: none;
+    align-items: center; justify-content: center;
+    z-index: 100;
+    padding: 20px;
+  }
+  .overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    width: 100%;
+    max-width: 440px;
+    max-height: 88vh;
+    overflow-y: auto;
+  }
+  .modal h2 { font-size: 18px; margin: 0 0 18px; }
+  .modal-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-bottom: 18px;
+  }
+  .modal-header h2 { margin: 0; }
+  .modal-close-x {
+    background: none; border: none; color: var(--text-muted);
+    font-size: 20px; line-height: 1; cursor: pointer;
+    padding: 2px 6px; border-radius: 6px; flex-shrink: 0;
+  }
+  .modal-close-x:hover { color: var(--text); background: var(--surface-2); }
+
+  .field { margin-bottom: 14px; }
+  .field label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+  .field input:not([type="checkbox"]) {
+    width: 100%;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+  }
+
+  .app-checklist {
+    display: flex; flex-direction: column; gap: 8px;
+    max-height: 200px; overflow-y: auto;
+  }
+  .app-checklist-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .app-checklist-item input[type="checkbox"] {
+    flex-shrink: 0;
+    width: 16px; height: 16px;
+    accent-color: var(--ok);
+  }
+  .app-checklist-item .app-codigo {
+    color: var(--text-muted);
+    font-size: 12px;
+    margin-left: auto;
+  }
+
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+  }
+
+  .modal.wide { max-width: 640px; max-height: 85vh; overflow-y: auto; }
+
+  .template-block { margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid var(--border); }
+  .template-block:last-of-type { border-bottom: none; }
+  .template-block h3 {
+    font-size: 14px; margin: 0 0 4px; font-weight: 600;
+  }
+  .template-block .quando {
+    font-size: 12px; color: var(--text-muted); margin-bottom: 10px;
+  }
+  .template-block textarea {
+    width: 100%;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    resize: vertical;
+    min-height: 64px;
+  }
+  .var-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .var-chip {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text-muted);
+    cursor: pointer;
+  }
+  .var-chip:hover { color: var(--ok); border-color: var(--ok); }
+
+  .lista-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+  .lista-item:last-child { border-bottom: none; }
+  .lista-item .sub { font-size: 12px; color: var(--text-muted); }
+  .lista-item .del-mini {
+    background: none; border: none; color: var(--danger);
+    cursor: pointer; font-size: 13px;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+  }
+
+  @media (max-width: 720px) {
+    header { padding: 18px 16px 14px; }
+    header > div { width: 100%; }
+    header .btn, header .btn-primary { flex: 1; font-size: 13px; padding: 10px 8px; white-space: nowrap; }
+    main { padding: 16px 12px 60px; }
+    .stats { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .stat-card { padding: 14px 16px; }
+    .stat-card .value { font-size: 26px; }
+    table { display: block; }
+    thead { display: none; }
+    tbody, tr, td { display: block; width: 100%; }
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      padding: 14px 16px;
+    }
+    tbody td {
+      border: none;
+      padding: 5px 0;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 14px;
+    }
+    tbody td::before {
+      content: attr(data-label);
+      color: var(--text-muted);
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+    tbody td.actions-cell {
+      justify-content: flex-start;
+      padding-top: 10px;
+    }
+    .actions { flex-wrap: wrap; }
+    .icon-btn { width: 38px; height: 38px; font-size: 17px; }
+    .modal { max-width: 100%; }
+    .modal.wide { max-height: 80vh; }
+
+    /* Cartão de cliente enxuto: só nome, usuário e servidor em destaque */
+    .td-primary { font-size: 15px; font-weight: 500; padding: 6px 0 !important; }
+    .td-primary .cliente-nome { font-size: 16px; }
+    .cliente-sub-email, .td-hide-mobile { display: none !important; }
+    .td-secondary-mobile { opacity: 0.65; font-size: 12px !important; padding: 3px 0 !important; }
+    .td-secondary-mobile::before { font-size: 11px !important; }
+
+    /* Modo Lista: volta pro formato de tabela real, com scroll horizontal */
+    body.view-lista table { display: table !important; min-width: 680px; }
+    body.view-lista thead { display: table-header-group !important; }
+    body.view-lista tbody { display: table-row-group !important; }
+    body.view-lista tr { display: table-row !important; border-bottom: none !important; }
+    body.view-lista td {
+      display: table-cell !important;
+      width: auto !important;
+      padding: 10px 12px !important;
+      white-space: nowrap;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px !important;
+      opacity: 1 !important;
+    }
+    body.view-lista td::before { content: none !important; }
+    body.view-lista .cliente-sub-email { display: block !important; font-size: 11px; }
+    body.view-lista .td-hide-mobile { display: table-cell !important; }
+    body.view-lista .cliente-nome { font-size: 14px; }
+    body.view-lista .actions-cell { white-space: nowrap; }
+    body.view-lista .actions { flex-wrap: nowrap; }
+  }
+  @keyframes pulseLead {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(248,113,113,0.55); }
+    50% { box-shadow: 0 0 0 6px rgba(248,113,113,0); }
+  }
+  .filter-chip.tem-lead-novo {
+    background: rgba(248,113,113,0.15) !important;
+    border-color: var(--danger) !important;
+    color: var(--danger) !important;
+    animation: pulseLead 1.6s infinite;
+  }
+</style>
+</head>
+<body>
+
+<div class="overlay open" id="overlay-pin" style="z-index:300;">
+  <div class="modal" style="max-width:320px; text-align:center;">
+    <h2>Acesso restrito</h2>
+    <p style="color:var(--text-muted); font-size:13px; margin-bottom:16px;">Digite o PIN pra entrar no painel</p>
+    <input type="password" id="pin-input" maxlength="6" inputmode="numeric"
+      style="width:100%; text-align:center; font-size:22px; letter-spacing:8px; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:12px; color:var(--text); box-sizing:border-box;"
+      placeholder="••••••">
+    <button class="btn btn-primary" style="width:100%; margin-top:14px;" onclick="verificarPin()">Entrar</button>
+    <div id="pin-erro" style="color:var(--danger); font-size:12px; margin-top:10px; display:none;">PIN incorreto.</div>
+  </div>
+</div>
+
+
+<header>
+  <h1><span class="signal-dot"></span> Gestão de Clientes</h1>
+  <div style="display:flex; gap:8px; align-items:center;"><a class="btn" href="/index.html" style="text-decoration:none;">👥 Gestor de clientes</a><a class="btn" href="/atendimento.html" style="text-decoration:none; border-color:rgba(96,165,250,0.7); color:#93C5FD;">🤖 Área de atendimento</a><button class="btn" onclick="abrirMenu()" style="font-size:20px; padding:8px 14px;">☰</button></div>
+</header>
+
+<button id="btn-atualizar-flutuante" onclick="location.reload()" title="Atualizar" style="position:fixed; bottom:20px; right:20px; width:48px; height:48px; border-radius:50%; border:1px solid var(--border); background:var(--surface); color:var(--ok); font-size:20px; cursor:pointer; box-shadow:0 4px 14px rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; z-index:60;">🔄</button>
+
+<div class="overlay" id="overlay-personalizacao">
+  <div class="modal">
+    <div class="modal-header"><h2>Personalização da página do cliente</h2><button class="modal-close-x" onclick="fecharPersonalizacao()">✕</button></div>
+    <p style="font-size:12px; color:var(--text-muted); margin-top:-10px; margin-bottom:16px;">
+      Isso muda como o cliente vê a página /meu-plano.html
+    </p>
+    <div class="field">
+      <label>Nome da marca</label>
+      <input type="text" id="pz-nome" placeholder="Fênix Play">
+    </div>
+    <div class="field">
+      <label>URL do logo (opcional)</label>
+      <input type="text" id="pz-logo" placeholder="https://exemplo.com/logo.png">
+    </div>
+    <div class="field">
+      <label>Cor principal do tema</label>
+      <input type="color" id="pz-cor" value="#34D399" style="width:100%; height:44px; padding:4px; background:var(--surface-2); border:1px solid var(--border); border-radius:8px;">
+    </div>
+    <div class="field">
+      <label>Texto do botão de notificação</label>
+      <input type="text" id="pz-texto-notif" placeholder="Ativar notificações">
+    </div>
+    <div class="field">
+      <label>Texto do botão de suporte</label>
+      <input type="text" id="pz-texto-suporte" placeholder="💬 Falar com o suporte agora">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharPersonalizacao()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarPersonalizacao()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-trocar-dominio">
+  <div class="modal">
+    <div class="modal-header"><h2>Trocar domínio M3U em massa</h2><button class="modal-close-x" onclick="fecharTrocarDominio()">✕</button></div>
+    <p style="font-size:12px; color:var(--text-muted); margin-top:-10px; margin-bottom:16px;">
+      Troca só a parte do domínio no link de cada cliente — usuário e senha de cada um continuam intactos.
+    </p>
+    <div class="field">
+      <label>Domínio atual (o que vai ser substituído)</label>
+      <input type="text" id="td-dominio-antigo" placeholder="invictos.sbs">
+    </div>
+    <div class="field">
+      <label>Domínio novo</label>
+      <input type="text" id="td-dominio-novo" placeholder="invictos2.sbs">
+    </div>
+    <button class="btn" style="width:100%;" onclick="analisarTrocaDominio()">Analisar</button>
+    <div id="td-resumo" style="margin-top:14px; font-size:13px; color:var(--text-muted);"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharTrocarDominio()">Fechar</button>
+      <button class="btn btn-primary" id="btn-aplicar-troca-dominio" style="display:none;" onclick="aplicarTrocaDominio()">Aplicar troca</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-importar">
+  <div class="modal wide">
+    <div class="modal-header"><h2>Importar clientes (CSV)</h2><button class="modal-close-x" onclick="fecharImportar()">✕</button></div>
+    <p style="font-size:12px; color:var(--text-muted); margin-top:-10px; margin-bottom:16px;">
+      Colunas esperadas: WhatsApp, Nome, Login, Senha, Provedor, Plano, Fatura, Vencimento
+    </p>
+    <div class="field">
+      <label>Arquivo CSV</label>
+      <input type="file" id="importar-arquivo" accept=".csv" style="width:100%; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:10px; color:var(--text);">
+    </div>
+    <button class="btn" style="width:100%;" onclick="prepararImportacao()">Analisar arquivo</button>
+    <div id="importar-resumo" style="margin-top:16px;"></div>
+    <div id="importar-progresso" style="margin-top:12px; font-size:13px; color:var(--text-muted);"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharImportar()">Fechar</button>
+      <button class="btn btn-primary" id="btn-confirmar-importacao" style="display:none;" onclick="confirmarImportacao()">Confirmar importação</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-menu">
+  <div class="modal" style="max-width:340px;">
+    <div class="modal-header"><h2>Menu</h2><button class="modal-close-x" onclick="fecharMenu()">✕</button></div>
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirTrocarDominio();">🔗 Trocar domínio M3U em massa</button>
+      <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirImportar();">📥 Importar clientes</button>
+      <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirPersonalizacao();">🎨 Personalização</button>
+      <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirAplicativos();">📲 Aplicativos</button>
+      <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirServidores();">🖥️ Servidores</button>
+      <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirRemarketing();">📣 Remarketing</button>
+      <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirNotificacoes();">🔔 Notificações</button>
+      <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirFinanceiro();">💰 Financeiro</button>
+      <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirMensagens();">✉️ Mensagens</button>
+      <button class="btn" style="text-align:left; background:linear-gradient(135deg,#FBBF24,#F59E0B); border-color:#F59E0B; color:#412402; font-weight:600;" onclick="fecharMenu(); abrirLeads();">🎯 Leads (testes pendentes)</button>
+      <button class="btn" id="btn-notif-admin" style="text-align:left;" onclick="fecharMenu(); ativarNotificacoesAdmin();">🔔 Ativar minhas notificações</button>
+      <button class="btn" style="text-align:left;" onclick="fecharMenu(); abrirConfig();">⚙️ Configurações</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharMenu()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-central-admin">
+  <div class="modal" style="max-width:760px;">
+    <div class="modal-header"><h2>🤖 Central de atendimento</h2><button class="modal-close-x" onclick="fecharCentralAdmin()">✕</button></div>
+    <p style="margin-top:0; color:var(--text-muted); font-size:13px;">Visão dos atendimentos iniciados pela Central e atalhos para manter os aplicativos e mensagens atualizados.</p>
+    <div class="stats" style="margin:14px 0; grid-template-columns:repeat(4,minmax(110px,1fr));">
+      <div class="stat-card"><div class="label">Atendimentos</div><div class="value mono" id="central-total">0</div></div>
+      <div class="stat-card"><div class="label">Suporte</div><div class="value mono" id="central-suporte">0</div></div>
+      <div class="stat-card"><div class="label">Testes</div><div class="value mono" id="central-testes">0</div></div>
+      <div class="stat-card ok"><div class="label">Renovações pagas</div><div class="value mono" id="central-renovacoes">0</div></div>
+    </div>
+    <div style="display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 18px;">
+      <button class="btn btn-primary" onclick="fecharCentralAdmin(); abrirAplicativos();">📲 Gerenciar aplicativos</button>
+      <button class="btn" onclick="fecharCentralAdmin(); abrirMensagens();">✉️ Ajustar mensagens</button>
+      <button class="btn" onclick="carregarCentralAdmin();">↻ Atualizar dados</button>
+    </div>
+    <h3 style="font-size:15px; margin:0 0 10px;">💳 Planos padrão da Central</h3>
+    <p style="margin:0 0 10px; color:var(--text-muted); font-size:12px;">Usados somente pela Central para novos clientes e testes. Não alteram os valores manuais do Gestor.</p>
+    <div style="display:grid; grid-template-columns:1.3fr .8fr .7fr auto; gap:8px; margin-bottom:10px;">
+      <input id="central-plano-nome" placeholder="Ex.: Mensal" style="margin:0;">
+      <input id="central-plano-valor" inputmode="decimal" placeholder="Valor (R$)" style="margin:0;">
+      <input id="central-plano-dias" inputmode="numeric" placeholder="Dias" style="margin:0;">
+      <button class="btn btn-primary" onclick="adicionarPlanoCentral()">Adicionar</button>
+    </div>
+    <div id="central-planos" style="display:grid; gap:7px; margin-bottom:18px;"></div>
+    <div hidden>
+    <h3 style="font-size:15px; margin:0 0 10px;">📲 Ativações anuais de aplicativos</h3>
+    <p style="margin:0 0 10px; color:var(--text-muted); font-size:12px;">Cadastros separados de pessoas que solicitaram licença anual. Clique em um registro para ver os dados completos.</p>
+    <div id="central-ativacoes" style="max-height:260px; overflow:auto; display:grid; gap:8px; margin-bottom:18px;"><div style="color:var(--text-muted);">Carregando ativações…</div></div>
+    </div>
+    <h3 style="font-size:15px; margin:0 0 10px;">Últimos contatos da Central</h3>
+    <div id="central-lista" style="max-height:310px; overflow:auto; display:grid; gap:8px;"><div style="color:var(--text-muted);">Carregando atendimentos…</div></div>
+    <div class="modal-actions"><button class="btn" onclick="fecharCentralAdmin()">Fechar</button></div>
+  </div>
+</div>
+
+<main>
+  <div style="border:1px solid rgba(52,211,153,0.35); background:rgba(52,211,153,0.08); border-radius:10px; padding:12px 16px; margin-bottom:14px; font-size:13px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+    <span>🎯 <b>Link da página de captura</b> (pra divulgar e captar leads): <span class="mono" style="color:var(--ok);" id="texto-link-captura">gestor.fenixsocial.site/captura.html</span></span>
+    <button class="btn" style="padding:7px 12px; font-size:12px;" onclick="copiarLinkCaptura()">📋 Copiar link</button>
+  </div>
+
+  <div id="banner-notif-admin" style="display:none; border:1px solid rgba(96,165,250,0.4); background:rgba(96,165,250,0.1); border-radius:10px; padding:12px 16px; margin-bottom:18px; font-size:13px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+    <span style="color:#60A5FA;">🔔 Ativa suas notificações pra receber um aviso na hora que um lead pedir teste.</span>
+    <button class="btn" style="padding:7px 12px; font-size:12px;" onclick="ativarNotificacoesAdmin()">Ativar</button>
+  </div>
+
+  <div class="stats">
+    <div class="stat-card" id="card-todos" onclick="filtrar('todos')" style="cursor:pointer;">
+      <div class="label">Total de clientes</div>
+      <div class="value mono" id="stat-total">0</div>
+    </div>
+    <div class="stat-card ok" id="card-ativo" onclick="filtrar('ativo')" style="cursor:pointer;">
+      <div class="label">Ativos</div>
+      <div class="value mono" id="stat-ativos">0</div>
+    </div>
+    <div class="stat-card warn" id="card-3dias" onclick="filtrar('3dias')" style="cursor:pointer;">
+      <div class="label">Vencendo em 3 dias</div>
+      <div class="value mono" id="stat-3dias">0</div>
+    </div>
+    <div class="stat-card danger" id="card-hoje" onclick="filtrar('hoje')" style="cursor:pointer;">
+      <div class="label">Vencendo hoje</div>
+      <div class="value mono" id="stat-hoje">0</div>
+    </div>
+    <div class="stat-card danger" id="card-vencido" onclick="filtrar('vencido')" style="cursor:pointer;">
+      <div class="label">Vencidos</div>
+      <div class="value mono" id="stat-vencidos">0</div>
+    </div>
+    <div class="stat-card" id="card-musica" onclick="filtrar('musica')" style="cursor:pointer; border-color:rgba(52,211,153,0.35);">
+      <div class="label">🎵 Música</div>
+      <div class="value mono" id="stat-musica" style="color:var(--ok);">0</div>
+    </div>
+  </div>
+
+  <button class="btn btn-primary" style="width:100%; margin-bottom:18px; padding:13px;" onclick="abrirModal()">+ Novo cliente</button>
+
+  <div class="toolbar">
+    <input type="text" id="busca" placeholder="Buscar por nome, usuário ou telefone..." oninput="buscaComAtraso()">
+    <div style="display:flex; gap:4px;">
+      <button class="filter-chip active" id="btn-view-grade" onclick="setModoVisualizacao('grade')">🔲 Grade</button>
+      <button class="filter-chip" id="btn-view-lista" onclick="setModoVisualizacao('lista')">☰ Lista</button>
+    </div>
+    <button class="filter-chip" id="btn-calendario" onclick="toggleCalendarioFiltro()">📅 Data específica</button>
+    <input type="date" id="filtro-data-especifica" style="display:none; background:var(--surface); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:13px; padding:7px 10px;" onchange="filtrarPorDataEspecifica()">
+    <button class="filter-chip" id="chip-teste" data-filtro="teste" onclick="filtrar('teste')" style="border-color:#60A5FA55;">🧪 Em teste (<span id="contagem-teste">0</span>)</button>
+    <button class="filter-chip" id="chip-pendente-renovacao" data-filtro="pendente-renovacao" onclick="filtrar('pendente-renovacao')" style="border-color:rgba(52,211,153,0.35); color:var(--ok);">🔄 Pendente de renovação (<span id="contagem-pendente-renovacao">0</span>)</button>
+    <div style="display:flex; gap:4px; align-items:center; margin-left:8px;">
+      <select id="filtro-dias-vencido" style="background:var(--surface); border:1px solid var(--border); border-radius:100px; color:var(--text); font-size:13px; padding:7px 10px;">
+        <option value="30">+30 dias</option>
+        <option value="60">+60 dias</option>
+        <option value="90">+90 dias</option>
+        <option value="180" selected>+180 dias</option>
+        <option value="360">+360 dias</option>
+      </select>
+      <button class="filter-chip" onclick="selecionarVencidosPorDias()">Selecionar vencidos</button>
+    </div>
+  </div>
+
+  <div id="barra-selecao" style="display:none; align-items:center; justify-content:space-between; background:var(--danger-bg); border:1px solid var(--danger); border-radius:10px; padding:12px 16px; margin-bottom:14px;">
+    <span id="texto-selecao" style="font-size:14px; font-weight:600; color:var(--danger);">0 selecionado(s)</span>
+    <div style="display:flex; gap:8px;">
+      <button class="btn" onclick="limparSelecao()">Cancelar</button>
+      <button class="btn" style="background:var(--danger); border-color:var(--danger); color:#fff;" onclick="excluirSelecionados()">🗑️ Excluir selecionados</button>
+    </div>
+  </div>
+
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th><input type="checkbox" id="chk-selecionar-todos" onchange="toggleSelecionarTodos()"></th>
+          <th></th>
+          <th>Cliente</th>
+          <th>Usuário</th>
+          <th>Servidor</th>
+          <th>Vencimento</th>
+          <th>Plano</th>
+          <th>Notif.</th>
+          <th>Status</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody id="tabela-clientes"></tbody>
+    </table>
+  </div>
+
+  <div class="empty-state" id="empty-state" style="display:none">
+    Nenhum cliente encontrado.
+  </div>
+</main>
+
+<!-- Modal novo/editar cliente -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-header"><h2 id="modal-titulo">Novo cliente</h2><button class="modal-close-x" onclick="fecharModal()">✕</button></div>
+    <input type="hidden" id="cliente-id">
+
+    <div class="field" style="background:rgba(96,165,250,0.1); border:1px solid rgba(96,165,250,0.35); border-radius:10px; padding:12px;">
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-bottom:0;">
+        <input type="checkbox" id="f-teste" onchange="alternarModoTeste()" style="width:16px; height:16px; accent-color:#60A5FA;">
+        <span style="color:#60A5FA; font-weight:600;">🧪 Cliente de teste</span>
+      </label>
+      <div id="f-teste-horas-bloco" style="display:none; margin-top:10px;">
+        <label>Duração do teste</label>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          <button type="button" class="filter-chip horas-chip" data-horas="1" onclick="setHorasTeste(1)">1h</button>
+          <button type="button" class="filter-chip horas-chip active" data-horas="2" onclick="setHorasTeste(2)">2h</button>
+          <button type="button" class="filter-chip horas-chip" data-horas="3" onclick="setHorasTeste(3)">3h</button>
+          <button type="button" class="filter-chip horas-chip" data-horas="4" onclick="setHorasTeste(4)">4h</button>
+          <button type="button" class="filter-chip horas-chip" data-horas="24" onclick="setHorasTeste(24)">24h</button>
+        </div>
+        <div style="font-size:11px; color:var(--text-muted); margin-top:6px;">Teste não entra no Financeiro nem nos contadores de clientes ativos.</div>
+      </div>
+    </div>
+
+    <div class="field" style="background:rgba(52,211,153,0.1); border:1px solid rgba(52,211,153,0.35); border-radius:10px; padding:12px;">
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-bottom:0;">
+        <input type="checkbox" id="f-musica" onchange="alternarModoMusica()" style="width:16px; height:16px; accent-color:var(--ok);">
+        <span style="color:var(--ok); font-weight:600;">🎵 Cliente de música</span>
+      </label>
+      <div style="font-size:11px; color:var(--text-muted); margin-top:6px;">Fica separado dos contadores e do Financeiro de IPTV — tem aba própria.</div>
+    </div>
+
+    <div class="field">
+      <label>Nome</label>
+      <input type="text" id="f-nome" placeholder="Nome do cliente">
+    </div>
+    <div class="field" id="f-m3u-bloco">
+      <label>Link M3U (opcional — preenche usuário/senha/vencimento sozinho)</label>
+      <div style="display:flex; gap:8px;">
+        <input type="text" id="f-m3u" placeholder="http://painel.com/get.php?username=...&password=..." style="flex:1;">
+        <input type="hidden" id="f-vencimento-preciso">
+        <button class="btn" type="button" onclick="buscarDadosM3U()" style="white-space:nowrap;">🔍 Buscar</button>
+      </div>
+      <div id="m3u-status" style="font-size:12px; margin-top:6px;"></div>
+    </div>
+    <div class="field">
+      <label>Usuário (login no servidor)</label>
+      <input type="text" id="f-usuario" placeholder="usuario123">
+    </div>
+    <div class="field">
+      <label>Senha (do servidor)</label>
+      <input type="text" id="f-senha" placeholder="senha123">
+    </div>
+    <div class="field" id="f-apps-bloco">
+      <label>Aplicativos que o cliente usa</label>
+      <div id="f-aplicativos-lista" style="display:flex; flex-direction:column; gap:6px;">
+        <div style="color:var(--text-muted); font-size:12px;">Nenhum aplicativo cadastrado ainda.</div>
+      </div>
+      <div style="margin-top:6px;">
+        <a href="javascript:void(0)" onclick="abrirAplicativos()" style="font-size:12px; color:var(--text-muted);">+ cadastrar novo aplicativo</a>
+      </div>
+    </div>
+    <div class="field">
+      <label>WhatsApp</label>
+      <div style="display:flex; gap:8px;">
+        <input type="text" id="f-ddi" list="lista-ddis" value="55" placeholder="DDI"
+          style="width:90px; flex-shrink:0; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:10px 8px; color:var(--text); font-family:'Inter',sans-serif; font-size:14px;">
+        <datalist id="lista-ddis">
+          <option value="55">🇧🇷 Brasil</option>
+          <option value="1">🇺🇸 EUA/Canadá</option>
+          <option value="351">🇵🇹 Portugal</option>
+          <option value="34">🇪🇸 Espanha</option>
+          <option value="44">🇬🇧 Reino Unido</option>
+          <option value="54">🇦🇷 Argentina</option>
+          <option value="598">🇺🇾 Uruguai</option>
+          <option value="595">🇵🇾 Paraguai</option>
+          <option value="591">🇧🇴 Bolívia</option>
+          <option value="56">🇨🇱 Chile</option>
+        </datalist>
+        <input type="text" id="f-whatsapp-numero" placeholder="Número (qualquer formato)" style="flex:1;">
+      </div>
+      <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">DDI: escolhe da lista ou digita o número direto (sem o +)</div>
+    </div>
+    <div class="field">
+      <label>E-mail</label>
+      <input type="text" id="f-email" placeholder="cliente@email.com">
+    </div>
+    <div class="field" id="f-servidor-bloco">
+      <label>Servidor</label>
+      <select id="f-servidor" onchange="preencherChecklistAplicativos(this.value, null)"></select>
+      <div style="margin-top:6px;">
+        <a href="javascript:void(0)" onclick="abrirServidores()" style="font-size:12px; color:var(--text-muted);">+ cadastrar novo servidor</a>
+      </div>
+    </div>
+    <div class="field" id="f-valor-bloco">
+      <label>Valor do plano (R$)</label>
+      <input type="text" id="f-valor" placeholder="45.00">
+    </div>
+    <div class="field" id="f-vencimento-bloco">
+      <label>Vencimento</label>
+      <input type="date" id="f-vencimento">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarCliente()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-processar-lead">
+  <div class="modal">
+    <div class="modal-header"><h2>🎯 Processar teste</h2><button class="modal-close-x" onclick="fecharProcessarLead()">✕</button></div>
+    <input type="hidden" id="lead-cliente-id">
+    <div style="background:var(--surface-2); border-radius:10px; padding:12px; margin-bottom:16px; font-size:13px;">
+      <div><b id="lead-nome-preview">—</b></div>
+      <div style="color:var(--text-muted); margin-top:2px;" id="lead-contato-preview">—</div>
+    </div>
+
+    <div class="field">
+      <label>Link M3U (opcional — preenche usuário/senha/vencimento sozinho)</label>
+      <div style="display:flex; gap:8px;">
+        <input type="text" id="lead-m3u" placeholder="http://painel.com/get.php?username=...&password=..." style="flex:1;">
+        <button class="btn" type="button" onclick="buscarDadosM3ULead()" style="white-space:nowrap;">🔍 Buscar</button>
+      </div>
+      <div id="lead-m3u-status" style="font-size:12px; margin-top:6px;"></div>
+    </div>
+    <div class="field">
+      <label>Usuário</label>
+      <input type="text" id="lead-usuario" placeholder="usuario123">
+    </div>
+    <div class="field">
+      <label>Senha</label>
+      <input type="text" id="lead-senha" placeholder="senha123">
+    </div>
+    <div class="field">
+      <label>Servidor</label>
+      <select id="lead-servidor" onchange="preencherChecklistAplicativosLead(this.value, null)"></select>
+    </div>
+    <div class="field">
+      <label>Aplicativos</label>
+      <div id="lead-aplicativos-lista" style="display:flex; flex-direction:column; gap:6px;">
+        <div style="color:var(--text-muted); font-size:12px;">Escolhe o servidor primeiro.</div>
+      </div>
+    </div>
+    <div class="field">
+      <label>Duração do teste</label>
+      <div style="display:flex; gap:6px; flex-wrap:wrap;">
+        <button type="button" class="filter-chip lead-horas-chip" data-horas="1" onclick="setHorasTesteLead(1)">1h</button>
+        <button type="button" class="filter-chip lead-horas-chip active" data-horas="2" onclick="setHorasTesteLead(2)">2h</button>
+        <button type="button" class="filter-chip lead-horas-chip" data-horas="3" onclick="setHorasTesteLead(3)">3h</button>
+        <button type="button" class="filter-chip lead-horas-chip" data-horas="4" onclick="setHorasTesteLead(4)">4h</button>
+        <button type="button" class="filter-chip lead-horas-chip" data-horas="24" onclick="setHorasTesteLead(24)">24h</button>
+      </div>
+    </div>
+    <div class="field" style="background:rgba(52,211,153,0.1); border:1px solid rgba(52,211,153,0.35); border-radius:10px; padding:12px;">
+      <label style="color:var(--ok); font-weight:600;">💰 Valor especial pra esse cliente (R$)</label>
+      <input type="text" id="lead-valor" placeholder="Ex: 35.00">
+      <div style="font-size:11px; color:var(--text-muted); margin-top:6px;">Esse valor aparece pra ele na tela do teste, com botão de pagar e ativar na hora.</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharProcessarLead()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarEEnviarTeste()">💾📲 Salvar e enviar teste</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-ativar-oficial">
+  <div class="modal">
+    <div class="modal-header"><h2>Ativar como cliente oficial</h2><button class="modal-close-x" onclick="fecharAtivarOficial()">✕</button></div>
+    <input type="hidden" id="oficial-cliente-id">
+    <p style="font-size:13px; color:var(--text-muted); margin-top:-8px;">Define o plano de verdade — a partir daqui ele entra no Financeiro e nos contadores normais.</p>
+    <div class="field">
+      <label>Valor do plano (R$)</label>
+      <input type="text" id="oficial-valor" placeholder="45.00">
+    </div>
+    <div class="field">
+      <label>Vencimento</label>
+      <div style="display:flex; gap:8px;">
+        <input type="date" id="oficial-vencimento" style="flex:1;">
+        <button class="btn" type="button" id="btn-buscar-vencimento-oficial" style="display:none; white-space:nowrap;" onclick="buscarVencimentoOficial()">📡 Buscar do servidor</button>
+      </div>
+      <div id="oficial-vencimento-status" style="font-size:12px; margin-top:6px;"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharAtivarOficial()">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmarAtivarOficial()">Ativar como oficial</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-renovar">
+  <div class="modal">
+    <div class="modal-header"><h2>Renovar cliente</h2><button class="modal-close-x" onclick="fecharRenovacao()">✕</button></div>
+    <input type="hidden" id="renovar-cliente-id">
+
+    <div id="renovar-sync-bloco" style="display:none; margin-bottom:18px; padding-bottom:18px; border-bottom:1px solid var(--border);">
+      <button class="btn" style="width:100%; background:var(--ok); border-color:var(--ok); color:#06231A; font-weight:600;" onclick="sincronizarERenovar()">
+        📡 Sincronizar com servidor (puxa a data real de lá)
+      </button>
+      <div style="text-align:center; font-size:12px; color:var(--text-muted); margin:10px 0;">ou renove manualmente abaixo</div>
+    </div>
+
+    <div class="field">
+      <label>Renovar por quantos dias?</label>
+      <div style="display:flex; gap:6px; flex-wrap:wrap;">
+        <button class="filter-chip dia-chip" data-dias="15" onclick="setDiasRenovacao(15)">+15</button>
+        <button class="filter-chip dia-chip active" data-dias="30" onclick="setDiasRenovacao(30)">+30</button>
+        <button class="filter-chip dia-chip" data-dias="60" onclick="setDiasRenovacao(60)">+60</button>
+        <button class="filter-chip dia-chip" data-dias="90" onclick="setDiasRenovacao(90)">+90</button>
+        <button class="filter-chip dia-chip" data-dias="180" onclick="setDiasRenovacao(180)">+180</button>
+        <button class="filter-chip dia-chip" data-dias="360" onclick="setDiasRenovacao(360)">+360</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Base da renovação</label>
+      <div style="display:flex; gap:8px;">
+        <button class="filter-chip active" id="base-vencimento" onclick="setBaseRenovacao('vencimento')">A partir do vencimento atual</button>
+        <button class="filter-chip" id="base-hoje" onclick="setBaseRenovacao('hoje')">A partir de hoje</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Ou escolha uma data exata (opcional — se preencher, ignora as opções acima)</label>
+      <input type="date" id="renovar-data-manual">
+    </div>
+    <div class="field" style="margin-bottom:0;">
+      <label>Novo vencimento</label>
+      <div class="mono" id="preview-vencimento" style="font-size:16px; color:var(--ok);">—</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharRenovacao()">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmarRenovacao()">Renovar e notificar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-remarketing">
+  <div class="modal wide">
+    <div class="modal-header"><h2>Remarketing</h2><button class="modal-close-x" onclick="fecharRemarketing()">✕</button></div>
+    <div class="field">
+      <label>Filtrar por status</label>
+      <select id="remkt-status">
+        <option value="todos">Todos os clientes</option>
+        <option value="ativo">Ativos</option>
+        <option value="3dias">Vencendo em 3 dias</option>
+        <option value="hoje">Vencendo hoje</option>
+        <option value="vencido">Vencidos</option>
+        <option value="teste-vencido">🧪 Testou e não converteu (teste vencido)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Filtrar por servidor</label>
+      <select id="remkt-servidor"><option value="todos">Todos os servidores</option></select>
+    </div>
+    <div class="field">
+      <div id="remkt-contagem" style="font-size:13px; color:var(--ok); font-weight:600;">0 cliente(s) selecionado(s)</div>
+    </div>
+    <div class="field">
+      <label>Assunto (usado só no e-mail)</label>
+      <input type="text" id="remkt-assunto" placeholder="Oferta especial pra você">
+    </div>
+    <div class="field">
+      <label>Mensagem</label>
+      <textarea id="remkt-mensagem" style="min-height:100px;"></textarea>
+      <div class="var-chips" data-target="remkt-mensagem"></div>
+    </div>
+    <div class="modal-actions" style="flex-wrap:wrap;">
+      <button class="btn" onclick="fecharRemarketing()">Fechar</button>
+      <button class="btn" onclick="verLinksWhatsappMassa()">💬 Links WhatsApp</button>
+      <button class="btn" onclick="enviarPushMassa()">🔔 Push em massa</button>
+      <button class="btn btn-primary" onclick="enviarEmailMassa()">✉️ E-mail em massa</button>
+    </div>
+    <div id="remkt-links-whats" style="margin-top:14px; max-height:220px; overflow-y:auto;"></div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-aplicativos">
+  <div class="modal">
+    <div class="modal-header"><h2>Aplicativos</h2><button class="modal-close-x" onclick="fecharAplicativos()">✕</button></div>
+    <input type="hidden" id="editando-app-id">
+    <div class="field">
+      <label>Nome do app</label>
+      <input type="text" id="novo-app-nome" placeholder="Ex: IBO Player">
+    </div>
+    <div class="field">
+      <label>Código de ativação</label>
+      <input type="text" id="novo-app-codigo" placeholder="Ex: 123456">
+    </div>
+    <div class="field">
+      <label>Servidores compatíveis</label>
+      <div id="novo-app-servidores-lista" class="app-checklist"></div>
+    </div>
+    <button class="btn btn-primary" style="width:100%;" id="btn-salvar-app" onclick="adicionarAplicativo()">Adicionar</button>
+    <div id="lista-aplicativos" style="margin-top:16px;"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharAplicativos()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-servidores">
+  <div class="modal">
+    <div class="modal-header"><h2>Servidores</h2><button class="modal-close-x" onclick="fecharServidores()">✕</button></div>
+    <input type="hidden" id="editando-servidor-id">
+    <div class="field">
+      <label>Nome do servidor</label>
+      <input type="text" id="novo-servidor-nome" placeholder="Nome do servidor">
+    </div>
+    <div class="field">
+      <label>Domínio do link M3U (opcional — auto-detecta o servidor ao colar o link)</label>
+      <input type="text" id="novo-servidor-dominio" placeholder="Ex: invictos.sbs">
+    </div>
+    <div class="field">
+      <label>📺 Tutorial de instalação (link do YouTube — pra TV Box, TV Android, Firestick)</label>
+      <input type="text" id="novo-servidor-tutorial" placeholder="https://youtube.com/watch?v=...">
+      <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">Aparece pro cliente na tela dele, incorporado direto na página.</div>
+    </div>
+    <button class="btn btn-primary" style="width:100%;" id="btn-salvar-servidor" onclick="adicionarServidor()">Adicionar</button>
+    <div id="lista-servidores" style="margin-top:16px;"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharServidores()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-notificacoes">
+  <div class="modal">
+    <div class="modal-header"><h2>Notificações dos clientes</h2><button class="modal-close-x" onclick="fecharNotificacoes()">✕</button></div>
+    <div class="stats" style="grid-template-columns: 1fr 1fr; margin-bottom:18px;">
+      <div class="stat-card ok">
+        <div class="label">Ativaram</div>
+        <div class="value mono" id="notif-ativos">0</div>
+      </div>
+      <div class="stat-card danger">
+        <div class="label">Não ativaram</div>
+        <div class="value mono" id="notif-inativos">0</div>
+      </div>
+    </div>
+    <div id="lista-notificacoes"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharNotificacoes()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-financeiro">
+  <div class="modal wide">
+    <div class="modal-header"><h2>Financeiro</h2><button class="modal-close-x" onclick="fecharFinanceiro()">✕</button></div>
+    <div style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
+      <div class="field" style="flex:1; min-width:140px; margin-bottom:0;">
+        <label>Mês</label>
+        <select id="fin-filtro-mes"><option value="todos">Todos os meses</option></select>
+      </div>
+      <div class="field" style="flex:1; min-width:140px; margin-bottom:0;">
+        <label>Servidor</label>
+        <select id="fin-filtro-servidor"><option value="todos">Todos os servidores</option></select>
+      </div>
+      <div class="field" style="flex:1; min-width:140px; margin-bottom:0;">
+        <label>Produto</label>
+        <select id="fin-filtro-produto">
+          <option value="iptv" selected>📺 IPTV</option>
+          <option value="musica">🎵 Música</option>
+          <option value="todos">Todos os produtos</option>
+        </select>
+      </div>
+    </div>
+    <div class="stats" style="grid-template-columns: 1fr 1fr 1fr; margin-bottom:18px;">
+      <div class="stat-card ok">
+        <div class="label">Total no período</div>
+        <div class="value mono" id="fin-total" style="font-size:22px;">R$ 0</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Cadastros</div>
+        <div class="value mono" id="fin-cadastros" style="font-size:22px;">R$ 0</div>
+      </div>
+      <div class="stat-card warn">
+        <div class="label">Renovações</div>
+        <div class="value mono" id="fin-renovacoes" style="font-size:22px;">R$ 0</div>
+      </div>
+    </div>
+    <h3 style="font-size:14px; margin-bottom:8px;">Por servidor (no período)</h3>
+    <div id="fin-por-servidor" style="margin-bottom:18px;"></div>
+    <h3 style="font-size:14px; margin-bottom:8px;">Lançamentos</h3>
+    <div id="lista-financeiro"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharFinanceiro()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-config">
+  <div class="modal">
+    <div class="modal-header"><h2>Configurações</h2><button class="modal-close-x" onclick="fecharConfig()">✕</button></div>
+    <div class="field">
+      <label>WhatsApp do suporte (com DDI, só números)</label>
+      <input type="text" id="cfg-whatsapp" placeholder="5521999999999">
+    </div>
+    <div class="field">
+      <label>Seu e-mail (pra receber aviso quando um cliente pagar)</label>
+      <input type="email" id="cfg-email-admin" placeholder="seuemail@exemplo.com">
+    </div>
+    <div class="field" style="background:rgba(96,165,250,0.1); border:1px solid rgba(96,165,250,0.35); border-radius:10px; padding:12px;">
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-bottom:0; color:#60A5FA; font-weight:600;">
+        <input type="checkbox" id="cfg-pagamento-automatico-cliente" style="width:16px; height:16px; accent-color:#60A5FA;">
+        💳 Pagamento automático — clientes normais
+      </label>
+      <div style="font-size:11px; color:var(--text-muted); margin-top:6px 0 10px;">Desativado: cliente vê "Solicitar PIX" (abre WhatsApp com você) em vez de pagar sozinho.</div>
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-bottom:0; color:#60A5FA; font-weight:600;">
+        <input type="checkbox" id="cfg-pagamento-automatico-teste" style="width:16px; height:16px; accent-color:#60A5FA;">
+        💳 Pagamento automático — clientes em teste
+      </label>
+      <div style="font-size:11px; color:var(--text-muted); margin-top:6px;">Controla separadamente o botão de pagar pra quem ainda está em teste.</div>
+    </div>
+    <div class="field" style="background:rgba(52,211,153,0.1); border:1px solid rgba(52,211,153,0.35); border-radius:10px; padding:12px;">
+      <label style="color:var(--ok); font-weight:600;">🎵 Links do produto Música</label>
+      <div style="margin-top:8px;">
+        <label>Link do APK (Android)</label>
+        <input type="text" id="cfg-apk-link" placeholder="https://exemplo.com/app.apk">
+      </div>
+      <div style="margin-top:10px;">
+        <label>Link de acesso pelo navegador (computador/iPhone)</label>
+        <input type="text" id="cfg-web-link" placeholder="https://exemplo.com/player">
+      </div>
+      <div style="margin-top:10px;">
+        <label>Texto do botão de baixar o app</label>
+        <input type="text" id="cfg-musica-botao" placeholder="📥 Baixe o Xtream Music">
+      </div>
+      <div style="margin-top:10px;">
+        <label>Mensagem de instrução (aparece acima do botão)</label>
+        <textarea id="cfg-musica-instrucao" style="width:100%; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:10px 12px; color:var(--text); font-family:'Inter',sans-serif; font-size:14px; min-height:60px;" placeholder="Clica no botão abaixo, baixa e instala o aplicativo, depois entra com seu usuário e senha pra começar a usar."></textarea>
+      </div>
+      <div style="margin-top:10px;">
+        <label>Domínio da API do painel de música (pra buscar vencimento automático)</label>
+        <input type="text" id="cfg-musica-api" placeholder="https://api.xtream-music.com">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharConfig()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarConfig()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-mensagens">
+  <div class="modal wide">
+    <div class="modal-header"><h2>Mensagens automáticas</h2><button class="modal-close-x" onclick="fecharMensagens()">✕</button></div>
+    <p style="font-size:13px; color:var(--text-muted); margin-top:-10px; margin-bottom:20px;">
+      Clique numa variável pra inserir no texto onde o cursor estiver.
+    </p>
+
+    <div class="template-block">
+      <h3>7 dias antes do vencimento</h3>
+      <div class="quando">Push + e-mail automático</div>
+      <textarea id="tpl-msg7dias"></textarea>
+      <div class="var-chips" data-target="tpl-msg7dias"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>3 dias antes do vencimento</h3>
+      <div class="quando">Push + e-mail automático</div>
+      <textarea id="tpl-msg3dias"></textarea>
+      <div class="var-chips" data-target="tpl-msg3dias"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>No dia do vencimento</h3>
+      <div class="quando">Push + e-mail automático</div>
+      <textarea id="tpl-msgVencimento"></textarea>
+      <div class="var-chips" data-target="tpl-msgVencimento"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>💰 Vencido (1-2 dias) — cobrança</h3>
+      <div class="quando">Usada no WhatsApp manual (💬) pra clientes recém-atrasados</div>
+      <textarea id="tpl-msgVencido"></textarea>
+      <div class="var-chips" data-target="tpl-msgVencido"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>💰 3+ dias vencido — cobrança</h3>
+      <div class="quando">Push + e-mail automático, e usada no WhatsApp manual (💬)</div>
+      <textarea id="tpl-msg3diasVencido"></textarea>
+      <div class="var-chips" data-target="tpl-msg3diasVencido"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>Push manual (botão 🔔)</h3>
+      <div class="quando">Usada quando você clica no sino pra mandar um aviso avulso</div>
+      <textarea id="tpl-msgManual"></textarea>
+      <div class="var-chips" data-target="tpl-msgManual"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>Comprovante de renovação (botão 🔄)</h3>
+      <div class="quando">Enviado pro cliente quando você renova o plano dele</div>
+      <textarea id="tpl-comprovanteRenovacao"></textarea>
+      <div class="var-chips" data-target="tpl-comprovanteRenovacao"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>🧪 Teste acabando</h3>
+      <div class="quando">Push + e-mail automático — disparado quando falta 1h pro teste encerrar</div>
+      <textarea id="tpl-msgTesteAcabando"></textarea>
+      <div class="var-chips" data-target="tpl-msgTesteAcabando"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>🧪 Teste encerrado</h3>
+      <div class="quando">Push + e-mail automático — disparado quando o teste já venceu</div>
+      <textarea id="tpl-msgTesteAcabou"></textarea>
+      <div class="var-chips" data-target="tpl-msgTesteAcabou"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>✅ Bem-vindo oficial</h3>
+      <div class="quando">Push + e-mail + WhatsApp — disparado ao ativar um cliente de teste como oficial</div>
+      <textarea id="tpl-msgBemVindoOficial"></textarea>
+      <div class="var-chips" data-target="tpl-msgBemVindoOficial"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>Assunto do e-mail</h3>
+      <div class="quando">Usado em todos os e-mails automáticos</div>
+      <textarea id="tpl-emailAssunto" style="min-height:36px"></textarea>
+      <div class="var-chips" data-target="tpl-emailAssunto"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>Corpo do e-mail</h3>
+      <div class="quando">Usado em todos os e-mails automáticos</div>
+      <textarea id="tpl-emailCorpo" style="min-height:90px"></textarea>
+      <div class="var-chips" data-target="tpl-emailCorpo"></div>
+    </div>
+
+    <h3 style="margin-top:26px; padding-top:18px; border-top:1px solid var(--border); color:var(--ok);">🎵 Mensagens — Música</h3>
+    <p style="font-size:12px; color:var(--text-muted); margin-top:-6px;">Usadas só pros clientes marcados como "Cliente de música"</p>
+
+    <div class="template-block">
+      <h3>7 dias antes (Música)</h3>
+      <div class="quando">Push + e-mail automático</div>
+      <textarea id="tpl-msg7diasMusica"></textarea>
+      <div class="var-chips" data-target="tpl-msg7diasMusica"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>3 dias antes (Música)</h3>
+      <div class="quando">Push + e-mail automático</div>
+      <textarea id="tpl-msg3diasMusica"></textarea>
+      <div class="var-chips" data-target="tpl-msg3diasMusica"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>No dia do vencimento (Música)</h3>
+      <div class="quando">Push + e-mail automático</div>
+      <textarea id="tpl-msgVencimentoMusica"></textarea>
+      <div class="var-chips" data-target="tpl-msgVencimentoMusica"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>💰 Vencido 1-2 dias — cobrança (Música)</h3>
+      <div class="quando">Usada no WhatsApp manual (💬)</div>
+      <textarea id="tpl-msgVencidoMusica"></textarea>
+      <div class="var-chips" data-target="tpl-msgVencidoMusica"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>💰 3+ dias vencido — cobrança (Música)</h3>
+      <div class="quando">Push + e-mail automático, e WhatsApp manual (💬)</div>
+      <textarea id="tpl-msg3diasVencidoMusica"></textarea>
+      <div class="var-chips" data-target="tpl-msg3diasVencidoMusica"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>Push manual — botão 🔔 (Música)</h3>
+      <div class="quando">Usada quando você clica no sino pra mandar um aviso avulso</div>
+      <textarea id="tpl-msgManualMusica"></textarea>
+      <div class="var-chips" data-target="tpl-msgManualMusica"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>Comprovante de renovação — botão 🔄 (Música)</h3>
+      <div class="quando">Enviado quando você renova o plano dele</div>
+      <textarea id="tpl-comprovanteRenovacaoMusica"></textarea>
+      <div class="var-chips" data-target="tpl-comprovanteRenovacaoMusica"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>Assunto do e-mail (Música)</h3>
+      <textarea id="tpl-emailAssuntoMusica" style="min-height:36px"></textarea>
+      <div class="var-chips" data-target="tpl-emailAssuntoMusica"></div>
+    </div>
+
+    <div class="template-block">
+      <h3>Corpo do e-mail (Música)</h3>
+      <textarea id="tpl-emailCorpoMusica" style="min-height:90px"></textarea>
+      <div class="var-chips" data-target="tpl-emailCorpoMusica"></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharMensagens()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarMensagens()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ---- PIN de acesso ----
+  const PIN_CORRETO = '891322';
+  function verificarPin() {
+    const valor = document.getElementById('pin-input').value;
+    if (valor === PIN_CORRETO) {
+      localStorage.setItem('painelDesbloqueado', 'sim');
+      document.getElementById('overlay-pin').classList.remove('open');
+    } else {
+      document.getElementById('pin-erro').style.display = 'block';
+      document.getElementById('pin-input').value = '';
+    }
+  }
+  if (localStorage.getItem('painelDesbloqueado') === 'sim') {
+    document.getElementById('overlay-pin').classList.remove('open');
+  }
+  document.getElementById('pin-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') verificarPin();
+  });
+
+  // ---- Personalização ----
+  async function abrirPersonalizacao() {
+    const res = await fetch(`${FIREBASE_DB}/config/marca.json`);
+    const marca = await res.json() || {};
+    document.getElementById('pz-nome').value = marca.nome || '';
+    document.getElementById('pz-logo').value = marca.logoUrl || '';
+    document.getElementById('pz-cor').value = marca.corPrimaria || '#34D399';
+    document.getElementById('pz-texto-notif').value = marca.textoBotaoNotificacao || 'Ativar notificações';
+    document.getElementById('pz-texto-suporte').value = marca.textoBotaoSuporte || '💬 Falar com o suporte agora';
+    document.getElementById('overlay-personalizacao').classList.add('open');
+  }
+  function fecharPersonalizacao() {
+    document.getElementById('overlay-personalizacao').classList.remove('open');
+  }
+  async function salvarPersonalizacao() {
+    const marca = {
+      nome: document.getElementById('pz-nome').value.trim(),
+      logoUrl: document.getElementById('pz-logo').value.trim(),
+      corPrimaria: document.getElementById('pz-cor').value,
+      textoBotaoNotificacao: document.getElementById('pz-texto-notif').value.trim() || 'Ativar notificações',
+      textoBotaoSuporte: document.getElementById('pz-texto-suporte').value.trim() || '💬 Falar com o suporte agora'
+    };
+    await fetch(`${FIREBASE_DB}/config.json`, {
+      method: 'PATCH',
+      body: JSON.stringify({ marca })
+    });
+    fecharPersonalizacao();
+    alert('Personalização salva! A página do cliente já reflete isso.');
+  }
+
+  function selecionarVencidosPorDias() {
+    const dias = parseInt(document.getElementById('filtro-dias-vencido').value, 10);
+    const alvo = clientes.filter(c => diasAte(c.vencimento) < -dias);
+
+    if (alvo.length === 0) {
+      alert(`Nenhum cliente vencido há mais de ${dias} dias.`);
+      return;
+    }
+
+    alvo.forEach(c => selecionados.add(c.id));
+    filtrar('vencido');
+    alert(`${alvo.length} cliente(s) vencido(s) há mais de ${dias} dias foram selecionados. Revise a lista (marcados com ✓) e clica em "Excluir selecionados" quando confirmar.`);
+  }
+
+  // ---- Seleção em massa ----
+  let selecionados = new Set();
+
+  function toggleSelecao(id) {
+    if (selecionados.has(id)) selecionados.delete(id);
+    else selecionados.add(id);
+    atualizarBarraSelecao();
+  }
+
+  function toggleSelecionarTodos() {
+    const marcarTodos = document.getElementById('chk-selecionar-todos').checked;
+    const idsVisiveis = Array.from(document.querySelectorAll('.chk-cliente')).map(el => el.value);
+    if (marcarTodos) idsVisiveis.forEach(id => selecionados.add(id));
+    else idsVisiveis.forEach(id => selecionados.delete(id));
+    renderizar();
+  }
+
+  function limparSelecao() {
+    selecionados.clear();
+    document.getElementById('chk-selecionar-todos').checked = false;
+    renderizar();
+  }
+
+  function atualizarBarraSelecao() {
+    const barra = document.getElementById('barra-selecao');
+    if (selecionados.size > 0) {
+      barra.style.display = 'flex';
+      document.getElementById('texto-selecao').textContent = `${selecionados.size} selecionado(s)`;
+    } else {
+      barra.style.display = 'none';
+    }
+  }
+
+  async function excluirSelecionados() {
+    const ids = Array.from(selecionados);
+    if (ids.length === 0) return;
+    if (!confirm(`Excluir ${ids.length} cliente(s)? Isso não pode ser desfeito.`)) return;
+
+    await Promise.all(ids.map(id =>
+      fetch(`${FIREBASE_DB}/clientes/${id}.json`, { method: 'DELETE' })
+    ));
+
+    selecionados.clear();
+    document.getElementById('chk-selecionar-todos').checked = false;
+    await carregarClientes();
+  }
+
+  // ---- Trocar domínio M3U em massa ----
+  let clientesParaTrocarDominio = [];
+
+  function abrirTrocarDominio() {
+    document.getElementById('td-dominio-antigo').value = '';
+    document.getElementById('td-dominio-novo').value = '';
+    document.getElementById('td-resumo').innerHTML = '';
+    document.getElementById('btn-aplicar-troca-dominio').style.display = 'none';
+    clientesParaTrocarDominio = [];
+    document.getElementById('overlay-trocar-dominio').classList.add('open');
+  }
+  function fecharTrocarDominio() {
+    document.getElementById('overlay-trocar-dominio').classList.remove('open');
+  }
+
+  function analisarTrocaDominio() {
+    const antigo = document.getElementById('td-dominio-antigo').value.trim();
+    const novo = document.getElementById('td-dominio-novo').value.trim();
+    const resumo = document.getElementById('td-resumo');
+
+    if (!antigo || !novo) {
+      resumo.textContent = 'Preenche os dois campos.';
+      return;
+    }
+
+    clientesParaTrocarDominio = clientes.filter(c => c.m3uLink && c.m3uLink.includes(antigo));
+
+    if (clientesParaTrocarDominio.length === 0) {
+      resumo.textContent = `Nenhum cliente encontrado com "${antigo}" no link M3U.`;
+      document.getElementById('btn-aplicar-troca-dominio').style.display = 'none';
+      return;
+    }
+
+    resumo.innerHTML = `
+      <div style="color:var(--ok); font-weight:600; margin-bottom:6px;">${clientesParaTrocarDominio.length} cliente(s) encontrado(s)</div>
+      <div style="max-height:150px; overflow-y:auto;">
+        ${clientesParaTrocarDominio.slice(0, 20).map(c => `<div style="padding:3px 0;">• ${c.nome}</div>`).join('')}
+        ${clientesParaTrocarDominio.length > 20 ? `<div style="padding:3px 0;">... e mais ${clientesParaTrocarDominio.length - 20}</div>` : ''}
+      </div>
+    `;
+    document.getElementById('btn-aplicar-troca-dominio').style.display = 'inline-block';
+  }
+
+  async function aplicarTrocaDominio() {
+    const antigo = document.getElementById('td-dominio-antigo').value.trim();
+    const novo = document.getElementById('td-dominio-novo').value.trim();
+
+    if (!confirm(`Atualizar o link M3U de ${clientesParaTrocarDominio.length} cliente(s)?`)) return;
+
+    const resumo = document.getElementById('td-resumo');
+    let feitos = 0;
+
+    const TAMANHO_LOTE = 20;
+    for (let i = 0; i < clientesParaTrocarDominio.length; i += TAMANHO_LOTE) {
+      const lote = clientesParaTrocarDominio.slice(i, i + TAMANHO_LOTE);
+      await Promise.all(lote.map(c => {
+        const novoLink = c.m3uLink.replaceAll(antigo, novo);
+        return fetch(`${FIREBASE_DB}/clientes/${c.id}.json`, {
+          method: 'PATCH',
+          body: JSON.stringify({ m3uLink: novoLink })
+        });
+      }));
+      feitos += lote.length;
+      resumo.innerHTML = `Atualizando... ${feitos} / ${clientesParaTrocarDominio.length}`;
+    }
+
+    resumo.innerHTML = `✅ ${feitos} cliente(s) atualizado(s) com sucesso!`;
+
+    const servidoresParaAtualizar = servidores.filter(s => s.dominioM3U && s.dominioM3U.includes(antigo));
+    if (servidoresParaAtualizar.length > 0) {
+      await Promise.all(servidoresParaAtualizar.map(s =>
+        fetch(`${FIREBASE_DB}/servidores/${s.id}.json`, {
+          method: 'PATCH',
+          body: JSON.stringify({ dominioM3U: s.dominioM3U.replaceAll(antigo, novo) })
+        })
+      ));
+      resumo.innerHTML += `<br>✅ Domínio atualizado também em ${servidoresParaAtualizar.length} servidor(es): ${servidoresParaAtualizar.map(s => s.nome).join(', ')}`;
+      await carregarServidores();
+    }
+
+    document.getElementById('btn-aplicar-troca-dominio').style.display = 'none';
+    await carregarClientes();
+  }
+
+  // ---- Importar clientes (CSV) ----
+  let importarDadosValidos = [];
+  let importarResumoExclusao = {};
+
+  function abrirImportar() {
+    document.getElementById('importar-arquivo').value = '';
+    document.getElementById('importar-resumo').innerHTML = '';
+    document.getElementById('importar-progresso').innerHTML = '';
+    document.getElementById('btn-confirmar-importacao').style.display = 'none';
+    importarDadosValidos = [];
+    document.getElementById('overlay-importar').classList.add('open');
+  }
+  function fecharImportar() {
+    document.getElementById('overlay-importar').classList.remove('open');
+  }
+
+  function parseCSV(texto) {
+    const linhas = [];
+    let linhaAtual = [];
+    let campoAtual = '';
+    let dentroAspas = false;
+
+    for (let i = 0; i < texto.length; i++) {
+      const char = texto[i];
+      const proximo = texto[i + 1];
+
+      if (dentroAspas) {
+        if (char === '"' && proximo === '"') { campoAtual += '"'; i++; }
+        else if (char === '"') { dentroAspas = false; }
+        else { campoAtual += char; }
+      } else {
+        if (char === '"') { dentroAspas = true; }
+        else if (char === ',') { linhaAtual.push(campoAtual); campoAtual = ''; }
+        else if (char === '\n' || char === '\r') {
+          if (char === '\r' && proximo === '\n') i++;
+          linhaAtual.push(campoAtual);
+          campoAtual = '';
+          if (linhaAtual.length > 1 || linhaAtual[0] !== '') linhas.push(linhaAtual);
+          linhaAtual = [];
+        } else { campoAtual += char; }
+      }
+    }
+    if (campoAtual !== '' || linhaAtual.length > 0) {
+      linhaAtual.push(campoAtual);
+      linhas.push(linhaAtual);
+    }
+
+    const cabecalho = linhas[0];
+    return linhas.slice(1).map(linha => {
+      const obj = {};
+      cabecalho.forEach((col, i) => { obj[col.trim()] = (linha[i] || '').trim(); });
+      return obj;
+    });
+  }
+
+  function extrairValorPlano(str) {
+    const match = (str || '').match(/\(R\$\s*([\d.,]+)\)/);
+    if (!match) return 0;
+    return parseFloat(match[1].replace(',', '.')) || 0;
+  }
+
+  function parseDataBR(str) {
+    const partes = (str || '').split('/');
+    if (partes.length !== 3) return null;
+    const [dia, mes, ano] = partes.map(p => parseInt(p, 10));
+    if (!dia || !mes || ano < 2000) return null;
+    return new Date(ano, mes - 1, dia, 12, 0, 0).getTime();
+  }
+
+  const PROVEDORES_EXCLUIR = new Set(['SEM INTERESSE - EX CLIENTES', 'Sem interesse']);
+
+  function prepararImportacao() {
+    const arquivo = document.getElementById('importar-arquivo').files[0];
+    if (!arquivo) { alert('Escolhe o arquivo CSV primeiro.'); return; }
+
+    const leitor = new FileReader();
+    leitor.onload = (e) => {
+      const linhas = parseCSV(e.target.result);
+
+      let excluidosProvedor = 0, excluidosWhats = 0, excluidosData = 0;
+      importarDadosValidos = [];
+
+      linhas.forEach(linha => {
+        const provedor = (linha.Provedor || '').trim();
+        const whatsapp = (linha.WhatsApp || '').replace(/\D/g, '');
+        const vencimento = parseDataBR(linha.Vencimento);
+
+        if (PROVEDORES_EXCLUIR.has(provedor)) { excluidosProvedor++; return; }
+        if (!whatsapp) { excluidosWhats++; return; }
+        if (!vencimento) { excluidosData++; return; }
+
+        const nome = (linha.Nome || '').trim() || (linha.Login || '').trim() || 'Sem nome';
+
+        importarDadosValidos.push({
+          nome,
+          usuario: (linha.Login || '').trim(),
+          senha: (linha.Senha || '').trim(),
+          whatsapp,
+          email: '',
+          servidor: '',
+          aplicativosIds: [],
+          planoValor: extrairValorPlano(linha.Plano),
+          vencimento,
+          status: 'ativo',
+          fcmToken: null,
+          notificacaoAtiva: false,
+          ultimaNotificacao: { tipo: null, data: 0 },
+          criadoEm: Date.now()
+        });
+      });
+
+      const totalLinhas = linhas.length;
+      document.getElementById('importar-resumo').innerHTML = `
+        <div class="lista-item"><span>Total no arquivo</span><span class="mono">${totalLinhas}</span></div>
+        <div class="lista-item"><span>Válidos pra importar</span><span class="mono" style="color:var(--ok);">${importarDadosValidos.length}</span></div>
+        <div class="lista-item"><span>Excluídos (sem WhatsApp)</span><span class="mono">${excluidosWhats}</span></div>
+        <div class="lista-item"><span>Excluídos (data inválida)</span><span class="mono">${excluidosData}</span></div>
+        <div class="lista-item"><span>Excluídos (sem interesse)</span><span class="mono">${excluidosProvedor}</span></div>
+      `;
+
+      document.getElementById('btn-confirmar-importacao').style.display = importarDadosValidos.length > 0 ? 'inline-block' : 'none';
+    };
+    leitor.readAsText(arquivo, 'UTF-8');
+  }
+
+  async function confirmarImportacao() {
+    if (importarDadosValidos.length === 0) return;
+    if (!confirm(`Importar ${importarDadosValidos.length} clientes agora? Isso não pode ser desfeito automaticamente.`)) return;
+
+    const btn = document.getElementById('btn-confirmar-importacao');
+    btn.disabled = true;
+    const progresso = document.getElementById('importar-progresso');
+
+    const TAMANHO_LOTE = 20;
+    let importados = 0;
+
+    for (let i = 0; i < importarDadosValidos.length; i += TAMANHO_LOTE) {
+      const lote = importarDadosValidos.slice(i, i + TAMANHO_LOTE);
+      await Promise.all(lote.map(cliente =>
+        fetch(`${FIREBASE_DB}/clientes.json`, {
+          method: 'POST',
+          body: JSON.stringify(cliente)
+        })
+      ));
+      importados += lote.length;
+      progresso.textContent = `Importando... ${importados} / ${importarDadosValidos.length}`;
+    }
+
+    progresso.textContent = `✅ Importação concluída! ${importados} clientes cadastrados.`;
+    btn.disabled = false;
+    btn.style.display = 'none';
+    await carregarClientes();
+  }
+
+  function abrirMenu() {
+    document.getElementById('overlay-menu').classList.add('open');
+  }
+  function fecharMenu() {
+    document.getElementById('overlay-menu').classList.remove('open');
+  }
+
+  function setModoVisualizacao(modo) {
+    document.body.classList.remove('view-grade', 'view-list');
+    document.body.classList.add('view-' + modo);
+    document.getElementById('btn-view-grade').classList.toggle('active', modo === 'grade');
+    document.getElementById('btn-view-lista').classList.toggle('active', modo === 'lista');
+    localStorage.setItem('modoVisualizacao', modo);
+  }
+  setModoVisualizacao(localStorage.getItem('modoVisualizacao') || 'grade');
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBaVUpfN03wm2mm_C3sUZhMUZtThb32FSQ",
+    authDomain: "gestao-clientes-a1664.firebaseapp.com",
+    databaseURL: "https://gestao-clientes-a1664-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "gestao-clientes-a1664",
+    storageBucket: "gestao-clientes-a1664.firebasestorage.app",
+    messagingSenderId: "417549104013",
+    appId: "1:417549104013:web:0a753604b6eaf2f65243c4"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const VAPID_KEY = "BB7h2P--2AyZfHmes1ibhzHlWY1DVPFvyWp6r4CIyQrPbDLOS_xx0zteP8SIbH34m2Txx0KLnLu8ZOF6RbSzY8U";
+
+  const FIREBASE_DB = "https://gestao-clientes-a1664-default-rtdb.europe-west1.firebasedatabase.app";
+
+  function copiarLinkCaptura() {
+    const link = `${window.location.origin}/captura.html`;
+    navigator.clipboard.writeText(link).then(() => alert('Link copiado!'));
+  }
+
+  async function ativarNotificacoesAdmin() {
+    try {
+      if (!('Notification' in window)) {
+        alert('Esse navegador não tem suporte a notificações.');
+        return;
+      }
+      if (Notification.permission === 'denied') {
+        alert('As notificações desse site já estão bloqueadas no seu navegador. Vai no ícone de cadeado ao lado do endereço, muda pra "Permitir", e recarrega a página.');
+        return;
+      }
+      const permissao = await Notification.requestPermission();
+      if (permissao !== 'granted') {
+        alert('Você precisa permitir as notificações.');
+        return;
+      }
+      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+      const messaging = firebase.messaging();
+      const token = await messaging.getToken({ vapidKey: VAPID_KEY, serviceWorkerRegistration: registration });
+
+      await fetch(`${FIREBASE_DB}/config.json`, {
+        method: 'PATCH',
+        body: JSON.stringify({ adminFcmToken: token, adminNotificacaoAtiva: true })
+      });
+
+      document.getElementById('banner-notif-admin').style.display = 'none';
+      alert('✅ Notificações ativadas! Você vai receber um aviso toda vez que alguém pedir teste grátis.');
+    } catch (err) {
+      alert('Não deu pra ativar agora (' + (err.message || 'erro desconhecido') + '). Tenta de novo.');
+    }
+  }
+
+  async function verificarNotificacaoAdmin() {
+    const res = await fetch(`${FIREBASE_DB}/config.json`);
+    const config = await res.json() || {};
+    document.getElementById('banner-notif-admin').style.display = config.adminNotificacaoAtiva ? 'none' : 'flex';
+  }
+
+
+  let clientes = [];
+  let servidores = [];
+  let aplicativos = [];
+  let filtroAtual = 'todos';
+  let templatesConfig = {};
+
+  // Formata um timestamp pro formato de <input type="date"> usando o
+  // horário LOCAL (não UTC) — evita o vencimento "vazar" pro dia seguinte
+  // quando o horário exato está perto da meia-noite (ex: 23:59:59).
+  function paraInputData(timestamp) {
+    const d = new Date(timestamp);
+    const ano = d.getFullYear();
+    const mes = String(d.getMonth() + 1).padStart(2, '0');
+    const dia = String(d.getDate()).padStart(2, '0');
+    return `${ano}-${mes}-${dia}`;
+  }
+
+  const TEMPLATES_PADRAO = {
+    msg7dias: 'Olá {nome}! Passando pra lembrar que seu plano vence em {dias_restantes} dias ({data_vencimento}). Valor: R$ {valor_plano}.',
+    msg3dias: 'Olá {nome}! Seu plano vence em {dias_restantes} dias ({data_vencimento}). Valor: R$ {valor_plano}. Quer renovar agora?',
+    msgVencimento: 'Olá {nome}! Seu plano vence hoje ({data_vencimento}). Valor: R$ {valor_plano}. Renova pra não perder o acesso?',
+    msgVencido: 'Olá {nome}! Seu plano venceu em {data_vencimento} e está com pagamento pendente. Valor: R$ {valor_plano}. Vamos regularizar hoje pra não perder o acesso?',
+    msg3diasVencido: 'Olá {nome}! Seu plano venceu há 3 dias ({data_vencimento}). Valor: R$ {valor_plano}. Vamos regularizar hoje?',
+    msgManual: 'Olá {nome}! Passando aqui sobre o seu plano ({servidor}), vencimento em {data_vencimento}. Qualquer coisa me chama!',
+    comprovanteRenovacao: 'Olá {nome}! Seu plano foi renovado com sucesso ✅\nNovo vencimento: {data_vencimento}\nValor: R$ {valor_plano}\nObrigado pela confiança!',
+    msgTesteAcabando: 'Olá {nome}! Seu teste está acabando em breve. Gostou? Fala com a gente pra virar cliente oficial e não perder o acesso!',
+    msgTesteAcabou: 'Olá {nome}! Seu período de teste terminou. Gostou da experiência? Fala com a gente agora pra ativar seu plano oficial!',
+    msgBemVindoOficial: 'Olá {nome}! Seu plano foi ativado com sucesso ✅\nVencimento: {data_vencimento}\nValor: R$ {valor_plano}\nSeja bem-vindo(a)!',
+    emailAssunto: 'Seu plano vence em breve',
+    emailCorpo: 'Olá {nome},\n\nSeu plano ({servidor}) vence em {data_vencimento}. Valor: R$ {valor_plano}.\n\nQualquer dúvida, chama no WhatsApp.',
+    msg7diasMusica: 'Olá {nome}! Passando pra lembrar que seu plano de música vence em {dias_restantes} dias ({data_vencimento}). Valor: R$ {valor_plano}.',
+    msg3diasMusica: 'Olá {nome}! Seu plano de música vence em {dias_restantes} dias ({data_vencimento}). Valor: R$ {valor_plano}. Quer renovar agora?',
+    msgVencimentoMusica: 'Olá {nome}! Seu plano de música vence hoje ({data_vencimento}). Valor: R$ {valor_plano}. Renova pra não perder o acesso?',
+    msgVencidoMusica: 'Olá {nome}! Seu plano de música venceu em {data_vencimento} e está com pagamento pendente. Valor: R$ {valor_plano}. Vamos regularizar hoje pra não perder o acesso?',
+    msg3diasVencidoMusica: 'Olá {nome}! Seu plano de música está vencido desde {data_vencimento} e o pagamento está pendente. Valor: R$ {valor_plano}. Vamos regularizar hoje?',
+    msgManualMusica: 'Olá {nome}! Passando aqui sobre o seu plano de música, vencimento em {data_vencimento}. Qualquer coisa me chama!',
+    comprovanteRenovacaoMusica: 'Olá {nome}! Seu plano de música foi renovado com sucesso ✅\nNovo vencimento: {data_vencimento}\nValor: R$ {valor_plano}\nObrigado pela confiança!',
+    emailAssuntoMusica: 'Seu plano de música vence em breve',
+    emailCorpoMusica: 'Olá {nome},\n\nSeu plano de música vence em {data_vencimento}. Valor: R$ {valor_plano}.\n\nQualquer dúvida, chama no WhatsApp.'
+  };
+
+  const VARIAVEIS = ['{nome}', '{data_vencimento}', '{valor_plano}', '{servidor}', '{dias_restantes}', '{status}', '{link}'];
+
+  function preencherTemplateJS(template, c) {
+    const dias = diasAte(c.vencimento);
+    const link = c.id ? `${window.location.origin}/meu-plano.html?id=${c.id}` : '';
+    return (template || '')
+      .replaceAll('{nome}', c.nome || '')
+      .replaceAll('{data_vencimento}', new Date(c.vencimento).toLocaleDateString('pt-BR'))
+      .replaceAll('{valor_plano}', Number(c.planoValor || 0).toFixed(2))
+      .replaceAll('{servidor}', c.servidor || '')
+      .replaceAll('{dias_restantes}', String(dias))
+      .replaceAll('{status}', statusCalculado(c))
+      .replaceAll('{link}', link);
+  }
+
+  function montarChips() {
+    document.querySelectorAll('.var-chips').forEach(container => {
+      const targetId = container.dataset.target;
+      container.innerHTML = VARIAVEIS.map(v =>
+        `<span class="var-chip" onclick="inserirVariavel('${targetId}', '${v}')">${v}</span>`
+      ).join('');
+    });
+  }
+
+  function inserirVariavel(textareaId, variavel) {
+    const el = document.getElementById(textareaId);
+    const inicio = el.selectionStart || el.value.length;
+    const fim = el.selectionEnd || el.value.length;
+    el.value = el.value.slice(0, inicio) + variavel + el.value.slice(fim);
+    el.focus();
+    el.selectionStart = el.selectionEnd = inicio + variavel.length;
+  }
+
+  async function abrirMensagens() {
+    const res = await fetch(`${FIREBASE_DB}/config/templates.json`);
+    const salvos = await res.json() || {};
+    const chaves = ['msg7dias', 'msg3dias', 'msgVencimento', 'msgVencido', 'msg3diasVencido', 'msgManual', 'comprovanteRenovacao', 'msgTesteAcabando', 'msgTesteAcabou', 'msgBemVindoOficial', 'emailAssunto', 'emailCorpo', 'msg7diasMusica', 'msg3diasMusica', 'msgVencimentoMusica', 'msgVencidoMusica', 'msg3diasVencidoMusica', 'msgManualMusica', 'comprovanteRenovacaoMusica', 'emailAssuntoMusica', 'emailCorpoMusica'];
+    chaves.forEach(chave => {
+      document.getElementById(`tpl-${chave}`).value = salvos[chave] || TEMPLATES_PADRAO[chave];
+    });
+    montarChips();
+    document.getElementById('overlay-mensagens').classList.add('open');
+  }
+
+  function fecharMensagens() {
+    document.getElementById('overlay-mensagens').classList.remove('open');
+  }
+
+  async function salvarMensagens() {
+    const chaves = ['msg7dias', 'msg3dias', 'msgVencimento', 'msgVencido', 'msg3diasVencido', 'msgManual', 'comprovanteRenovacao', 'msgTesteAcabando', 'msgTesteAcabou', 'msgBemVindoOficial', 'emailAssunto', 'emailCorpo', 'msg7diasMusica', 'msg3diasMusica', 'msgVencimentoMusica', 'msgVencidoMusica', 'msg3diasVencidoMusica', 'msgManualMusica', 'comprovanteRenovacaoMusica', 'emailAssuntoMusica', 'emailCorpoMusica'];
+    const templates = {};
+    chaves.forEach(chave => {
+      templates[chave] = document.getElementById(`tpl-${chave}`).value;
+    });
+    await fetch(`${FIREBASE_DB}/config.json`, {
+      method: 'PATCH',
+      body: JSON.stringify({ templates })
+    });
+    templatesConfig = templates;
+    fecharMensagens();
+    alert('Mensagens salvas!');
+  }
+
+  async function carregarTemplatesConfig() {
+    const res = await fetch(`${FIREBASE_DB}/config/templates.json`);
+    templatesConfig = await res.json() || {};
+  }
+
+  function diasAte(timestamp) {
+    const hoje = new Date(); hoje.setHours(0,0,0,0);
+    const venc = new Date(timestamp); venc.setHours(0,0,0,0);
+    return Math.round((venc - hoje) / (1000*60*60*24));
+  }
+
+  function classeSinal(dias) {
+    if (dias < 0) return 'danger';
+    if (dias === 0) return 'danger';
+    if (dias <= 3) return 'warn';
+    return 'ok';
+  }
+
+  async function carregarClientes() {
+    const res = await fetch(`${FIREBASE_DB}/clientes.json`);
+    const data = await res.json() || {};
+    clientes = Object.entries(data).map(([id, c]) => ({ id, ...c }));
+    await carregarTemplatesConfig();
+    await carregarServidores();
+    await carregarAplicativos();
+    atualizarStats();
+    renderizar();
+  }
+
+  async function carregarAplicativos() {
+    const res = await fetch(`${FIREBASE_DB}/aplicativos.json`);
+    const data = await res.json() || {};
+    aplicativos = Object.entries(data).map(([id, a]) => ({ id, ...a }));
+  }
+
+  function preencherChecklistAplicativos(servidorNome, selecionados = null) {
+    const container = document.getElementById('f-aplicativos-lista');
+    const appsDoServidor = servidorNome
+      ? aplicativos.filter(a => (a.servidores || []).includes(servidorNome))
+      : [];
+
+    if (!servidorNome) {
+      container.innerHTML = '<div style="color:var(--text-muted); font-size:12px;">Escolhe o servidor do cliente primeiro.</div>';
+      return;
+    }
+    if (appsDoServidor.length === 0) {
+      container.innerHTML = '<div style="color:var(--text-muted); font-size:12px;">Nenhum aplicativo vinculado a esse servidor ainda.</div>';
+      return;
+    }
+
+    const idsMarcados = selecionados !== null ? selecionados : appsDoServidor.map(a => a.id);
+
+    container.className = 'app-checklist';
+    container.innerHTML = appsDoServidor.map(a => `
+      <label class="app-checklist-item">
+        <input type="checkbox" class="chk-app" value="${a.id}" ${idsMarcados.includes(a.id) ? 'checked' : ''}>
+        <span>${a.nome}</span>
+        <span class="mono app-codigo">${a.codigo}</span>
+      </label>
+    `).join('');
+  }
+
+  async function carregarServidores() {
+    const res = await fetch(`${FIREBASE_DB}/servidores.json`);
+    const data = await res.json() || {};
+    servidores = Object.entries(data).map(([id, s]) => ({ id, ...s }));
+    preencherSelectServidores();
+  }
+
+  function preencherSelectServidores() {
+    const select = document.getElementById('f-servidor');
+    const valorAtual = select.value;
+    select.innerHTML = servidores.length
+      ? servidores.map(s => `<option value="${s.nome}">${s.nome}</option>`).join('')
+      : '<option value="">Nenhum servidor cadastrado</option>';
+    if (valorAtual) select.value = valorAtual;
+  }
+
+  function statusCalculado(c) {
+    return diasAte(c.vencimento) < 0 ? 'inativo' : 'ativo';
+  }
+
+  function atualizarStats() {
+    const clientesOficiais = clientes.filter(c => !c.emTeste && !c.musica && !(c.origemCaptura && c.statusLead !== 'ativo'));
+    const ativos = clientesOficiais.filter(c => statusCalculado(c) === 'ativo');
+    const em3dias = clientesOficiais.filter(c => diasAte(c.vencimento) === 3).length;
+    const hoje = clientesOficiais.filter(c => diasAte(c.vencimento) === 0).length;
+    const vencidos = clientesOficiais.filter(c => diasAte(c.vencimento) < 0).length;
+    const musica = clientes.filter(c => c.musica && !c.emTeste).length;
+    const totalEmTeste = clientes.filter(c => c.emTeste || (c.origemCaptura && c.statusLead !== 'ativo')).length;
+    const leadsAbertos = clientes.filter(c => c.origemCaptura && c.statusLead === 'lead').length;
+    const pendentesRenovacao = clientes.filter(c => c.pagamentoPendenteRenovacao).length;
+
+    document.getElementById('stat-total').textContent = clientesOficiais.length;
+    document.getElementById('stat-ativos').textContent = ativos.length;
+    document.getElementById('stat-3dias').textContent = em3dias;
+    document.getElementById('stat-hoje').textContent = hoje;
+    document.getElementById('stat-vencidos').textContent = vencidos;
+    document.getElementById('stat-musica').textContent = musica;
+    document.getElementById('contagem-teste').textContent = totalEmTeste;
+    document.getElementById('chip-teste').classList.toggle('tem-lead-novo', leadsAbertos > 0);
+    document.getElementById('contagem-pendente-renovacao').textContent = pendentesRenovacao;
+    document.getElementById('chip-pendente-renovacao').classList.toggle('tem-lead-novo', pendentesRenovacao > 0);
+    const totalAvisos = leadsAbertos + pendentesRenovacao;
+    document.title = totalAvisos > 0 ? `🔴 (${totalAvisos}) Gestão de Clientes` : 'Gestão de Clientes';
+  }
+
+  let timeoutBusca = null;
+  function buscaComAtraso() {
+    clearTimeout(timeoutBusca);
+    timeoutBusca = setTimeout(renderizar, 250);
+  }
+
+  let dataEspecificaFiltro = null;
+
+  function filtrar(tipo) {
+    filtroAtual = tipo;
+    dataEspecificaFiltro = null;
+    document.getElementById('filtro-data-especifica').value = '';
+    document.querySelectorAll('.stat-card').forEach(el => el.classList.remove('card-active'));
+    const card = document.getElementById('card-' + tipo);
+    if (card) card.classList.add('card-active');
+    document.querySelectorAll('.filter-chip[data-filtro]').forEach(el => el.classList.remove('active'));
+    const chip = document.querySelector(`[data-filtro="${tipo}"]`);
+    if (chip) chip.classList.add('active');
+    renderizar();
+  }
+
+  function toggleCalendarioFiltro() {
+    const input = document.getElementById('filtro-data-especifica');
+    const estaVisivel = input.style.display !== 'none';
+    if (estaVisivel) {
+      input.style.display = 'none';
+      filtrar('todos');
+    } else {
+      input.style.display = 'inline-block';
+    }
+  }
+
+  function filtrarPorDataEspecifica() {
+    const valor = document.getElementById('filtro-data-especifica').value;
+    if (!valor) return;
+    dataEspecificaFiltro = valor;
+    filtroAtual = 'data-especifica';
+    document.querySelectorAll('.stat-card').forEach(el => el.classList.remove('card-active'));
+    document.querySelectorAll('.filter-chip[data-filtro]').forEach(el => el.classList.remove('active'));
+    renderizar();
+  }
+
+  function abrirServidores() {
+    cancelarEdicaoServidor();
+    renderizarListaServidores();
+    document.getElementById('overlay-servidores').classList.add('open');
+  }
+  function fecharServidores() {
+    document.getElementById('overlay-servidores').classList.remove('open');
+  }
+  function renderizarListaServidores() {
+    const container = document.getElementById('lista-servidores');
+    if (servidores.length === 0) {
+      container.innerHTML = '<div style="color:var(--text-muted); font-size:13px;">Nenhum servidor cadastrado ainda.</div>';
+      return;
+    }
+    container.innerHTML = servidores.map(s => `
+      <div class="lista-item" style="flex-direction:column; align-items:stretch;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span>
+            ${s.nome}
+            ${s.dominioM3U ? `<span class="mono" style="color:var(--text-muted); font-size:11px;">(${s.dominioM3U})</span>` : ''}
+            ${s.tutorialUrl ? `<span style="color:var(--ok); font-size:11px;">📺 com tutorial</span>` : ''}
+          </span>
+          <span style="display:flex; gap:10px;">
+            <button class="del-mini" style="color:var(--text-muted);" onclick="editarServidor('${s.id}')">editar</button>
+            <button class="del-mini" style="color:var(--text-muted);" onclick="toggleGerenciarApps('${s.id}')">📲 apps</button>
+            <button class="del-mini" onclick="excluirServidor('${s.id}')">remover</button>
+          </span>
+        </div>
+        <div id="gerenciar-apps-${s.id}" style="display:none; margin-top:10px; padding-top:10px; border-top:1px solid var(--border);"></div>
+      </div>
+    `).join('');
+  }
+
+  function editarServidor(id) {
+    const s = servidores.find(x => x.id === id);
+    if (!s) return;
+    document.getElementById('editando-servidor-id').value = id;
+    document.getElementById('novo-servidor-nome').value = s.nome;
+    document.getElementById('novo-servidor-dominio').value = s.dominioM3U || '';
+    document.getElementById('novo-servidor-tutorial').value = s.tutorialUrl || '';
+    document.getElementById('btn-salvar-servidor').textContent = 'Salvar alteração';
+    document.getElementById('novo-servidor-nome').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function cancelarEdicaoServidor() {
+    document.getElementById('editando-servidor-id').value = '';
+    document.getElementById('novo-servidor-nome').value = '';
+    document.getElementById('novo-servidor-dominio').value = '';
+    document.getElementById('novo-servidor-tutorial').value = '';
+    document.getElementById('btn-salvar-servidor').textContent = 'Adicionar';
+  }
+
+  function toggleGerenciarApps(servidorId) {
+    const container = document.getElementById(`gerenciar-apps-${servidorId}`);
+    const servidor = servidores.find(s => s.id === servidorId);
+    if (!servidor) return;
+
+    const abrindo = container.style.display === 'none';
+    document.querySelectorAll('[id^="gerenciar-apps-"]').forEach(el => el.style.display = 'none');
+
+    if (abrindo) {
+      container.style.display = 'block';
+      renderizarAppsDoServidorInline(servidor);
+    }
+  }
+
+  function renderizarAppsDoServidorInline(servidor) {
+    const container = document.getElementById(`gerenciar-apps-${servidor.id}`);
+    const checklistHtml = aplicativos.length === 0
+      ? '<div style="color:var(--text-muted); font-size:12px;">Nenhum app cadastrado ainda.</div>'
+      : `<div class="app-checklist" style="max-height:160px;">
+          ${aplicativos.map(a => `
+            <label class="app-checklist-item">
+              <input type="checkbox" onchange="toggleAppNoServidor('${a.id}', '${servidor.nome}', this.checked, '${servidor.id}')" ${((a.servidores || []).includes(servidor.nome)) ? 'checked' : ''}>
+              <span>${a.nome}</span>
+              <span class="mono app-codigo">${a.codigo}</span>
+            </label>
+          `).join('')}
+        </div>`;
+
+    container.innerHTML = `
+      <div style="font-size:12px; color:var(--text-muted); margin-bottom:8px;">Apps compatíveis com ${servidor.nome}:</div>
+      ${checklistHtml}
+      <div style="display:flex; gap:6px; margin-top:10px;">
+        <input type="text" id="rapido-app-nome-${servidor.id}" placeholder="Nome do app novo" style="flex:1; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:8px 10px; color:var(--text); font-size:13px;">
+        <input type="text" id="rapido-app-codigo-${servidor.id}" placeholder="Código" style="flex:1; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:8px 10px; color:var(--text); font-size:13px;">
+        <button class="btn" style="white-space:nowrap;" onclick="adicionarAppRapido('${servidor.id}', '${servidor.nome}')">+ Add</button>
+      </div>
+    `;
+  }
+
+  async function toggleAppNoServidor(appId, servidorNome, marcado, servidorId) {
+    const app = aplicativos.find(a => a.id === appId);
+    if (!app) return;
+    let novaLista = app.servidores || [];
+    novaLista = marcado ? [...new Set([...novaLista, servidorNome])] : novaLista.filter(s => s !== servidorNome);
+
+    await fetch(`${FIREBASE_DB}/aplicativos/${appId}.json`, {
+      method: 'PATCH',
+      body: JSON.stringify({ servidores: novaLista })
+    });
+    await carregarAplicativos();
+    const servidor = servidores.find(s => s.id === servidorId);
+    if (servidor) renderizarAppsDoServidorInline(servidor);
+  }
+
+  async function adicionarAppRapido(servidorId, servidorNome) {
+    const nome = document.getElementById(`rapido-app-nome-${servidorId}`).value.trim();
+    const codigo = document.getElementById(`rapido-app-codigo-${servidorId}`).value.trim();
+    if (!nome || !codigo) { alert('Preenche o nome e o código do app.'); return; }
+
+    await fetch(`${FIREBASE_DB}/aplicativos.json`, {
+      method: 'POST',
+      body: JSON.stringify({ nome, codigo, servidores: [servidorNome] })
+    });
+    await carregarAplicativos();
+    const servidor = servidores.find(s => s.id === servidorId);
+    if (servidor) renderizarAppsDoServidorInline(servidor);
+  }
+
+  async function adicionarServidor() {
+    const idEditando = document.getElementById('editando-servidor-id').value;
+    const nome = document.getElementById('novo-servidor-nome').value.trim();
+    const dominioM3U = document.getElementById('novo-servidor-dominio').value.trim();
+    const tutorialUrl = document.getElementById('novo-servidor-tutorial').value.trim();
+    if (!nome) return;
+
+    if (idEditando) {
+      await fetch(`${FIREBASE_DB}/servidores/${idEditando}.json`, {
+        method: 'PATCH',
+        body: JSON.stringify({ nome, dominioM3U, tutorialUrl })
+      });
+    } else {
+      await fetch(`${FIREBASE_DB}/servidores.json`, {
+        method: 'POST',
+        body: JSON.stringify({ nome, dominioM3U, tutorialUrl })
+      });
+    }
+
+    cancelarEdicaoServidor();
+    await carregarServidores();
+    renderizarListaServidores();
+  }
+  async function excluirServidor(id) {
+    if (!confirm('Remover esse servidor da lista?')) return;
+    await fetch(`${FIREBASE_DB}/servidores/${id}.json`, { method: 'DELETE' });
+    await carregarServidores();
+    renderizarListaServidores();
+  }
+
+  function abrirAplicativos() {
+    cancelarEdicaoApp();
+    renderizarListaAplicativos();
+    document.getElementById('overlay-aplicativos').classList.add('open');
+  }
+  function fecharAplicativos() {
+    document.getElementById('overlay-aplicativos').classList.remove('open');
+  }
+  function preencherChecklistServidoresApp(marcados = []) {
+    const container = document.getElementById('novo-app-servidores-lista');
+    if (servidores.length === 0) {
+      container.innerHTML = '<div style="color:var(--text-muted); font-size:12px;">Cadastra um servidor primeiro.</div>';
+      return;
+    }
+    container.innerHTML = servidores.map(s => `
+      <label class="app-checklist-item">
+        <input type="checkbox" class="chk-app-servidor" value="${s.nome}" ${marcados.includes(s.nome) ? 'checked' : ''}>
+        <span>${s.nome}</span>
+      </label>
+    `).join('');
+  }
+  function cancelarEdicaoApp() {
+    document.getElementById('editando-app-id').value = '';
+    document.getElementById('novo-app-nome').value = '';
+    document.getElementById('novo-app-codigo').value = '';
+    preencherChecklistServidoresApp([]);
+    document.getElementById('btn-salvar-app').textContent = 'Adicionar';
+  }
+  function editarAplicativo(id) {
+    const app = aplicativos.find(a => a.id === id);
+    if (!app) return;
+    document.getElementById('editando-app-id').value = id;
+    document.getElementById('novo-app-nome').value = app.nome;
+    document.getElementById('novo-app-codigo').value = app.codigo;
+    preencherChecklistServidoresApp(app.servidores || []);
+    document.getElementById('btn-salvar-app').textContent = 'Salvar alteração';
+  }
+  function renderizarListaAplicativos() {
+    const container = document.getElementById('lista-aplicativos');
+    if (aplicativos.length === 0) {
+      container.innerHTML = '<div style="color:var(--text-muted); font-size:13px;">Nenhum aplicativo cadastrado ainda.</div>';
+      return;
+    }
+    container.innerHTML = aplicativos.map(a => `
+      <div class="lista-item">
+        <span>
+          ${a.nome} <span class="mono" style="color:var(--text-muted); font-size:12px;">(${a.codigo})</span>
+          <br>
+          <span style="font-size:11px; ${(a.servidores && a.servidores.length) ? 'color:var(--ok);' : 'color:var(--danger);'}">
+            ${(a.servidores && a.servidores.length) ? '🖥️ ' + a.servidores.join(', ') : '⚠️ sem servidor vinculado'}
+          </span>
+        </span>
+        <span style="display:flex; gap:10px;">
+          <button class="del-mini" style="color:var(--text-muted);" onclick="editarAplicativo('${a.id}')">editar</button>
+          <button class="del-mini" onclick="excluirAplicativo('${a.id}')">remover</button>
+        </span>
+      </div>
+    `).join('');
+  }
+  async function adicionarAplicativo() {
+    const idEditando = document.getElementById('editando-app-id').value;
+    const nome = document.getElementById('novo-app-nome').value.trim();
+    const codigo = document.getElementById('novo-app-codigo').value.trim();
+    const servidoresMarcados = Array.from(document.querySelectorAll('.chk-app-servidor:checked')).map(el => el.value);
+    if (!nome || !codigo) { alert('Preenche o nome e o código.'); return; }
+
+    if (idEditando) {
+      await fetch(`${FIREBASE_DB}/aplicativos/${idEditando}.json`, {
+        method: 'PATCH',
+        body: JSON.stringify({ nome, codigo, servidores: servidoresMarcados })
+      });
+    } else {
+      await fetch(`${FIREBASE_DB}/aplicativos.json`, {
+        method: 'POST',
+        body: JSON.stringify({ nome, codigo, servidores: servidoresMarcados })
+      });
+    }
+
+    cancelarEdicaoApp();
+    await carregarAplicativos();
+    renderizarListaAplicativos();
+  }
+  async function excluirAplicativo(id) {
+    if (!confirm('Remover esse aplicativo da lista?')) return;
+    await fetch(`${FIREBASE_DB}/aplicativos/${id}.json`, { method: 'DELETE' });
+    await carregarAplicativos();
+    renderizarListaAplicativos();
+  }
+
+  function abrirNotificacoes() {
+    const ativos = clientes.filter(c => c.notificacaoAtiva);
+    const inativos = clientes.filter(c => !c.notificacaoAtiva);
+    document.getElementById('notif-ativos').textContent = ativos.length;
+    document.getElementById('notif-inativos').textContent = inativos.length;
+
+    const container = document.getElementById('lista-notificacoes');
+    container.innerHTML = clientes.length === 0
+      ? '<div style="color:var(--text-muted); font-size:13px;">Nenhum cliente cadastrado.</div>'
+      : clientes.map(c => `
+        <div class="lista-item">
+          <span>${c.nome}</span>
+          <span class="badge ${c.notificacaoAtiva ? 'ativo' : 'inativo'}">${c.notificacaoAtiva ? 'ativada' : 'não ativada'}</span>
+        </div>
+      `).join('');
+
+    document.getElementById('overlay-notificacoes').classList.add('open');
+  }
+  function fecharNotificacoes() {
+    document.getElementById('overlay-notificacoes').classList.remove('open');
+  }
+
+  async function registrarFinanceiro(cliente, valor, tipo) {
+    await fetch(`${FIREBASE_DB}/financeiro.json`, {
+      method: 'POST',
+      body: JSON.stringify({
+        clienteId: cliente.id,
+        clienteNome: cliente.nome,
+        servidor: cliente.servidor || '—',
+        produto: cliente.musica ? 'musica' : 'iptv',
+        valor: Number(valor) || 0,
+        tipo,
+        data: Date.now()
+      })
+    });
+  }
+
+  let financeiroRegistros = [];
+
+  function chaveMes(timestamp) {
+    const d = new Date(timestamp);
+    return `${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+  }
+  function nomeMes(chave) {
+    const [mes, ano] = chave.split('/');
+    const nomes = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+    return `${nomes[parseInt(mes,10)-1]}/${ano}`;
+  }
+
+  async function abrirFinanceiro() {
+    const res = await fetch(`${FIREBASE_DB}/financeiro.json`);
+    const data = await res.json() || {};
+    financeiroRegistros = Object.entries(data).map(([id, r]) => ({ id, ...r }))
+      .sort((a, b) => b.data - a.data);
+
+    const meses = [...new Set(financeiroRegistros.map(r => chaveMes(r.data)))]
+      .sort((a, b) => {
+        const [ma, aa] = a.split('/'); const [mb, ab] = b.split('/');
+        return new Date(aa, ma) - new Date(ab, mb);
+      }).reverse();
+    const selectMes = document.getElementById('fin-filtro-mes');
+    selectMes.innerHTML = '<option value="todos">Todos os meses</option>' +
+      meses.map(m => `<option value="${m}">${nomeMes(m)}</option>`).join('');
+
+    const selectServidor = document.getElementById('fin-filtro-servidor');
+    selectServidor.innerHTML = '<option value="todos">Todos os servidores</option>' +
+      servidores.map(s => `<option value="${s.nome}">${s.nome}</option>`).join('');
+
+    renderizarFinanceiro();
+    document.getElementById('overlay-financeiro').classList.add('open');
+  }
+
+  function renderizarFinanceiro() {
+    const mesFiltro = document.getElementById('fin-filtro-mes').value;
+    const servidorFiltro = document.getElementById('fin-filtro-servidor').value;
+    const produtoFiltro = document.getElementById('fin-filtro-produto').value;
+
+    let registros = financeiroRegistros;
+    if (mesFiltro !== 'todos') registros = registros.filter(r => chaveMes(r.data) === mesFiltro);
+    if (servidorFiltro !== 'todos') registros = registros.filter(r => r.servidor === servidorFiltro);
+    if (produtoFiltro !== 'todos') registros = registros.filter(r => (r.produto || 'iptv') === produtoFiltro);
+
+    const totalCadastros = registros.filter(r => r.tipo === 'cadastro').reduce((s, r) => s + r.valor, 0);
+    const totalRenovacoes = registros.filter(r => r.tipo === 'renovacao').reduce((s, r) => s + r.valor, 0);
+    const total = totalCadastros + totalRenovacoes;
+
+    document.getElementById('fin-total').textContent = `R$ ${total.toFixed(2)}`;
+    document.getElementById('fin-cadastros').textContent = `R$ ${totalCadastros.toFixed(2)}`;
+    document.getElementById('fin-renovacoes').textContent = `R$ ${totalRenovacoes.toFixed(2)}`;
+
+    const porServidor = {};
+    registros.forEach(r => {
+      const s = r.servidor || '—';
+      porServidor[s] = (porServidor[s] || 0) + r.valor;
+    });
+    const containerServidor = document.getElementById('fin-por-servidor');
+    const entradas = Object.entries(porServidor).sort((a, b) => b[1] - a[1]);
+    containerServidor.innerHTML = entradas.length === 0
+      ? '<div style="color:var(--text-muted); font-size:13px;">Nenhum lançamento nesse filtro.</div>'
+      : entradas.map(([servidor, valor]) => `
+        <div class="lista-item">
+          <span>${servidor}</span>
+          <span class="mono">R$ ${valor.toFixed(2)}</span>
+        </div>
+      `).join('');
+
+    const container = document.getElementById('lista-financeiro');
+    container.innerHTML = registros.length === 0
+      ? '<div style="color:var(--text-muted); font-size:13px;">Nenhum registro financeiro ainda.</div>'
+      : registros.map(r => `
+        <div class="lista-item">
+          <div>
+            <div>${r.clienteNome}</div>
+            <div class="sub">${r.tipo === 'cadastro' ? 'Cadastro' : 'Renovação'} · ${r.servidor || '—'} · ${new Date(r.data).toLocaleDateString('pt-BR')}</div>
+          </div>
+          <span class="mono">R$ ${Number(r.valor).toFixed(2)}</span>
+        </div>
+      `).join('');
+  }
+
+  function fecharFinanceiro() {
+    document.getElementById('overlay-financeiro').classList.remove('open');
+  }
+
+  function clientesFiltradosRemarketing() {
+    const status = document.getElementById('remkt-status').value;
+    const servidor = document.getElementById('remkt-servidor').value;
+    let lista = clientes;
+    if (status === 'ativo') lista = lista.filter(c => statusCalculado(c) === 'ativo');
+    if (status === '3dias') lista = lista.filter(c => diasAte(c.vencimento) === 3);
+    if (status === 'hoje') lista = lista.filter(c => diasAte(c.vencimento) === 0);
+    if (status === 'vencido') lista = lista.filter(c => diasAte(c.vencimento) < 0);
+    if (status === 'teste-vencido') lista = lista.filter(c => c.emTeste && c.vencimento < Date.now());
+    if (servidor !== 'todos') lista = lista.filter(c => c.servidor === servidor);
+    return lista;
+  }
+
+  function atualizarContagemRemarketing() {
+    const lista = clientesFiltradosRemarketing();
+    document.getElementById('remkt-contagem').textContent = `${lista.length} cliente(s) selecionado(s)`;
+    document.getElementById('remkt-links-whats').innerHTML = '';
+  }
+
+  function montarChipsRemarketing() {
+    const container = document.querySelector('.var-chips[data-target="remkt-mensagem"]');
+    if (!container) return;
+    container.innerHTML = VARIAVEIS.map(v =>
+      `<span class="var-chip" onclick="inserirVariavel('remkt-mensagem', '${v}')">${v}</span>`
+    ).join('');
+  }
+
+  function abrirRemarketing() {
+    const selectServidor = document.getElementById('remkt-servidor');
+    selectServidor.innerHTML = '<option value="todos">Todos os servidores</option>' +
+      servidores.map(s => `<option value="${s.nome}">${s.nome}</option>`).join('');
+    document.getElementById('remkt-status').value = 'todos';
+    document.getElementById('remkt-assunto').value = 'Oferta especial pra você';
+    document.getElementById('remkt-mensagem').value = 'Olá {nome}! Temos uma condição especial pra você renovar seu plano ({servidor}). Chama a gente!';
+    document.getElementById('remkt-links-whats').innerHTML = '';
+    montarChipsRemarketing();
+    atualizarContagemRemarketing();
+    document.getElementById('overlay-remarketing').classList.add('open');
+  }
+  function fecharRemarketing() {
+    document.getElementById('overlay-remarketing').classList.remove('open');
+  }
+
+  async function enviarEmailMassa() {
+    const lista = clientesFiltradosRemarketing().filter(c => c.email);
+    if (lista.length === 0) { alert('Nenhum cliente com e-mail nesse filtro.'); return; }
+    if (!confirm(`Enviar e-mail pra ${lista.length} cliente(s)?`)) return;
+
+    const assunto = document.getElementById('remkt-assunto').value;
+    const corpo = document.getElementById('remkt-mensagem').value;
+
+    const res = await fetch('/api/remarketing-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clienteIds: lista.map(c => c.id), assunto, corpo })
+    });
+    const data = await res.json();
+    const sucesso = data.resultados?.filter(r => r.enviado).length || 0;
+    alert(`${sucesso} de ${lista.length} e-mail(s) enviado(s).`);
+  }
+
+  async function enviarPushMassa() {
+    const lista = clientesFiltradosRemarketing().filter(c => c.fcmToken && c.notificacaoAtiva);
+    if (lista.length === 0) { alert('Nenhum cliente com push ativado nesse filtro.'); return; }
+    if (!confirm(`Enviar push pra ${lista.length} cliente(s)?`)) return;
+
+    const corpo = document.getElementById('remkt-mensagem').value;
+    const res = await fetch('/api/notificar-manual', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clienteIds: lista.map(c => c.id), mensagemCustom: corpo })
+    });
+    const data = await res.json();
+    const sucesso = data.resultados?.filter(r => r.enviado).length || 0;
+    alert(`${sucesso} de ${lista.length} push(es) enviado(s).`);
+  }
+
+  function verLinksWhatsappMassa() {
+    const lista = clientesFiltradosRemarketing().filter(c => c.whatsapp);
+    const corpo = document.getElementById('remkt-mensagem').value;
+    const container = document.getElementById('remkt-links-whats');
+
+    if (lista.length === 0) {
+      container.innerHTML = '<div style="color:var(--text-muted); font-size:13px;">Nenhum cliente com WhatsApp nesse filtro.</div>';
+      return;
+    }
+
+    container.innerHTML = `
+      <div style="font-size:12px; color:var(--text-muted); margin-bottom:8px;">
+        O WhatsApp não permite envio automático em massa — clica em cada botão pra abrir a conversa já com a mensagem pronta:
+      </div>` +
+      lista.map(c => {
+        const texto = preencherTemplateJS(corpo, c);
+        return `
+          <div class="lista-item">
+            <span>${c.nome}</span>
+            <a class="btn" style="padding:6px 12px; font-size:12px;" href="https://wa.me/${c.whatsapp}?text=${encodeURIComponent(texto)}" target="_blank">Abrir</a>
+          </div>`;
+      }).join('');
+  }
+
+  function renderizar() {
+    const busca = document.getElementById('busca').value.toLowerCase();
+    const buscaDigitos = busca.replace(/\D/g, '');
+    let lista = clientes.filter(c =>
+      c.nome?.toLowerCase().includes(busca) ||
+      c.usuario?.toLowerCase().includes(busca) ||
+      (buscaDigitos.length > 0 && c.whatsapp?.includes(buscaDigitos))
+    );
+
+    if (filtroAtual === 'teste') {
+      lista = lista.filter(c => c.emTeste || (c.origemCaptura && c.statusLead !== 'ativo'));
+    } else if (filtroAtual === 'musica') {
+      lista = lista.filter(c => c.musica && !c.emTeste);
+    } else if (filtroAtual === 'pendente-renovacao') {
+      lista = lista.filter(c => c.pagamentoPendenteRenovacao);
+    } else {
+      lista = lista.filter(c => !c.emTeste && !c.musica && !(c.origemCaptura && c.statusLead !== 'ativo'));
+      if (filtroAtual === 'ativo') lista = lista.filter(c => statusCalculado(c) === 'ativo');
+      if (filtroAtual === '3dias') lista = lista.filter(c => diasAte(c.vencimento) === 3);
+      if (filtroAtual === 'hoje') lista = lista.filter(c => diasAte(c.vencimento) === 0);
+      if (filtroAtual === 'vencido') lista = lista.filter(c => diasAte(c.vencimento) < 0);
+      if (filtroAtual === 'data-especifica' && dataEspecificaFiltro) {
+        lista = lista.filter(c => {
+          const d = new Date(c.vencimento);
+          const dStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+          return dStr === dataEspecificaFiltro;
+        });
+      }
+    }
+
+    lista.sort((a,b) => a.vencimento - b.vencimento);
+
+    const tbody = document.getElementById('tabela-clientes');
+    const emptyState = document.getElementById('empty-state');
+
+    if (lista.length === 0) {
+      tbody.innerHTML = '';
+      emptyState.style.display = 'block';
+      atualizarBarraSelecao();
+      return;
+    }
+    emptyState.style.display = 'none';
+
+    tbody.innerHTML = lista.map(c => {
+      const dias = diasAte(c.vencimento);
+      const sinalClasse = classeSinal(dias);
+      const dataFormatada = c.emTeste
+        ? new Date(c.vencimento).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })
+        : new Date(c.vencimento).toLocaleDateString('pt-BR');
+      let diasTexto;
+      if (c.emTeste) {
+        const horasRestantes = Math.round((c.vencimento - Date.now()) / (1000 * 60 * 60));
+        diasTexto = horasRestantes <= 0 ? 'teste encerrado' : `restam ${horasRestantes}h de teste`;
+      } else {
+        diasTexto = dias < 0 ? `${Math.abs(dias)}d atrasado` : dias === 0 ? 'vence hoje' : `em ${dias}d`;
+      }
+
+      const mensagem = mensagemPadrao(c, dias);
+      const linkWhats = `https://wa.me/${c.whatsapp}?text=${encodeURIComponent(mensagem)}`;
+
+      const APP_URL = window.location.origin;
+      const linkMeuPlano = `${APP_URL}/meu-plano.html?id=${c.id}`;
+      const mensagemAtivacao = `Olá ${c.nome}!\n\nAbre o link, preencha seu e-mail e ativa as notificações pra ver seu usuário, senha e aplicativos liberados na hora — e ainda receba um aviso automático quando seu plano estiver perto de vencer:\n\n${linkMeuPlano}`;
+      const linkAtivacao = `https://wa.me/${c.whatsapp}?text=${encodeURIComponent(mensagemAtivacao)}`;
+
+      return `
+        <tr>
+          <td data-label=""><input type="checkbox" class="chk-cliente" value="${c.id}" ${selecionados.has(c.id) ? 'checked' : ''} onchange="toggleSelecao('${c.id}')"></td>
+          <td data-label=""><span class="signal ${sinalClasse}"><span></span><span></span><span></span><span></span></span></td>
+          <td data-label="Cliente" class="td-primary">
+            <div class="cliente-nome">${c.nome}</div>
+            <div class="cliente-sub-email">${c.email || 'sem e-mail'}</div>
+          </td>
+          <td data-label="Usuário" class="mono td-primary">${c.usuario || '—'}</td>
+          <td data-label="Servidor" class="td-primary">${c.servidor || '—'}</td>
+          <td data-label="Vencimento" class="td-secondary-mobile">
+            <div class="mono">${dataFormatada}</div>
+            <div class="cliente-sub">${diasTexto}</div>
+          </td>
+          <td data-label="Plano" class="mono td-hide-mobile">R$ ${Number(c.planoValor || 0).toFixed(2)}</td>
+          <td data-label="Notif." class="td-hide-mobile">
+            <span class="badge ${c.notificacaoAtiva ? 'ativo' : 'inativo'}">${c.notificacaoAtiva ? '🔔 ativa' : '🔕 inativa'}</span>
+          </td>
+          <td data-label="Status" class="td-hide-mobile"><span class="badge ${statusCalculado(c)}">${statusCalculado(c)}</span></td>
+          <td data-label="Ações" class="actions-cell">
+            <div class="actions">
+              ${c.origemCaptura && c.statusLead !== 'ativo' ? `
+                ${c.statusLead === 'teste_enviado' ? `<span class="badge" style="background:rgba(96,165,250,0.15); color:#60A5FA;">🧪 Teste enviado</span>` : ''}
+                ${c.statusLead === 'pagamento_pendente' ? `<span class="badge" style="background:rgba(251,191,36,0.15); color:var(--warn);">💳 Aguardando pagamento</span>` : ''}
+                ${c.statusLead === 'pagamento_confirmado' ? `<span class="badge" style="background:rgba(52,211,153,0.15); color:var(--ok);">💰 Pago — falta ativar</span>` : ''}
+                ${c.statusLead === 'pagamento_confirmado'
+                  ? `<button class="icon-btn" style="color:var(--ok); border-color:var(--ok); width:auto; padding:0 10px; font-size:12px; font-weight:600;" onclick="abrirAtivarOficial('${c.id}')">✅ Ativar oficial</button>`
+                  : `<button class="icon-btn" style="color:var(--warn); border-color:var(--warn); width:auto; padding:0 10px; font-size:12px; font-weight:600;" onclick="abrirProcessarLead('${c.id}')">${c.statusLead === 'lead' ? '▶️ Processar teste' : '✏️ Editar teste'}</button>`}
+                <button class="icon-btn del" onclick="excluirCliente('${c.id}')" title="Excluir lead">🗑️</button>
+              ` : `
+                ${c.pagamentoPendenteRenovacao ? `<span class="badge" style="background:rgba(52,211,153,0.15); color:var(--ok);">💰 Pago — falta renovar</span>` : ''}
+                ${c.emTeste ? `<button class="icon-btn" style="color:#60A5FA; border-color:#60A5FA;" onclick="abrirAtivarOficial('${c.id}')" title="Ativar como cliente oficial">✅</button>` : ''}
+                <button class="icon-btn whats" onclick="abrirRenovacao('${c.id}')" title="Renovar cliente">🔄</button>
+                <button class="icon-btn" onclick="enviarAcesso('${c.id}')" title="Enviar dados de acesso">📲</button>
+                <a class="icon-btn" href="${linkAtivacao}" target="_blank" title="Enviar link de ativação">🔗</a>
+                <a class="icon-btn whats" href="${linkWhats}" target="_blank" title="Enviar WhatsApp"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.148-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"></path><path d="M12.001 2C6.478 2 2 6.477 2 12c0 1.921.532 3.716 1.457 5.246L2 22l4.897-1.285A9.953 9.953 0 0 0 12.001 22C17.523 22 22 17.523 22 12S17.523 2 12.001 2zm0 18.09c-1.68 0-3.24-.494-4.552-1.343l-.327-.204-3.007.789.803-2.933-.213-.302A7.994 7.994 0 0 1 4.01 12c0-4.411 3.58-7.99 7.991-7.99 4.41 0 7.99 3.579 7.99 7.99 0 4.41-3.58 8.09-7.99 8.09z"></path></svg></a>
+                <button class="icon-btn push" onclick="enviarPushManual('${c.id}')" title="Enviar push">🔔</button>
+                <button class="icon-btn" onclick="editarCliente('${c.id}')" title="Editar">✏️</button>
+                <button class="icon-btn del" onclick="excluirCliente('${c.id}')" title="Excluir">🗑️</button>
+              `}
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    atualizarBarraSelecao();
+  }
+
+  function mensagemPadrao(c, dias) {
+    let chave = 'msg3dias';
+    if (dias <= -3) chave = 'msg3diasVencido';
+    else if (dias < 0) chave = 'msgVencido';
+    else if (dias === 0) chave = 'msgVencimento';
+    else if (dias >= 7) chave = 'msg7dias';
+    else chave = 'msg3dias';
+
+    if (c.musica) chave += 'Musica';
+
+    const template = templatesConfig[chave] || TEMPLATES_PADRAO[chave] ||
+      `Olá {nome}! Seu plano está com vencimento em {data_vencimento}.`;
+    return preencherTemplateJS(template, c);
+  }
+
+  function enviarAcesso(id) {
+    const c = clientes.find(x => x.id === id);
+    if (!c) return;
+
+    let mensagem;
+
+    if (c.musica) {
+      mensagem = `Olá ${c.nome}! Segue seus dados de acesso:\n`;
+      if (configMusica.apkLink) {
+        mensagem += `\n📲 Android: baixe o app aqui:\n${configMusica.apkLink}\n`;
+      }
+      if (configMusica.webLink) {
+        mensagem += `\n💻 Computador ou iPhone: acesse pelo link abaixo com seu usuário e senha:\n${configMusica.webLink}\n`;
+      }
+      mensagem += `\n👤 Usuário: ${c.usuario || '—'}\n🔒 Senha: ${c.senha || '—'}`;
+      mensagem += `\n\n🍎 Se for usar no iPhone: depois de abrir o link, toca no botão de compartilhar e escolhe "Adicionar à Tela de Início" — assim o app funciona certinho.`;
+    } else {
+      const appsDoCliente = (c.aplicativosIds || [])
+        .map(appId => aplicativos.find(a => a.id === appId))
+        .filter(Boolean);
+
+      mensagem = `Olá ${c.nome}! Segue seus dados de acesso.\n`;
+
+      if (appsDoCliente.length > 0) {
+        mensagem += `você pode usar os apps abaixo que são compatíveis com seu login:\n`;
+        appsDoCliente.forEach(app => {
+          mensagem += `\n📺 App: ${app.nome}\n🔑 Código: ${app.codigo}\n`;
+        });
+      }
+
+      mensagem += `\n👤 Usuário: ${c.usuario || '—'}\n🔒 Senha: ${c.senha || '—'}`;
+    }
+
+    window.open(`https://wa.me/${c.whatsapp}?text=${encodeURIComponent(mensagem)}`, '_blank');
+  }
+
+  function separarDDI(numeroCompleto) {
+    const DDIS = ['591', '595', '598', '351', '54', '56', '44', '55', '1'];
+    const limpo = (numeroCompleto || '').replace(/\D/g, '');
+    for (const ddi of DDIS) {
+      if (limpo.startsWith(ddi) && limpo.length > ddi.length + 6) {
+        return { ddi, numero: limpo.slice(ddi.length) };
+      }
+    }
+    return { ddi: '55', numero: limpo };
+  }
+
+  async function sincronizarERenovar() {
+    const id = document.getElementById('renovar-cliente-id').value;
+    if (!id) return;
+
+    try {
+      const res = await fetch('/api/sincronizar-iptv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clienteId: id })
+      });
+      const data = await res.json();
+
+      if (data.erro) {
+        alert('Erro: ' + data.erro);
+        return;
+      }
+
+      if (!data.renovado) {
+        alert(data.mensagem);
+        return;
+      }
+
+      await fetch(`${FIREBASE_DB}/clientes/${id}.json`, {
+        method: 'PATCH',
+        body: JSON.stringify({ pagamentoPendenteRenovacao: false })
+      });
+
+      fecharRenovacao();
+      await carregarClientes();
+
+      if (data.whatsapp && data.comprovante) {
+        window.open(`https://wa.me/${data.whatsapp}?text=${encodeURIComponent(data.comprovante)}`, '_blank');
+      }
+
+      alert(`✅ Renovação detectada no painel! Novo vencimento: ${new Date(data.novoVencimento).toLocaleDateString('pt-BR')}. Push, e-mail e WhatsApp já disparados.`);
+    } catch (err) {
+      alert('Erro ao sincronizar com o painel IPTV.');
+    }
+  }
+
+  // ---- Processar lead (enviar teste) ----
+  let horasTesteLead = 2;
+
+  function setHorasTesteLead(horas) {
+    horasTesteLead = horas;
+    vencimentoPrecisoLead = null; // clique manual sempre sobrescreve a data vinda do M3U
+    document.querySelectorAll('.lead-horas-chip').forEach(el => {
+      el.classList.toggle('active', Number(el.dataset.horas) === horas);
+    });
+    const statusEl = document.getElementById('lead-m3u-status');
+    if (statusEl && statusEl.textContent.includes('Dados encontrados')) {
+      statusEl.textContent = `⚠️ Usando ${horas}h manual (ignorando o vencimento do M3U)`;
+      statusEl.style.color = 'var(--warn)';
+    }
+  }
+
+  function abrirProcessarLead(id) {
+    const c = clientes.find(x => x.id === id);
+    if (!c) return;
+    document.getElementById('lead-cliente-id').value = id;
+    document.getElementById('lead-nome-preview').textContent = c.nome;
+    document.getElementById('lead-contato-preview').textContent = `${c.whatsapp || '—'} · ${c.email || 'sem e-mail'}`;
+    document.getElementById('lead-m3u').value = c.m3uLink || '';
+    document.getElementById('lead-m3u-status').textContent = '';
+    document.getElementById('lead-usuario').value = c.usuario || '';
+    document.getElementById('lead-senha').value = c.senha || '';
+    document.getElementById('lead-valor').value = c.planoValor || '';
+    vencimentoPrecisoLead = null;
+    setHorasTesteLead(2);
+    const btnSalvar = document.querySelector('#overlay-processar-lead .btn-primary');
+    if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.textContent = '💾📲 Salvar e enviar teste'; }
+    const select = document.getElementById('lead-servidor');
+    select.innerHTML = servidores.length
+      ? servidores.map(s => `<option value="${s.nome}">${s.nome}</option>`).join('')
+      : '<option value="">Nenhum servidor cadastrado</option>';
+    if (c.servidor) select.value = c.servidor;
+    preencherChecklistAplicativosLead(c.servidor || '', c.aplicativosIds || []);
+
+    document.getElementById('overlay-processar-lead').classList.add('open');
+  }
+  function fecharProcessarLead() {
+    document.getElementById('overlay-processar-lead').classList.remove('open');
+  }
+
+  function preencherChecklistAplicativosLead(servidorNome, selecionados = null) {
+    const container = document.getElementById('lead-aplicativos-lista');
+    const appsDoServidor = servidorNome
+      ? aplicativos.filter(a => (a.servidores || []).includes(servidorNome))
+      : [];
+
+    if (!servidorNome) {
+      container.innerHTML = '<div style="color:var(--text-muted); font-size:12px;">Escolhe o servidor primeiro.</div>';
+      return;
+    }
+    if (appsDoServidor.length === 0) {
+      container.innerHTML = '<div style="color:var(--text-muted); font-size:12px;">Nenhum app vinculado a esse servidor.</div>';
+      return;
+    }
+    const idsMarcados = selecionados !== null ? selecionados : appsDoServidor.map(a => a.id);
+    container.className = 'app-checklist';
+    container.innerHTML = appsDoServidor.map(a => `
+      <label class="app-checklist-item">
+        <input type="checkbox" class="chk-app-lead" value="${a.id}" ${idsMarcados.includes(a.id) ? 'checked' : ''}>
+        <span>${a.nome}</span>
+        <span class="mono app-codigo">${a.codigo}</span>
+      </label>
+    `).join('');
+  }
+
+  let vencimentoPrecisoLead = null;
+
+  async function buscarDadosM3ULead() {
+    const link = document.getElementById('lead-m3u').value.trim();
+    const statusEl = document.getElementById('lead-m3u-status');
+    if (!link) { statusEl.textContent = 'Cola o link M3U primeiro.'; statusEl.style.color = 'var(--danger)'; return; }
+
+    statusEl.textContent = 'Consultando o painel...';
+    statusEl.style.color = 'var(--text-muted)';
+
+    try {
+      const res = await fetch('/api/consultar-iptv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ link })
+      });
+      const data = await res.json();
+      if (data.erro) { statusEl.textContent = '❌ ' + data.erro; statusEl.style.color = 'var(--danger)'; return; }
+
+      document.getElementById('lead-usuario').value = data.usuario || '';
+      document.getElementById('lead-senha').value = data.senha || '';
+      vencimentoPrecisoLead = data.vencimento || null;
+      // Desmarca os botões de hora — deixa claro que agora o vencimento vem
+      // do painel IPTV, não de uma escolha manual (evita confusão visual).
+      if (vencimentoPrecisoLead) {
+        document.querySelectorAll('.lead-horas-chip').forEach(el => el.classList.remove('active'));
+      }
+
+      let servidorDetectado = '';
+      if (data.baseUrl) {
+        const dominioLink = data.baseUrl.replace(/^https?:\/\//, '').split(':')[0];
+        const servidorEncontrado = servidores.find(s => s.dominioM3U && dominioLink.includes(s.dominioM3U));
+        if (servidorEncontrado) {
+          servidorDetectado = servidorEncontrado.nome;
+          document.getElementById('lead-servidor').value = servidorDetectado;
+          preencherChecklistAplicativosLead(servidorDetectado, null);
+        }
+      }
+      const vencimentoTexto = vencimentoPrecisoLead ? new Date(vencimentoPrecisoLead).toLocaleString('pt-BR') : '';
+      statusEl.textContent = `✅ Dados encontrados!${vencimentoTexto ? ' Vencimento real: ' + vencimentoTexto : ''}${servidorDetectado ? ' · Servidor: ' + servidorDetectado : ''}`;
+      statusEl.style.color = 'var(--ok)';
+    } catch (err) {
+      statusEl.textContent = '❌ Erro ao consultar. Tenta de novo.';
+      statusEl.style.color = 'var(--danger)';
+    }
+  }
+
+ async function salvarEEnviarTeste() {
+    const id = document.getElementById('lead-cliente-id').value;
+    const cliente = clientes.find(c => c.id === id);
+    if (!cliente) return;
+    const m3uLink = document.getElementById('lead-m3u').value.trim();
+    const usuario = document.getElementById('lead-usuario').value.trim();
+    const senha = document.getElementById('lead-senha').value.trim();
+    const servidor = document.getElementById('lead-servidor').value.trim();
+    const aplicativosIds = Array.from(document.querySelectorAll('.chk-app-lead:checked')).map(el => el.value);
+    const planoValor = parseFloat(document.getElementById('lead-valor').value) || 0;
+    const vencimento = vencimentoPrecisoLead || (Date.now() + horasTesteLead * 60 * 60 * 1000);
+    const btn = event?.target;
+    if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
+    try {
+      const res = await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acao: 'enviar-teste', clienteId: id, m3uLink, usuario, senha, servidor, aplicativosIds, vencimento, planoValor })
+      });
+      const data = await res.json();
+      if (data.erro) { alert('Erro: ' + data.erro); if (btn) { btn.disabled = false; btn.textContent = '💾📲 Salvar e enviar teste'; } return; }
+      fecharProcessarLead();
+      await carregarClientes();
+      const linkAtivacao = `${window.location.origin}/meu-plano.html?id=${id}`;
+      const mensagem = `Olá ${cliente.nome}! 🎉\n\nSeu teste foi liberado! Pra ver os dados de acesso, entra nesse link e clica no botão "Ativar notificações":\n\n${linkAtivacao}\n\nDepois disso os dados aparecem na hora. Qualquer dúvida, me chama!`;
+      const numeroCorrigido = cliente.whatsapp && cliente.whatsapp.length <= 11 ? '55' + cliente.whatsapp : cliente.whatsapp;
+      window.open(`https://wa.me/${numeroCorrigido}?text=${encodeURIComponent(mensagem)}`, '_blank');
+      alert('✅ Teste enviado! Push e e-mail (se tinha) já foram disparados, e o WhatsApp abriu com o link.');
+      if (btn) { btn.disabled = false; btn.textContent = '💾📲 Salvar e enviar teste'; }
+    } catch (err) {
+      alert('Erro ao processar o teste.');
+      if (btn) { btn.disabled = false; btn.textContent = '💾📲 Salvar e enviar teste'; }
+    }
+  }
+      
+  async function buscarDadosM3U() {
+    const link = document.getElementById('f-m3u').value.trim();
+    const statusEl = document.getElementById('m3u-status');
+
+    if (!link) { statusEl.textContent = 'Cola o link M3U primeiro.'; statusEl.style.color = 'var(--danger)'; return; }
+
+    statusEl.textContent = 'Consultando o painel...';
+    statusEl.style.color = 'var(--text-muted)';
+
+    try {
+      const res = await fetch('/api/consultar-iptv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ link })
+      });
+      const data = await res.json();
+
+      if (data.erro) {
+        statusEl.textContent = '❌ ' + data.erro;
+        statusEl.style.color = 'var(--danger)';
+        return;
+      }
+
+      document.getElementById('f-usuario').value = data.usuario || '';
+      document.getElementById('f-senha').value = data.senha || '';
+      if (data.vencimento) {
+        document.getElementById('f-vencimento-preciso').value = data.vencimento;
+        const campoVencimento = document.getElementById('f-vencimento');
+        campoVencimento.value = paraInputData(data.vencimento);
+        campoVencimento.dispatchEvent(new Event('input'));
+        campoVencimento.dispatchEvent(new Event('change'));
+      }
+
+      let servidorDetectado = '';
+      if (data.baseUrl) {
+        const dominioLink = data.baseUrl.replace(/^https?:\/\//, '').split(':')[0];
+        const servidorEncontrado = servidores.find(s => s.dominioM3U && dominioLink.includes(s.dominioM3U));
+        if (servidorEncontrado) {
+          servidorDetectado = servidorEncontrado.nome;
+          const selectServidor = document.getElementById('f-servidor');
+          selectServidor.value = servidorDetectado;
+          preencherChecklistAplicativos(servidorDetectado, null);
+        }
+      }
+
+      statusEl.textContent = `✅ Dados encontrados! Status no painel: ${data.statusPainel || 'desconhecido'}${data.vencimento ? ' · Vencimento exato: ' + new Date(data.vencimento).toLocaleString('pt-BR') : ''}${servidorDetectado ? ' · Servidor detectado: ' + servidorDetectado : ''}`;
+      statusEl.style.color = 'var(--ok)';
+    } catch (err) {
+      statusEl.textContent = '❌ Erro ao consultar. Tenta de novo.';
+      statusEl.style.color = 'var(--danger)';
+    }
+  }
+
+  let horasTeste = 2;
+
+  function setHorasTeste(horas) {
+    horasTeste = horas;
+    document.querySelectorAll('.horas-chip').forEach(el => {
+      el.classList.toggle('active', Number(el.dataset.horas) === horas);
+    });
+  }
+
+  function alternarModoTeste() {
+    const emTeste = document.getElementById('f-teste').checked;
+    document.getElementById('f-teste-horas-bloco').style.display = emTeste ? 'block' : 'none';
+    document.getElementById('f-vencimento-bloco').style.display = emTeste ? 'none' : 'block';
+    if (emTeste) setHorasTeste(2);
+
+    const labelValor = document.querySelector('#f-valor-bloco label');
+    if (labelValor) labelValor.textContent = emTeste ? 'Valor especial (opcional — aparece pra ele pagar e ativar direto)' : 'Valor do plano (R$)';
+  }
+
+  function alternarModoMusica() {
+    const musica = document.getElementById('f-musica').checked;
+    document.getElementById('f-m3u-bloco').style.display = musica ? 'none' : 'block';
+    document.getElementById('f-servidor-bloco').style.display = musica ? 'none' : 'block';
+    document.getElementById('f-apps-bloco').style.display = musica ? 'none' : 'block';
+  }
+
+  function abrirModal() {
+    document.getElementById('modal-titulo').textContent = 'Novo cliente';
+    document.getElementById('cliente-id').value = '';
+    document.getElementById('f-teste').checked = false;
+    alternarModoTeste();
+    document.getElementById('f-musica').checked = false;
+    alternarModoMusica();
+    document.getElementById('f-nome').value = '';
+    document.getElementById('f-m3u').value = '';
+    document.getElementById('f-vencimento-preciso').value = '';
+    document.getElementById('m3u-status').textContent = '';
+    document.getElementById('f-usuario').value = '';
+    document.getElementById('f-senha').value = '';
+    document.getElementById('f-ddi').value = '55';
+    document.getElementById('f-whatsapp-numero').value = '';
+    document.getElementById('f-email').value = '';
+    preencherSelectServidores();
+    document.getElementById('f-servidor').value = '';
+    preencherChecklistAplicativos('');
+    document.getElementById('f-valor').value = '';
+    document.getElementById('f-vencimento').value = '';
+    document.getElementById('overlay').classList.add('open');
+  }
+
+  function fecharModal() {
+    document.getElementById('overlay').classList.remove('open');
+  }
+
+  function editarCliente(id) {
+    const c = clientes.find(x => x.id === id);
+    if (!c) return;
+    document.getElementById('modal-titulo').textContent = 'Editar cliente';
+    document.getElementById('cliente-id').value = c.id;
+    document.getElementById('f-teste').checked = !!c.emTeste;
+    alternarModoTeste();
+    document.getElementById('f-musica').checked = !!c.musica;
+    alternarModoMusica();
+    document.getElementById('f-nome').value = c.nome || '';
+    document.getElementById('f-m3u').value = c.m3uLink || '';
+    document.getElementById('f-vencimento-preciso').value = '';
+    document.getElementById('m3u-status').textContent = '';
+    document.getElementById('f-usuario').value = c.usuario || '';
+    document.getElementById('f-senha').value = c.senha || '';
+    const { ddi, numero } = separarDDI(c.whatsapp || '');
+    document.getElementById('f-ddi').value = ddi;
+    document.getElementById('f-whatsapp-numero').value = numero;
+    document.getElementById('f-email').value = c.email || '';
+    preencherSelectServidores();
+    document.getElementById('f-servidor').value = c.servidor || '';
+    preencherChecklistAplicativos(c.servidor || '', c.aplicativosIds || []);
+    document.getElementById('f-valor').value = c.planoValor || '';
+    document.getElementById('f-vencimento').value = paraInputData(c.vencimento);
+    document.getElementById('overlay').classList.add('open');
+  }
+
+  async function salvarCliente() {
+    const id = document.getElementById('cliente-id').value;
+    const nome = document.getElementById('f-nome').value.trim();
+    const m3uLink = document.getElementById('f-m3u').value.trim();
+    const usuario = document.getElementById('f-usuario').value.trim();
+    const senha = document.getElementById('f-senha').value.trim();
+    const ddi = document.getElementById('f-ddi').value.replace(/\D/g, '') || '55';
+    const numeroWhats = document.getElementById('f-whatsapp-numero').value.replace(/\D/g, '');
+    const whatsapp = numeroWhats ? ddi + numeroWhats : '';
+    const email = document.getElementById('f-email').value.trim();
+    const musica = document.getElementById('f-musica').checked;
+    const servidor = musica ? '' : document.getElementById('f-servidor').value.trim();
+    const aplicativosIds = musica ? [] : Array.from(document.querySelectorAll('.chk-app:checked')).map(el => el.value);
+    const m3uLinkFinal = musica ? '' : m3uLink;
+    const emTeste = document.getElementById('f-teste').checked;
+
+    let planoValor, vencimento;
+
+    if (emTeste) {
+      planoValor = parseFloat(document.getElementById('f-valor').value) || 0;
+      const vencimentoPreciso = document.getElementById('f-vencimento-preciso').value;
+      vencimento = vencimentoPreciso ? Number(vencimentoPreciso) : Date.now() + horasTeste * 60 * 60 * 1000;
+    } else {
+      planoValor = parseFloat(document.getElementById('f-valor').value) || 0;
+      const vencimentoInput = document.getElementById('f-vencimento').value;
+      if (!vencimentoInput) { alert('Preencha o vencimento.'); return; }
+      vencimento = new Date(vencimentoInput + 'T12:00:00').getTime();
+    }
+
+    if (!nome || !whatsapp) {
+      alert('Preencha nome e WhatsApp.');
+      return;
+    }
+
+    if (id) {
+      await fetch(`${FIREBASE_DB}/clientes/${id}.json`, {
+        method: 'PATCH',
+        body: JSON.stringify({ nome, usuario, senha, m3uLink: m3uLinkFinal, whatsapp, email, servidor, aplicativosIds, planoValor, vencimento, emTeste, musica })
+      });
+    } else {
+      const novoCliente = {
+        nome, usuario, senha, m3uLink: m3uLinkFinal, whatsapp, email, servidor, aplicativosIds, planoValor, vencimento, emTeste, musica,
+        status: 'ativo',
+        fcmToken: null,
+        notificacaoAtiva: false,
+        ultimaNotificacao: { tipo: null, data: 0 },
+        criadoEm: Date.now()
+      };
+      const res = await fetch(`${FIREBASE_DB}/clientes.json`, {
+        method: 'POST',
+        body: JSON.stringify(novoCliente)
+      });
+      const criado = await res.json();
+      if (!emTeste) {
+        await registrarFinanceiro({ id: criado.name, nome, servidor, musica }, planoValor, 'cadastro');
+      }
+    }
+
+    fecharModal();
+    await carregarClientes();
+  }
+
+  async function excluirCliente(id) {
+    if (!confirm('Excluir esse cliente?')) return;
+    await fetch(`${FIREBASE_DB}/clientes/${id}.json`, { method: 'DELETE' });
+    await carregarClientes();
+  }
+
+  async function enviarPushManual(id) {
+    try {
+      const res = await fetch('/api/notificar-manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clienteIds: [id] })
+      });
+      const data = await res.json();
+      const resultado = data.resultados?.[0];
+      if (!resultado) { alert('Erro ao enviar.'); return; }
+
+      const partes = [];
+      partes.push(resultado.pushEnviado ? '✅ Push enviado' : `❌ Push não enviado (${resultado.motivo || 'motivo desconhecido'})`);
+      partes.push(resultado.emailEnviado ? '✅ E-mail enviado' : `❌ E-mail não enviado (${resultado.emailMotivo || 'motivo desconhecido'})`);
+      alert(partes.join('\n'));
+    } catch (err) {
+      alert('Erro ao enviar push.');
+    }
+  }
+
+  let configMusica = { apkLink: '', webLink: '' };
+
+  async function abrirConfig() {
+    const res = await fetch(`${FIREBASE_DB}/config.json`);
+    const config = await res.json() || {};
+    document.getElementById('cfg-whatsapp').value = config.whatsappAdmin || '5521993473619';
+    document.getElementById('cfg-email-admin').value = config.adminEmail || '';
+    document.getElementById('cfg-pagamento-automatico-cliente').checked = !!config.pagamentoAutomaticoCliente;
+    document.getElementById('cfg-pagamento-automatico-teste').checked = !!config.pagamentoAutomaticoTeste;
+    document.getElementById('cfg-apk-link').value = config.apkLink || '';
+    document.getElementById('cfg-web-link').value = config.webLink || '';
+    document.getElementById('cfg-musica-botao').value = config.musicaBotaoTexto || '📥 Baixe o Xtream Music';
+    document.getElementById('cfg-musica-instrucao').value = config.musicaInstrucao || 'Clica no botão abaixo, baixa e instala o aplicativo, depois entra com seu usuário e senha pra começar a usar.';
+    document.getElementById('cfg-musica-api').value = config.musicaApiBase || 'https://api.xtream-music.com';
+    document.getElementById('overlay-config').classList.add('open');
+  }
+
+  function fecharConfig() {
+    document.getElementById('overlay-config').classList.remove('open');
+  }
+
+  async function salvarConfig() {
+    const whatsapp = document.getElementById('cfg-whatsapp').value.replace(/\D/g, '');
+    if (!whatsapp) { alert('Preenche o número.'); return; }
+    const adminEmail = document.getElementById('cfg-email-admin').value.trim();
+    const pagamentoAutomaticoCliente = document.getElementById('cfg-pagamento-automatico-cliente').checked;
+    const pagamentoAutomaticoTeste = document.getElementById('cfg-pagamento-automatico-teste').checked;
+    const apkLink = document.getElementById('cfg-apk-link').value.trim();
+    const webLink = document.getElementById('cfg-web-link').value.trim();
+    const musicaBotaoTexto = document.getElementById('cfg-musica-botao').value.trim();
+    const musicaInstrucao = document.getElementById('cfg-musica-instrucao').value.trim();
+    const musicaApiBase = document.getElementById('cfg-musica-api').value.trim().replace(/\/$/, '');
+    await fetch(`${FIREBASE_DB}/config.json`, {
+      method: 'PATCH',
+      body: JSON.stringify({ whatsappAdmin: whatsapp, adminEmail, pagamentoAutomaticoCliente, pagamentoAutomaticoTeste, apkLink, webLink, musicaBotaoTexto, musicaInstrucao, musicaApiBase })
+    });
+    configMusica = { apkLink, webLink, musicaBotaoTexto, musicaInstrucao, musicaApiBase };
+    fecharConfig();
+    alert('Configurações salvas!');
+  }
+
+  async function carregarConfigMusica() {
+    const res = await fetch(`${FIREBASE_DB}/config.json`);
+    const config = await res.json() || {};
+    configMusica = {
+      apkLink: config.apkLink || '',
+      webLink: config.webLink || '',
+      musicaApiBase: config.musicaApiBase || 'https://api.xtream-music.com'
+    };
+  }
+
+  let baseRenovacao = 'vencimento';
+  let diasRenovacao = 30;
+  let clienteRenovandoId = null;
+
+  function abrirAtivarOficial(id) {
+    const cliente = clientes.find(c => c.id === id);
+    if (!cliente) return;
+
+    document.getElementById('oficial-cliente-id').value = id;
+    document.getElementById('oficial-valor').value = cliente.planoValor || '';
+    const amanha = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    document.getElementById('oficial-vencimento').value = paraInputData(amanha.getTime());
+    document.getElementById('oficial-vencimento-status').textContent = '';
+
+    const btnBuscar = document.getElementById('btn-buscar-vencimento-oficial');
+    btnBuscar.style.display = cliente.m3uLink ? 'inline-block' : 'none';
+
+    document.getElementById('overlay-ativar-oficial').classList.add('open');
+  }
+  function fecharAtivarOficial() {
+    document.getElementById('overlay-ativar-oficial').classList.remove('open');
+  }
+
+  async function buscarVencimentoOficial() {
+    const id = document.getElementById('oficial-cliente-id').value;
+    const cliente = clientes.find(c => c.id === id);
+    const statusEl = document.getElementById('oficial-vencimento-status');
+    if (!cliente || !cliente.m3uLink) return;
+
+    statusEl.textContent = 'Consultando o painel...';
+    statusEl.style.color = 'var(--text-muted)';
+
+    try {
+      const res = await fetch('/api/consultar-iptv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ link: cliente.m3uLink })
+      });
+      const data = await res.json();
+
+      if (data.erro) {
+        statusEl.textContent = '❌ ' + data.erro;
+        statusEl.style.color = 'var(--danger)';
+        return;
+      }
+
+      if (data.vencimento) {
+        document.getElementById('oficial-vencimento').value = paraInputData(data.vencimento);
+        statusEl.textContent = `✅ Vencimento no painel: ${new Date(data.vencimento).toLocaleString('pt-BR')}`;
+        statusEl.style.color = 'var(--ok)';
+      } else {
+        statusEl.textContent = 'Painel respondeu, mas sem data de vencimento.';
+        statusEl.style.color = 'var(--danger)';
+      }
+    } catch (err) {
+      statusEl.textContent = '❌ Erro ao consultar o painel.';
+      statusEl.style.color = 'var(--danger)';
+    }
+  }
+
+  async function confirmarAtivarOficial() {
+    const id = document.getElementById('oficial-cliente-id').value;
+    const valor = parseFloat(document.getElementById('oficial-valor').value) || 0;
+    const vencimentoInput = document.getElementById('oficial-vencimento').value;
+
+    if (!valor || !vencimentoInput) { alert('Preenche o valor e o vencimento do plano.'); return; }
+
+    const vencimento = new Date(vencimentoInput + 'T12:00:00').getTime();
+
+    try {
+      const res = await fetch('/api/ativar-oficial', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clienteId: id, planoValor: valor, vencimento })
+      });
+      const data = await res.json();
+
+      if (data.erro) { alert('Erro: ' + data.erro); return; }
+
+      await fetch(`${FIREBASE_DB}/clientes/${id}.json`, {
+        method: 'PATCH',
+        body: JSON.stringify({ pagamentoPendenteRenovacao: false })
+      });
+
+      fecharAtivarOficial();
+      await carregarClientes();
+
+      if (data.cliente?.whatsapp && data.comprovante) {
+        window.open(`https://wa.me/${data.cliente.whatsapp}?text=${encodeURIComponent(data.comprovante)}`, '_blank');
+      }
+
+      alert(`✅ ${data.cliente?.nome || 'Cliente'} agora é oficial! Push, e-mail e WhatsApp já disparados.`);
+    } catch (err) {
+      alert('Erro ao ativar cliente como oficial.');
+    }
+  }
+
+  function abrirRenovacao(id) {
+    clienteRenovandoId = id;
+    document.getElementById('renovar-cliente-id').value = id;
+    document.getElementById('renovar-data-manual').value = '';
+    setDiasRenovacao(30);
+    setBaseRenovacao('vencimento');
+
+    const cliente = clientes.find(c => c.id === id);
+    const podeSincronizar = cliente && cliente.m3uLink;
+    document.getElementById('renovar-sync-bloco').style.display = podeSincronizar ? 'block' : 'none';
+
+    document.getElementById('overlay-renovar').classList.add('open');
+  }
+
+  function fecharRenovacao() {
+    document.getElementById('overlay-renovar').classList.remove('open');
+  }
+
+  function setBaseRenovacao(tipo) {
+    baseRenovacao = tipo;
+    document.getElementById('base-vencimento').classList.toggle('active', tipo === 'vencimento');
+    document.getElementById('base-hoje').classList.toggle('active', tipo === 'hoje');
+    atualizarPreviewRenovacao();
+  }
+
+  function setDiasRenovacao(dias) {
+    diasRenovacao = dias;
+    document.querySelectorAll('.dia-chip').forEach(el => {
+      el.classList.toggle('active', Number(el.dataset.dias) === dias);
+    });
+    document.getElementById('renovar-data-manual').value = '';
+    atualizarPreviewRenovacao();
+  }
+
+  function calcularNovoVencimento() {
+    const dataManual = document.getElementById('renovar-data-manual').value;
+    if (dataManual) {
+      return new Date(dataManual + 'T12:00:00').getTime();
+    }
+    const cliente = clientes.find(c => c.id === clienteRenovandoId);
+    if (!cliente) return null;
+    const agora = Date.now();
+    const base = baseRenovacao === 'hoje' ? agora : Math.max(cliente.vencimento, agora);
+    return base + diasRenovacao * 24 * 60 * 60 * 1000;
+  }
+
+  function atualizarPreviewRenovacao() {
+    const novoVencimento = calcularNovoVencimento();
+    document.getElementById('preview-vencimento').textContent = novoVencimento
+      ? new Date(novoVencimento).toLocaleDateString('pt-BR')
+      : '—';
+  }
+
+  document.getElementById('renovar-data-manual').addEventListener('change', () => {
+    document.querySelectorAll('.dia-chip').forEach(el => el.classList.remove('active'));
+    atualizarPreviewRenovacao();
+  });
+
+  async function confirmarRenovacao() {
+    const id = document.getElementById('renovar-cliente-id').value;
+    const novoVencimento = calcularNovoVencimento();
+
+    if (!novoVencimento) { alert('Escolha os dias ou uma data.'); return; }
+
+    const cliente = clientes.find(c => c.id === id);
+    if (!cliente) return;
+
+    try {
+      const res = await fetch('/api/renovar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clienteId: id, novoVencimento })
+      });
+      const data = await res.json();
+
+      if (!data.ok) {
+        alert('Erro ao renovar: ' + (data.erro || 'desconhecido'));
+        return;
+      }
+
+      await fetch(`${FIREBASE_DB}/clientes/${id}.json`, {
+        method: 'PATCH',
+        body: JSON.stringify({ pagamentoPendenteRenovacao: false })
+      });
+
+      fecharRenovacao();
+      await registrarFinanceiro({ id: cliente.id, nome: cliente.nome, servidor: cliente.servidor, musica: cliente.musica }, cliente.planoValor, 'renovacao');
+      await carregarClientes();
+
+      const whatsappCliente = data.cliente.whatsapp;
+      const comprovante = data.comprovante || preencherTemplateJS(TEMPLATES_PADRAO.comprovanteRenovacao, data.cliente);
+      window.open(`https://wa.me/${whatsappCliente}?text=${encodeURIComponent(comprovante)}`, '_blank');
+
+      alert(data.pushEnviado
+        ? 'Renovado! Push enviado e WhatsApp aberto com o comprovante.'
+        : 'Renovado! (o cliente ainda não ativou push, mas o WhatsApp com o comprovante foi aberto)');
+    } catch (err) {
+      alert('Erro ao renovar cliente.');
+    }
+  }
+
+  document.getElementById('remkt-status').addEventListener('change', atualizarContagemRemarketing);
+  document.getElementById('remkt-servidor').addEventListener('change', atualizarContagemRemarketing);
+  document.getElementById('fin-filtro-mes').addEventListener('change', renderizarFinanceiro);
+  document.getElementById('fin-filtro-servidor').addEventListener('change', renderizarFinanceiro);
+  document.getElementById('fin-filtro-produto').addEventListener('change', renderizarFinanceiro);
+
+  const escaparCentral = (valor) => String(valor || '').replace(/[&<>"']/g, (caractere) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' })[caractere]);
+  function fecharCentralAdmin() { document.getElementById('overlay-central-admin').classList.remove('open'); }
+  async function abrirCentralAdmin() {
+    document.getElementById('overlay-central-admin').classList.add('open');
+    await carregarCentralAdmin();
+  }
+  async function carregarCentralAdmin() {
+    const lista = document.getElementById('central-lista');
+    lista.innerHTML = '<div style="color:var(--text-muted);">Carregando atendimentos…</div>';
+    try {
+      const [atendimentosRes, renovacoesRes, planosRes, ativacoesRes] = await Promise.all([
+        fetch(`${FIREBASE_DB}/centralAtendimentos.json`),
+        fetch(`${FIREBASE_DB}/renovacoes.json`),
+        fetch(`${FIREBASE_DB}/centralPlanos.json`),
+        fetch(`${FIREBASE_DB}/centralAtivacoes.json`)
+      ]);
+      const atendimentosDados = await atendimentosRes.json() || {};
+      const renovacoesDados = await renovacoesRes.json() || {};
+      renderizarPlanosCentral(await planosRes.json() || {});
+      renderizarAtivacoesCentral(await ativacoesRes.json() || {});
+      const atendimentos = Object.entries(atendimentosDados).map(([id, item]) => ({ id, ...item })).sort((a,b) => Number(b.criadoEm || 0) - Number(a.criadoEm || 0));
+      const renovacoes = Object.values(renovacoesDados).filter((item) => item && item.status === 'concluida');
+      const contar = (tipo) => atendimentos.filter((item) => item.tipo === tipo).length;
+      document.getElementById('central-total').textContent = atendimentos.length;
+      document.getElementById('central-suporte').textContent = contar('suporte');
+      document.getElementById('central-testes').textContent = contar('teste');
+      document.getElementById('central-renovacoes').textContent = renovacoes.length;
+      if (!atendimentos.length) { lista.innerHTML = '<div style="color:var(--text-muted);">Ainda não há atendimentos registrados pela Central.</div>'; return; }
+      lista.innerHTML = atendimentos.slice(0,40).map((item) => {
+        const data = item.criadoEm ? new Date(item.criadoEm).toLocaleString('pt-BR') : '—';
+        const tipo = escaparCentral(item.tipo || 'atendimento');
+        return `<div class="lista-item" style="display:block; border:1px solid var(--border); border-radius:9px; padding:10px 12px;"><div style="display:flex; justify-content:space-between; gap:10px;"><b>${escaparCentral(item.nome || 'Novo atendimento')}</b><span class="badge">${tipo}</span></div><div class="mono" style="font-size:12px; color:var(--text-muted); margin-top:5px;">${escaparCentral(item.whatsapp || 'sem telefone')} · ${data}</div>${item.detalhe ? `<div style="font-size:12px; color:var(--text-muted); margin-top:6px;">${escaparCentral(item.detalhe)}</div>` : ''}</div>`;
+      }).join('');
+    } catch (_) {
+      lista.innerHTML = '<div style="color:var(--danger);">Não foi possível carregar os dados da Central agora.</div>';
+    }
+  }
+
+  function renderizarAtivacoesCentral(ativacoes) {
+    const destino=document.getElementById('central-ativacoes'); const itens=Object.values(ativacoes || {}).filter(Boolean).sort((a,b)=>Number(b.atualizadoEm||b.criadoEm||0)-Number(a.atualizadoEm||a.criadoEm||0));
+    if(!itens.length){destino.innerHTML='<div style="color:var(--text-muted); font-size:12px;">Nenhuma ativação anual registrada ainda.</div>';return;}
+    destino.innerHTML=itens.slice(0,60).map((a)=>{const data=a.atualizadoEm?new Date(a.atualizadoEm).toLocaleString('pt-BR'):'—';return `<details style="border:1px solid var(--border); border-radius:9px; padding:10px 12px;"><summary style="cursor:pointer; display:flex; justify-content:space-between; gap:8px;"><b>${escaparCentral(a.aplicativo||'Aplicativo')}</b><span class="badge">${escaparCentral(a.status||'pendente')}</span></summary><div style="font-size:12px; line-height:1.65; margin-top:9px;"><div><b>Cliente:</b> ${escaparCentral(a.nome||'Não informado')}</div><div><b>WhatsApp:</b> ${escaparCentral(a.whatsapp||'—')}</div><div><b>E-mail:</b> ${escaparCentral(a.email||'—')}</div><div><b>MAC:</b> <span class="mono">${escaparCentral(a.mac||'—')}</span></div><div><b>Valor:</b> ${Number(a.valor||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</div><div><b>Validade:</b> ${a.validade?new Date(a.validade).toLocaleDateString('pt-BR'):'aguardando confirmação'}</div><div style="color:var(--text-muted);">Atualizado: ${data}</div></div></details>`;}).join('');
+  }
+
+  function valorPlanoCentral(valor) { return Number(String(valor || '').replace(',', '.')); }
+  function renderizarPlanosCentral(planos) {
+    const destino=document.getElementById('central-planos'); const itens=Object.entries(planos || {}).map(([id,p])=>({id,...p})).sort((a,b)=>Number(a.dias||0)-Number(b.dias||0));
+    if (!itens.length) { destino.innerHTML='<div style="color:var(--text-muted); font-size:12px;">Nenhum plano padrão cadastrado ainda.</div>'; return; }
+    destino.innerHTML=itens.map((p)=>`<div style="display:flex; justify-content:space-between; gap:8px; align-items:center; border:1px solid var(--border); border-radius:8px; padding:9px 10px;"><span><b>${escaparCentral(p.nome)}</b> · ${Number(p.dias)} dias · ${Number(p.valor).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</span><button class="btn" style="padding:5px 8px;" onclick="alternarPlanoCentral('${p.id}',${p.ativo!==false})">${p.ativo!==false?'Ativo':'Pausado'}</button></div>`).join('');
+  }
+  async function adicionarPlanoCentral() {
+    const nome=document.getElementById('central-plano-nome').value.trim(), valor=valorPlanoCentral(document.getElementById('central-plano-valor').value), dias=Number(document.getElementById('central-plano-dias').value);
+    if (!nome || !Number.isFinite(valor) || valor<=0 || !Number.isInteger(dias) || dias<1) return alert('Informe nome, valor maior que zero e quantidade de dias.');
+    const id='plano_'+Date.now(); await fetch(`${FIREBASE_DB}/centralPlanos/${id}.json`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({nome,valor,dias,ativo:true,atualizadoEm:Date.now()})});
+    document.getElementById('central-plano-nome').value='';document.getElementById('central-plano-valor').value='';document.getElementById('central-plano-dias').value='';carregarCentralAdmin();
+  }
+  async function alternarPlanoCentral(id, ativo) { await fetch(`${FIREBASE_DB}/centralPlanos/${encodeURIComponent(id)}.json`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({ativo:!ativo,atualizadoEm:Date.now()})}); carregarCentralAdmin(); }
+
+  carregarConfigMusica();
+  carregarClientes();
+  verificarNotificacaoAdmin();
+</script>
+
+</body>
+</html>
