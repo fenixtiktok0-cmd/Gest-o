@@ -93,7 +93,7 @@ async function central(req, res) {
     const renovacao=await renovarNoMultiflix(c.usuario,pagamentoId);
     const pendenciaId=crypto.createHash('sha256').update(pagamentoId).digest('hex').slice(0,40);
     await db.ref('centralPendenciasComprovante/'+pendenciaId).set({id:pendenciaId,clienteId:achado[0],nome:String(c.nome||'Cliente').slice(0,100),whatsapp:telefone,usuario:c.usuario,plano:consulta.plano,valor,comprovante:{destinatario:normalizar(comprovante.destinatario),banco:normalizar(comprovante.banco),dataHora:String(comprovante.dataHora||'').slice(0,80),status:normalizar(comprovante.status),transacao,imagemHash:String(req.body.imagemHash||'').slice(0,64)},novoVencimento:Number(renovacao.novoVencimento||0)||null,status:'renovado_pendente_validacao',resolvido:false,criadoEm:Date.now()});
-    await db.ref('centralPendenciasCadastro/'+pendenciaId).set({id:pendenciaId,nome:String(c.nome||'Cliente').slice(0,100),whatsapp:telefone,usuario:c.usuario,plano:consulta.plano,status:'renovado_pendente_validacao',valor,novoVencimento:Number(renovacao.novoVencimento||0)||null,detalhe:'Renovação automática por comprovante — aguarda validação humana',criadoEm:Date.now(),resolvido:false});
+    await db.ref('centralContratacoes/'+pendenciaId).set({id:pendenciaId,nome:String(c.nome||'Cliente').slice(0,100),whatsapp:telefone,usuario:c.usuario,plano:consulta.plano,status:'renovado_pendente_validacao',paymentId:transacao,valor,novoVencimento:Number(renovacao.novoVencimento||0)||null,detalhe:'Renovação automática por comprovante — aguarda validação humana',criadoEm:Date.now(),resolvido:false});
     return res.json({aceito:true,novoVencimento:renovacao.novoVencimento||null,pendenciaId});
   }
   if(acao==='central_perfil') {
