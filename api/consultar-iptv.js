@@ -82,6 +82,9 @@ async function central(req, res) {
   }
   if(!achado)return res.status(404).json({encontrado:false}); const [,c]=achado;
   const apps=(await db.ref('aplicativos').once('value')).val()||{};
+  // Renovação por comprovante foi desativada: somente pagamentos criados
+  // pela Central via Mercado Pago podem concluir renovação automática.
+  if(acao==='central_renovar_comprovante') return res.status(410).json({aceito:false,erro:'A renovação por comprovante não está disponível. Use o Pix gerado pela Central.'});
   if(acao==='central_renovar_comprovante'){
     if(!clienteMultiflix(c)||!c.usuario) return res.status(409).json({aceito:false,erro:'Este acesso não é elegível para renovação automática por comprovante.'});
     const comprovante=req.body.comprovante||{}, valor=Number(comprovante.valor), status=normalizar(comprovante.status);
