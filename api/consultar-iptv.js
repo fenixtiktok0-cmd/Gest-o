@@ -86,7 +86,7 @@ async function central(req, res) {
     if(!clienteMultiflix(c)||!c.usuario) return res.status(409).json({aceito:false,erro:'Este acesso não é elegível para renovação automática por comprovante.'});
     const comprovante=req.body.comprovante||{}, valor=Number(comprovante.valor), status=normalizar(comprovante.status);
     const transacao=String(comprovante.transacao||'').replace(/[^A-Za-z0-9_-]/g,'').slice(0,120);
-    if(!destinatarioAceito(comprovante.destinatario,comprovante.banco)||!Number.isFinite(valor)||valor<=0||!/(?:EFETIVADO|CONCLUIDO|APROVADO)/.test(status)||transacao.length<6) return res.status(409).json({aceito:false,erro:'Não consegui validar este comprovante para renovação automática.'});
+    if(!destinatarioAceito(comprovante.destinatario,comprovante.banco)||!Number.isFinite(valor)||valor<=0||!/(?:EFETIVADO|CONCLUIDO|APROVADO|PIX ENVIADO)/.test(status)||transacao.length<6) return res.status(409).json({aceito:false,erro:'Não consegui validar este comprovante para renovação automática.'});
     const consulta=await consultarRenovacaoMultiflix(c.usuario);
     if(!consulta?.encontrado||!consulta.plano||Math.abs(Number(consulta.plano.valor)-valor)>0.009) return res.status(409).json({aceito:false,erro:'O valor do comprovante não corresponde ao plano atual deste acesso.'});
     const pagamentoId='comprovante_'+crypto.createHash('sha256').update(transacao+'|'+telefone+'|'+valor).digest('hex').slice(0,48);
