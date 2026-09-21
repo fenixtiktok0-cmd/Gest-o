@@ -2,7 +2,7 @@ const { consultarContaXtream, consultarContaMusica } = require('../lib/xtream');
 const crypto = require('node:crypto');
 const { Resend } = require('resend');
 const { enviarWhatsappTextMeBot } = require('../lib/textmebot');
-const { consultarRenovacaoMultiflix } = require('../lib/multiflix-renovacao');
+const { consultarRenovacaoMultiflix, renovarNoMultiflix } = require('../lib/multiflix-renovacao');
 const { criarCobrancaPixCentral } = require('../lib/mercadopago');
 const resend = new Resend(process.env.RESEND_API_KEY);
 const num = v => String(v || '').replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '');
@@ -20,6 +20,12 @@ const clienteAtivo = cliente => {
   return !/(?:exclu[ií]do|removido|cancelado|inativo)/i.test(String(cliente.status || ''));
 };
 const dataDoCadastro = cliente => Number(cliente?.atualizadoEm || cliente?.criadoEm || cliente?.cadastradoEm || cliente?.dataCadastro || 0) || 0;
+const normalizar = valor => String(valor || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
+const destinatarioAceito = (nome, banco) => {
+  const n=normalizar(nome), b=normalizar(banco);
+  return (n==='MATHEUS GABRIEL DA SILVA FOGACA' && b==='C6') ||
+    (n==='MARCOS PAULO SILVA FOGACA' && ['INTER','MERCADO PAGO','NUBANK'].includes(b));
+};
 const localizarClienteAtual = (clientes, telefone) => Object.entries(clientes || {})
   .filter(([, cliente]) => num(cliente?.whatsapp) === telefone && clienteAtivo(cliente))
   .sort(([, a], [, b]) => dataDoCadastro(b) - dataDoCadastro(a))[0];
@@ -76,6 +82,19 @@ async function central(req, res) {
   }
   if(!achado)return res.status(404).json({encontrado:false}); const [,c]=achado;
   const apps=(await db.ref('aplicativos').once('value')).val()||{};
+  if(acao==='central_renovar_comprovante'){
+    if(!clienteMultiflix(c)||!c.usuario) return res.status(409).json({aceito:false,erro:'Este acesso não é elegível para renovação automática por comprovante.'});
+    const comprovante=req.body.comprovante||{}, valor=Number(comprovante.valor), status=normalizar(comprovante.status);
+    const transacao=String(comprovante.transacao||'').replace(/[^A-Za-z0-9_-]/g,'').slice(0,120);
+    if(!destinatarioAceito(comprovante.destinatario,comprovante.banco)||!Number.isFinite(valor)||valor<=0||!/(?:EFETIVADO|CONCLUIDO|APROVADO)/.test(status)||transacao.length<6) return res.status(409).json({aceito:false,erro:'Não consegui validar este comprovante para renovação automática.'});
+    const consulta=await consultarRenovacaoMultiflix(c.usuario);
+    if(!consulta?.encontrado||!consulta.plano||Math.abs(Number(consulta.plano.valor)-valor)>0.009) return res.status(409).json({aceito:false,erro:'O valor do comprovante não corresponde ao plano atual deste acesso.'});
+    const pagamentoId='comprovante_'+crypto.createHash('sha256').update(transacao+'|'+telefone+'|'+valor).digest('hex').slice(0,48);
+    const renovacao=await renovarNoMultiflix(c.usuario,pagamentoId);
+    const pendenciaId=crypto.createHash('sha256').update(pagamentoId).digest('hex').slice(0,40);
+    await db.ref('centralPendenciasComprovante/'+pendenciaId).set({id:pendenciaId,clienteId:achado[0],nome:String(c.nome||'Cliente').slice(0,100),whatsapp:telefone,usuario:c.usuario,plano:consulta.plano,valor,comprovante:{destinatario:normalizar(comprovante.destinatario),banco:normalizar(comprovante.banco),dataHora:String(comprovante.dataHora||'').slice(0,80),status:normalizar(comprovante.status),transacao,imagemHash:String(req.body.imagemHash||'').slice(0,64)},novoVencimento:Number(renovacao.novoVencimento||0)||null,status:'renovado_pendente_validacao',resolvido:false,criadoEm:Date.now()});
+    return res.json({aceito:true,novoVencimento:renovacao.novoVencimento||null,pendenciaId});
+  }
   if(acao==='central_perfil') {
     // Um registro antigo no Gestor não pode fazer a Central reconhecer como
     // ativo um acesso MultiFlix que já foi apagado. Só reclassificamos quando
