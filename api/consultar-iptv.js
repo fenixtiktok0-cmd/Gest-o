@@ -62,6 +62,29 @@ async function central(req, res) {
     const existente=(await db.ref('centralAtivacoes/'+id).once('value')).val(); if(!existente) return res.status(404).json({erro:'Ativação não encontrada.'});
     await db.ref('centralAtivacoes/'+id).update({status:String(req.body.status||existente.status).slice(0,40),validade:Number(req.body.validade)||existente.validade||null,atualizadoEm:Date.now()}); return res.json({atualizado:true});
   }
+  if(acao==='multiflix_sincronizar_cliente'){
+    const origemUid=String(req.body.origemUid||'').trim(),usuario=String(req.body.usuario||'').trim();
+    const senha=String(req.body.senha||'').trim(),whatsapp=num(req.body.whatsapp),nome=String(req.body.nome||'').trim().slice(0,100);
+    if(!origemUid||!/^[A-Za-z0-9._-]{3,100}$/.test(usuario)||!senha) return res.status(400).json({erro:'Dados do cliente MultiFlix inválidos.'});
+    const clientesAtuais=(await db.ref('clientes').once('value')).val()||{};
+    // A chave de origem impede duplicação: o mesmo usuário MultiFlix sempre
+    // atualiza o mesmo cliente no Gestor, mesmo quando nome ou WhatsApp mudam.
+    const existente=Object.entries(clientesAtuais).find(([,cliente])=>cliente?.origemMultiflixUid===origemUid&&cliente?.origemMultiflixUsuario===usuario)
+      || Object.entries(clientesAtuais).find(([,cliente])=>cliente?.origemMultiflixUsuario===usuario)
+      || Object.entries(clientesAtuais).find(([,cliente])=>whatsapp&&num(cliente?.whatsapp)===whatsapp&&clienteMultiflix(cliente));
+    const clienteId=existente?.[0]||db.ref('clientes').push().key,anterior=existente?.[1]||{};
+    const vencimento=Number(req.body.vencimento)||null,agora=Date.now();
+    const registro={...anterior,
+      nome:nome||anterior.nome||'Cliente MultiFlix',whatsapp:whatsapp||anterior.whatsapp||'',usuario,senha,
+      m3uLink:String(req.body.linkM3u||'').slice(0,1200),servidor:String(req.body.servidor||'MultiFlix').slice(0,100),
+      valorPlano:String(req.body.valorPlano||'').slice(0,40),tipoPlano:String(req.body.tipoPlano||'').slice(0,80),
+      vencimento,status:String(req.body.status||'Ativo').slice(0,60),emTeste:req.body.emTeste===true,bloquearAdulto:req.body.bloquearAdulto===true,
+      origemMultiflix:true,origemMultiflixUid:origemUid,origemMultiflixUsuario:usuario,sincronizadoMultiflixEm:agora,
+      criadoEm:anterior.criadoEm||agora,atualizadoEm:agora
+    };
+    await db.ref('clientes/'+clienteId).set(registro);
+    return res.json({sincronizado:true,clienteId,criado:!existente});
+  }
   if(acao==='central_preparar_contratacao_teste'){
     const planoId=String(req.body.planoId||''),nome=String(req.body.nome||'').trim().slice(0,100),email=String(req.body.email||'').trim().toLowerCase().slice(0,160),usuario=String(req.body.usuario||'').trim(),senha=String(req.body.senha||'').trim(),grupoId=String(req.body.grupoId||'').trim().slice(0,100),sessaoHash=String(req.body.sessaoHash||'');
     if(!nome||!emailValido(email)||!/^[A-Za-z0-9._-]{3,100}$/.test(usuario)||!senha||!grupoId||!/^[a-f0-9]{64}$/.test(sessaoHash)) return res.status(400).json({erro:'Não foi possível validar os dados do teste para contratação.'});
