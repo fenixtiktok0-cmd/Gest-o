@@ -211,7 +211,11 @@ module.exports = async (req, res) => {
   }
 
   try {
-    if (String(req.body?.acao || '').startsWith('central_')) {
+    const acao = String(req.body?.acao || '');
+    // A sincronização parte do MultiFlix, mas usa a mesma integração
+    // autenticada da Central. Sem esta entrada, ela caía na rota genérica
+    // de consulta e era rejeitada como se faltasse um link de IPTV.
+    if (acao.startsWith('central_') || acao === 'multiflix_sincronizar_cliente') {
       try { return await central(req, res); }
       catch (erro) { console.error('Central:', erro); return res.status(500).json({ erro: 'Falha na integração da Central.', detalhe: String(erro.message || erro).slice(0, 180) }); }
     }
