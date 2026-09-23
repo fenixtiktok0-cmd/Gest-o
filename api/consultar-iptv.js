@@ -89,6 +89,24 @@ async function central(req, res) {
     await db.ref('clientes/'+clienteId).set(registro);
     return res.json({sincronizado:true,clienteId,criado:!existente});
   }
+  if(acao==='multiflix_reverter_lote_sincronizacao'){
+    const inicio=Number(req.body.inicioEm),fim=Number(req.body.fimEm);
+    // A janela é curta e específica ao lote que a reconciliação retroativa
+    // importou indevidamente. Os registros saem da lista operacional, mas
+    // ficam arquivados para permitir recuperação, se necessário.
+    if(!Number.isFinite(inicio)||!Number.isFinite(fim)||fim<inicio||fim-inicio>6*60*60*1000) return res.status(400).json({erro:'Janela de reversão inválida.'});
+    const registros=(await db.ref('clientes').once('value')).val()||{},agora=Date.now(),alteracoes={},ids=[];
+    Object.entries(registros).forEach(([id,cliente])=>{
+      const sincronizadoEm=Number(cliente?.sincronizadoMultiflixEm)||0;
+      if(cliente?.origemMultiflix===true&&sincronizadoEm>=inicio&&sincronizadoEm<=fim){
+        alteracoes['clientesRemovidosSincronizacao/'+id]={...cliente,removidoEm:agora,motivoRemocao:'Lote retroativo MultiFlix',removidoPor:'reversao_automatica_lote'};
+        alteracoes['clientes/'+id]=null;
+        ids.push(id);
+      }
+    });
+    if(ids.length) await db.ref().update(alteracoes);
+    return res.json({revertidos:ids.length});
+  }
   if(acao==='central_preparar_contratacao_teste'){
     const planoId=String(req.body.planoId||''),nome=String(req.body.nome||'').trim().slice(0,100),email=String(req.body.email||'').trim().toLowerCase().slice(0,160),usuario=String(req.body.usuario||'').trim(),senha=String(req.body.senha||'').trim(),grupoId=String(req.body.grupoId||'').trim().slice(0,100),sessaoHash=String(req.body.sessaoHash||'');
     if(!nome||!emailValido(email)||!/^[A-Za-z0-9._-]{3,100}$/.test(usuario)||!senha||!grupoId||!/^[a-f0-9]{64}$/.test(sessaoHash)) return res.status(400).json({erro:'Não foi possível validar os dados do teste para contratação.'});
@@ -215,7 +233,7 @@ module.exports = async (req, res) => {
     // A sincronização parte do MultiFlix, mas usa a mesma integração
     // autenticada da Central. Sem esta entrada, ela caía na rota genérica
     // de consulta e era rejeitada como se faltasse um link de IPTV.
-    if (acao.startsWith('central_') || acao === 'multiflix_sincronizar_cliente') {
+    if (acao.startsWith('central_') || acao === 'multiflix_sincronizar_cliente' || acao === 'multiflix_reverter_lote_sincronizacao') {
       try { return await central(req, res); }
       catch (erro) { console.error('Central:', erro); return res.status(500).json({ erro: 'Falha na integração da Central.', detalhe: String(erro.message || erro).slice(0, 180) }); }
     }
