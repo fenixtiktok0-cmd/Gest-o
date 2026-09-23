@@ -65,7 +65,11 @@ async function central(req, res) {
   if(acao==='multiflix_sincronizar_cliente'){
     const origemUid=String(req.body.origemUid||'').trim(),usuario=String(req.body.usuario||'').trim();
     const senha=String(req.body.senha||'').trim(),whatsapp=num(req.body.whatsapp),nome=String(req.body.nome||'').trim().slice(0,100);
-    if(!origemUid||!/^[A-Za-z0-9._-]{3,100}$/.test(usuario)||!senha) return res.status(400).json({erro:'Dados do cliente MultiFlix inválidos.'});
+    // Alguns acessos virtuais/importados do MultiFlix não carregam a senha
+    // no registro administrativo, embora sejam clientes ativos válidos. A
+    // ausência desse campo não pode impedir o cadastro no Gestor; quando a
+    // senha existir, ela segue sendo sincronizada normalmente.
+    if(!origemUid||!/^[A-Za-z0-9._-]{3,100}$/.test(usuario)) return res.status(400).json({erro:'Dados do cliente MultiFlix inválidos.'});
     const clientesAtuais=(await db.ref('clientes').once('value')).val()||{};
     // A chave de origem impede duplicação: o mesmo usuário MultiFlix sempre
     // atualiza o mesmo cliente no Gestor, mesmo quando nome ou WhatsApp mudam.
@@ -75,7 +79,7 @@ async function central(req, res) {
     const clienteId=existente?.[0]||db.ref('clientes').push().key,anterior=existente?.[1]||{};
     const vencimento=Number(req.body.vencimento)||null,agora=Date.now();
     const registro={...anterior,
-      nome:nome||anterior.nome||'Cliente MultiFlix',whatsapp:whatsapp||anterior.whatsapp||'',usuario,senha,
+      nome:nome||anterior.nome||'Cliente MultiFlix',whatsapp:whatsapp||anterior.whatsapp||'',usuario,senha:senha||anterior.senha||'',
       m3uLink:String(req.body.linkM3u||'').slice(0,1200),servidor:String(req.body.servidor||'MultiFlix').slice(0,100),
       valorPlano:String(req.body.valorPlano||'').slice(0,40),tipoPlano:String(req.body.tipoPlano||'').slice(0,80),
       vencimento,status:String(req.body.status||'Ativo').slice(0,60),emTeste:req.body.emTeste===true,bloquearAdulto:req.body.bloquearAdulto===true,
