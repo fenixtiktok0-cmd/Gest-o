@@ -77,11 +77,11 @@ async function central(req, res) {
       || Object.entries(clientesAtuais).find(([,cliente])=>cliente?.origemMultiflixUsuario===usuario)
       || Object.entries(clientesAtuais).find(([,cliente])=>whatsapp&&num(cliente?.whatsapp)===whatsapp&&clienteMultiflix(cliente));
     const clienteId=existente?.[0]||db.ref('clientes').push().key,anterior=existente?.[1]||{};
-    const vencimento=Number(req.body.vencimento)||null,agora=Date.now();
+    const vencimento=Number(req.body.vencimento)||null,agora=Date.now();const valorPlanoTexto=String(req.body.valorPlano??req.body.planoValor??'').trim().slice(0,40);const valorBruto=String(req.body.valor??req.body.planoValor??valorPlanoTexto).replace(/R\$/gi,'').replace(/\s/g,'');const valorNormalizado=valorBruto.includes(',')?Number(valorBruto.replace(/\./g,'').replace(',', '.')):Number(valorBruto);const planoValor=Number.isFinite(valorNormalizado)&&valorNormalizado>=0?Number(valorNormalizado.toFixed(2)):(Number(anterior.planoValor)||0);
     const registro={...anterior,
       nome:nome||anterior.nome||'Cliente MultiFlix',whatsapp:whatsapp||anterior.whatsapp||'',usuario,senha:senha||anterior.senha||'',
       m3uLink:String(req.body.linkM3u||'').slice(0,1200),servidor:String(req.body.servidor||'MultiFlix').slice(0,100),
-      valorPlano:String(req.body.valorPlano||'').slice(0,40),tipoPlano:String(req.body.tipoPlano||'').slice(0,80),
+      valorPlano:valorPlanoTexto||String(anterior.valorPlano||'').slice(0,40),planoValor,tipoPlano:String(req.body.tipoPlano||'').slice(0,80),
       vencimento,status:String(req.body.status||'Ativo').slice(0,60),emTeste:req.body.emTeste===true,bloquearAdulto:req.body.bloquearAdulto===true,
       origemMultiflix:true,origemMultiflixUid:origemUid,origemMultiflixUsuario:usuario,sincronizadoMultiflixEm:agora,
       criadoEm:anterior.criadoEm||agora,atualizadoEm:agora
