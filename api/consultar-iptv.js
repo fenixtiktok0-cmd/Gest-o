@@ -76,7 +76,7 @@ async function central(req, res) {
     const existente=Object.entries(clientesAtuais).find(([,cliente])=>cliente?.origemMultiflixUid===origemUid&&cliente?.origemMultiflixUsuario===usuario)
       || Object.entries(clientesAtuais).find(([,cliente])=>cliente?.origemMultiflixUsuario===usuario)
       || Object.entries(clientesAtuais).find(([,cliente])=>whatsapp&&num(cliente?.whatsapp)===whatsapp&&clienteMultiflix(cliente));
-    const clienteId=existente?.[0]||db.ref('clientes').push().key,anterior=existente?.[1]||{};
+    const clienteId=existente?.[0]||('mf_'+crypto.createHash('sha256').update(origemUid+'|'+usuario).digest('hex').slice(0,32)),anterior=existente?.[1]||{};
     const vencimento=Number(req.body.vencimento)||null,agora=Date.now();const valorPlanoTexto=String(req.body.valorPlano??req.body.planoValor??'').trim().slice(0,40);const valorBruto=String(req.body.valor??req.body.planoValor??valorPlanoTexto).replace(/R\$/gi,'').replace(/\s/g,'');const valorNormalizado=valorBruto.includes(',')?Number(valorBruto.replace(/\./g,'').replace(',', '.')):Number(valorBruto);const planoValor=Number.isFinite(valorNormalizado)&&valorNormalizado>=0?Number(valorNormalizado.toFixed(2)):(Number(anterior.planoValor)||0);
     const registro={...anterior,
       nome:nome||anterior.nome||'Cliente MultiFlix',whatsapp:whatsapp||anterior.whatsapp||'',usuario,senha:senha||anterior.senha||'',
