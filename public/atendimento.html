@@ -35,16 +35,22 @@ async function carregar(){try{const [contratos,pendencias,atendimentos,ativacoes
  function criar(){
    const destino=document.getElementById('config'); if(!destino||document.getElementById('manutencao-servidores'))return;
    const card=document.createElement('div'); card.className='card'; card.id='manutencao-servidores';
-   card.innerHTML='<h3>🛠️ Manutenção de servidores</h3><p class="hint">Avise a MIA quando um servidor estiver com instabilidade. O aviso usa o mesmo nome do servidor mostrado ao cliente e não altera listas, migrações ou transmissão.</p><div class="form"><label class="wide">Servidor <select id="manut-servidor"><option value="">Carregando servidores…</option></select></label><div class="wide manut-areas"><label><input type="checkbox" id="manut-canais"> Canais ao vivo</label><label><input type="checkbox" id="manut-filmes"> Filmes</label><label><input type="checkbox" id="manut-series"> Séries</label><label><input type="checkbox" id="manut-acesso"> Acesso completo/lista</label></div><label class="wide">Aviso para o cliente <textarea id="manut-observacao" maxlength="500" placeholder="Ex.: Estamos realizando manutenção em filmes e séries."></textarea></label><label class="wide">Previsão de normalização (opcional)<input id="manut-prazo" maxlength="140" placeholder="Ex.: hoje até 22h"></label><div class="wide"><button class="btn primary" id="manut-salvar">Salvar aviso de manutenção</button> <span class="hint" id="manut-status"></span></div></div><div id="manut-ativos" class="rows" style="margin-top:14px"></div>';
+   card.innerHTML='<h3>🛠️ Manutenção de servidores</h3><p class="hint">Selecione um servidor cadastrado no MultiFlix. A MIA avisa de forma genérica quem estiver usando esse servidor a trocar para outro disponível pela Área do Cliente. O aviso não altera listas, migrações nem renovação.</p><div class="form"><label class="wide">Servidor <select id="manut-servidor"><option value="">Carregando servidores…</option></select></label><div class="wide manut-areas"><label><input type="checkbox" id="manut-canais"> Canais ao vivo</label><label><input type="checkbox" id="manut-filmes"> Filmes</label><label><input type="checkbox" id="manut-series"> Séries</label><label><input type="checkbox" id="manut-acesso"> Acesso completo/lista</label></div><label class="wide">Aviso para o cliente <textarea id="manut-observacao" maxlength="500" placeholder="Ex.: Estamos realizando manutenção em filmes e séries."></textarea></label><label class="wide">Previsão de normalização (opcional)<input id="manut-prazo" maxlength="140" placeholder="Ex.: hoje até 22h"></label><div class="wide"><button class="btn primary" id="manut-salvar">Salvar aviso de manutenção</button> <span class="hint" id="manut-status"></span></div></div><div id="manut-ativos" class="rows" style="margin-top:14px"></div>';
    destino.appendChild(card);
    const style=document.createElement('style'); style.textContent='#manutencao-servidores select,#manutencao-servidores textarea{background:#0b1119;color:#fff;border:1px solid var(--border);border-radius:8px;padding:10px;width:100%;font:inherit}#manutencao-servidores textarea{min-height:82px;resize:vertical}.manut-areas{display:flex;gap:14px;flex-wrap:wrap;color:var(--muted);font-size:13px}.manut-areas label{display:inline-flex;align-items:center;gap:6px}'; document.head.appendChild(style);
    document.getElementById('manut-salvar').onclick=salvar;
  }
  async function servidores(){
    const select=document.getElementById('manut-servidor'); if(!select)return;
-   const clientes=await chama('clientes').catch(()=>({})); const nomes=[...new Set(Object.values(clientes||{}).map(x=>String(x&&x.servidor||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
-   select.innerHTML='<option value="">Selecione o servidor</option>'; nomes.forEach(nome=>{const op=document.createElement('option');op.value=nome;op.textContent=nome;select.appendChild(op)});
-   if(!nomes.length) select.innerHTML='<option value="">Nenhum servidor localizado nos cadastros</option>';
+   select.innerHTML='<option value="">Carregando servidores do MultiFlix…</option>';
+   try{
+     const resposta=await fetch('https://x.fenixsocial.site/api/monitoramento?atendimento=1&servidores=1');
+     const dados=await resposta.json().catch(()=>({}));
+     if(!resposta.ok||!Array.isArray(dados.servidores))throw new Error('indisponível');
+     const nomes=[...new Set(dados.servidores.map(nome=>String(nome||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+     select.innerHTML='<option value="">Selecione o servidor</option>'; nomes.forEach(nome=>{const op=document.createElement('option');op.value=nome;op.textContent=nome;select.appendChild(op)});
+     if(!nomes.length)select.innerHTML='<option value="">Nenhum servidor cadastrado no MultiFlix</option>';
+   }catch(_){select.innerHTML='<option value="">Não foi possível carregar os servidores do MultiFlix</option>';}
  }
  async function listar(){
    const caixa=document.getElementById('manut-ativos'); if(!caixa)return;
