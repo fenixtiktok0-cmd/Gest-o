@@ -84,13 +84,21 @@ module.exports = async (req, res) => {
       const novoVencimento = Number(resultado.novoVencimento);
       if (!novoVencimento) throw new Error('O MultiFlix não retornou o novo vencimento da ativação.');
       const m3uLink = `http://lista.x.fenixsocial.site/get.php?username=${encodeURIComponent(contrato.usuario)}&password=${encodeURIComponent(contrato.senha)}&type=m3u_plus&output=ts`;
+      // Atualiza o mesmo registro do teste para preservar o histórico e tirá-lo da aba Em teste.
+      const clientesAtuais = (await db.ref('clientes').once('value')).val() || {};
+      const testeExistente = Object.entries(clientesAtuais).find(([, item]) =>
+        item && item.emTeste !== false && String(item.usuario || '') === String(contrato.usuario || '')
+      ) || Object.entries(clientesAtuais).find(([, item]) =>
+        item && item.emTeste !== false && String(item.whatsapp || '') === String(contrato.telefone || '')
+      );
+      const clienteIdDestino = testeExistente?.[0] || contrato.clienteId;
       const cliente = { nome: contrato.nome, whatsapp: contrato.telefone, email: contrato.email, usuario: contrato.usuario, senha: contrato.senha, m3uLink, servidor: 'MULTIFLIX', grupoId: contrato.grupoId, tipoPlano: contrato.plano.nome, valorPlano: Number(contrato.plano.valor), vencimento: novoVencimento, status: 'ativo', emTeste: false, ocultarAdulto: false, criadoEm: Date.now(), atualizadoEm: Date.now(), ultimoPagamentoConfirmado: String(pagamentoId), origemCaptura: 'central' };
       try {
         await db.ref().update({
-          [`clientes/${contrato.clienteId}`]: cliente,
-          [`centralContratacoes/${contratacaoId}`]: { ...contrato, status: 'concluida', concluidaEm: Date.now(), novoVencimento, paymentId: String(pagamentoId) },
+          [`clientes/${clienteIdDestino}`]: cliente,
+          [`centralContratacoes/${contratacaoId}`]: { ...contrato, clienteId: clienteIdDestino, status: 'concluida', concluidaEm: Date.now(), novoVencimento, paymentId: String(pagamentoId) },
         });
-        const confirmado = (await db.ref(`clientes/${contrato.clienteId}`).once('value')).val();
+        const confirmado = (await db.ref(`clientes/${clienteIdDestino}`).once('value')).val();
         if (!confirmado?.usuario || confirmado.usuario !== contrato.usuario) throw new Error('O Gestor não confirmou a gravação do novo cliente.');
       } catch (erroCadastro) {
         const pendencia = { id: contratacaoId, clienteId: contrato.clienteId, nome: contrato.nome, whatsapp: contrato.telefone, email: contrato.email, usuario: contrato.usuario, senha: contrato.senha, grupoId: contrato.grupoId, plano: contrato.plano, novoVencimento, pagamentoId: String(pagamentoId), status: 'ativado_pendente_cadastro', erro: String(erroCadastro.message || erroCadastro).slice(0,180), criadoEm: Date.now() };
