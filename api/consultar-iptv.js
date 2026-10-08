@@ -33,7 +33,30 @@ const localizarClienteAtual = (clientes, telefone) => Object.entries(clientes ||
 async function central(req, res) {
   const { db } = require('../lib/firebaseAdmin');
   const recebido=String(req.headers['x-central-secret']||''), esperado=sec(); if(!esperado||recebido.length!==esperado.length||!crypto.timingSafeEqual(Buffer.from(recebido),Buffer.from(esperado))) return res.status(401).json({erro:'Não autorizado.'});
-  const telefone=num(req.body.whatsapp), clientes=(await db.ref('clientes').once('value')).val()||{}, achado=localizarClienteAtual(clientes, telefone), acao=req.body.acao;
+  const acao=req.body.acao;
+  if (acao === 'central_sincronizar_pix_area') {
+    const usuario = String(req.body.usuario || '').trim(), pedidoId = String(req.body.pedidoId || '');
+    if (!/^[A-Za-z0-9._-]{3,100}$/.test(usuario) || !/^[a-f0-9-]{36}$/.test(pedidoId)) return res.status(400).json({erro:'Usuário ou pedido inválido.'});
+    // O vencimento vem do recibo privado do MultiFlix, nunca do corpo da requisição.
+    const origem = await require('../lib/multiflix-renovacao').consultarPixAreaMultiflix(usuario, pedidoId);
+    if (!origem.confirmado || origem.usuario !== usuario || origem.pedidoId !== pedidoId || !Number.isFinite(origem.vencimento)
+      || origem.vencimento <= 0) return res.status(409).json({erro:'Renovação não confirmada no MultiFlix.'});
+    const cadastros = (await db.ref('clientes').orderByChild('usuario').equalTo(usuario).once('value')).val() || {};
+    const candidatos = Object.entries(cadastros).filter(([,c]) => clienteAtivo(c) && clienteMultiflix(c));
+    if (candidatos.length !== 1) return res.status(409).json({erro: candidatos.length ? 'Mais de um cadastro corresponde a este acesso. Verifique no Gestor.' : 'Cadastro MultiFlix não encontrado no Gestor.'});
+    const [clienteId, inicial] = candidatos[0], ref = db.ref('clientes/' + clienteId);
+    const tx = await ref.transaction(c => {
+      c = c || inicial;
+      if (c.usuario !== usuario || !clienteAtivo(c) || !clienteMultiflix(c)) return;
+      return {...c, vencimento: Math.max(Number(c.vencimento) || 0, origem.vencimento), status:'ativo',
+        pagamentoPendenteRenovacao:false, ultimoPagamentoPixArea:String(origem.pagamentoId),
+        pixAreaConfirmacoes:{...(c.pixAreaConfirmacoes || {}), [pedidoId]:{pagamentoId:String(origem.pagamentoId), vencimento:origem.novoVencimento}},
+        atualizadoEm:Date.now()};
+    });
+    if (!tx.committed) return res.status(409).json({erro:'Cadastro mudou durante a sincronização.'});
+    return res.json({sincronizado:true, vencimento:tx.snapshot.val().vencimento});
+  }
+  const telefone=num(req.body.whatsapp), clientes=(await db.ref('clientes').once('value')).val()||{}, achado=localizarClienteAtual(clientes, telefone);
   if(acao==='central_registrar_atendimento'){
     const tipo=String(req.body.tipo||'duvida').slice(0,40),detalhe=String(req.body.detalhe||'').slice(0,180);
     const cliente=achado?.[1]||{};
@@ -259,3 +282,4 @@ module.exports = async (req, res) => {
     return res.status(500).json({ erro: 'Erro interno ao consultar o painel' });
   }
 };
+
