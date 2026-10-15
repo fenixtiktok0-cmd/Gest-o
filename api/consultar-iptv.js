@@ -54,6 +54,12 @@ async function central(req, res) {
         atualizadoEm:Date.now()};
     });
     if (!tx.committed) return res.status(409).json({erro:'Cadastro mudou durante a sincronização.'});
+    // Avisos são independentes: falhas nunca desfazem nem repetem a renovação.
+    try {
+      const avisos = require('../lib/pix-whatsapp');
+      await avisos.criarAvisos({db}).enfileirar(clienteId, pedidoId, origem);
+      avisos.agendar(db);
+    } catch (_) { console.error('pix_whatsapp: aviso não agendado; renovação preservada.'); }
     return res.json({sincronizado:true, vencimento:tx.snapshot.val().vencimento});
   }
   const telefone=num(req.body.whatsapp), clientes=(await db.ref('clientes').once('value')).val()||{}, achado=localizarClienteAtual(clientes, telefone);
@@ -282,4 +288,3 @@ module.exports = async (req, res) => {
     return res.status(500).json({ erro: 'Erro interno ao consultar o painel' });
   }
 };
-
