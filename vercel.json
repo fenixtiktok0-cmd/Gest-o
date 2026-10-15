@@ -10,6 +10,8 @@
     }
   ],
   "functions": {
+    "api/consultar-iptv.js": { "maxDuration": 60 },
+    "api/cron-testes.js": { "maxDuration": 60 },
     "api/cron-verificar-vencimentos.js": {
       "maxDuration": 60
     }
