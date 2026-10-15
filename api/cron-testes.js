@@ -11,6 +11,12 @@ module.exports = async (req, res) => {
     return res.status(401).json({ erro: 'Não autorizado' });
   }
 
+  // Recupera apenas a fila nova e somente em execução autenticada do cron.
+  if (process.env.CRON_SECRET && auth === `Bearer ${process.env.CRON_SECRET}`) {
+    try { require('../lib/pix-whatsapp').agendar(db); }
+    catch (_) { console.error('pix_whatsapp: recuperação não agendada.'); }
+  }
+
   try {
     const [clientesSnap, configSnap] = await Promise.all([
       db.ref('clientes').once('value'),
